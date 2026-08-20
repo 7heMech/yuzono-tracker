@@ -227,7 +227,7 @@ const webhookTail = webhookSet ? cfg.webhook_url.slice(-6) : '';
     <p class="panel-sub">
       Role <b>ids</b>, comma-separated — names can't be resolved without a bot in
       the guild, and this board deliberately has none. Your own roles are listed
-      below to copy from; for a role you don't hold, send <code>\@RoleName</code>
+      below to copy from; for a role you don't hold, send <code>\@RoleName</code>{' '}
       in any channel and Discord will render its raw id.
     </p>
     <form method="POST" class="rows-2">
@@ -282,6 +282,12 @@ const webhookTail = webhookSet ? cfg.webhook_url.slice(-6) : '';
             : 'Nothing is announced until this is set.'}
         </p>
       </div>
+      <div class="field wide">
+        <label class="check">
+          <input type="checkbox" name="webhook_on_fixed" value="1" checked={cfg.webhook_on_fixed === '1'} />
+          <span>Announce every fix</span>
+        </label>
+      </div>
       <div class="field">
         <label class="label" for="webhook_vote_threshold">Announce at this many votes</label>
         <input
@@ -292,12 +298,6 @@ const webhookTail = webhookSet ? cfg.webhook_url.slice(-6) : '';
           value={cfg.webhook_vote_threshold}
         />
         <p class="field-hint">0 turns demand alerts off.</p>
-      </div>
-      <div class="field">
-        <label class="check">
-          <input type="checkbox" name="webhook_on_fixed" value="1" checked={cfg.webhook_on_fixed === '1'} />
-          <span>Announce fixes</span>
-        </label>
       </div>
       <div class="wide actions">
         <button class="btn btn-primary" type="submit">Save announcements</button>
@@ -376,15 +376,16 @@ const webhookTail = webhookSet ? cfg.webhook_url.slice(-6) : '';
     padding-block: var(--space-6);
     border-block-end: 1px solid var(--border-subtle);
   }
-  .panel h2 { font-size: var(--text-md); }
+  .panel h2 { font-size: var(--text-md); margin-block-end: var(--space-4); }
   .panel-sub {
     max-inline-size: 68ch;
-    margin-block: var(--space-1) var(--space-4);
+    margin-block: calc(-1 * var(--space-3)) var(--space-4);
     font-size: var(--text-sm);
     color: var(--text-tertiary);
   }
   .panel-sub code { font-family: var(--font-data); color: var(--text-secondary); }
   .empty-line { font-size: var(--text-sm); color: var(--text-muted); }
+  .panel .empty-line + .add { margin-block-start: var(--space-4); }
 
   .staff { display: grid; gap: var(--space-2); margin-block-end: var(--space-5); }
   .staff li {
