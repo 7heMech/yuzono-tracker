@@ -5,18 +5,24 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
 
-  // `bunx wrangler d1 create yuzono-tracker` then paste the id here.
+  // No `database_id` / `id` on purpose. Wrangler 4.45+ provisions a missing KV
+  // namespace or D1 database on deploy and binds it to the Worker, locally as
+  // well as in CI. A placeholder id is worse than none: wrangler sends it to
+  // the API verbatim and the deploy fails with "not valid".
+  //
+  // On a repo-connected deploy the generated ids are *not* written back here —
+  // they live in the dashboard under the Worker's bindings. That is fine for
+  // deploying, but it means remote D1 commands have to address the database by
+  // name (see the `db:remote` script) rather than by binding.
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "yuzono-tracker",
-      "database_id": "PLACEHOLDER_RUN_D1_CREATE",
       "migrations_dir": "drizzle"
     }
   ],
 
-  // The Cloudflare adapter provisions this automatically for Astro sessions.
-  "kv_namespaces": [{ "binding": "SESSION", "id": "PLACEHOLDER_AUTO_PROVISIONED" }],
+  "kv_namespaces": [{ "binding": "SESSION" }],
 
   // DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET and OWNER_DISCORD_ID are not
   // here on purpose: they are per-install values, and the Deploy to Cloudflare

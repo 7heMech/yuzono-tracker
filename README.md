@@ -64,13 +64,41 @@ bun run db:seed
 
 ## Deploying
 
-The button above forks this repo into your account, provisions the **D1
-database** and **KV namespace** declared in `wrangler.jsonc`, writes the
-generated ids back into that config, and runs `bun run deploy` — which applies
-migrations against the new database before it deploys, since a fresh D1 has no
-tables. Cloudflare prompts for the three values in `.dev.vars.example`: the two
-Discord credentials and your `OWNER_DISCORD_ID`. Nothing else is asked for,
-because everything else is editable in `/admin` afterwards.
+Either the button above, or **Workers → connect a repository** in the
+dashboard. Both work, and neither needs you to create bindings by hand: the KV
+namespace and D1 database in `wrangler.jsonc` are declared *without* ids, and
+Wrangler provisions them on the first deploy. (A placeholder id is worse than
+no id — Wrangler sends it to the API as-is and the deploy fails with `KV
+namespace '...' is not valid`.)
+
+The two paths differ in one way worth knowing. The button prompts for the
+values in `.dev.vars.example` and writes the generated resource ids back into
+your fork. A repo-connected deploy does neither: the ids exist only in the
+dashboard, and you supply the three values yourself.
+
+### Set the three values as secrets, not variables
+
+`DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `OWNER_DISCORD_ID` must be
+added as **secrets** in **Settings → Variables and Secrets**.
+
+Not as plain-text variables — `wrangler deploy` replaces the Worker's whole
+`vars` block with the one in `wrangler.jsonc`, so a variable that this repo does
+not declare is deleted on the next deploy. Secrets are untouched by deploys.
+That is why these three are absent from `wrangler.jsonc` rather than sitting
+there empty.
+
+### Migrations
+
+A fresh D1 has no tables, and the database does not exist until the first
+deploy creates it — so migrations are a separate, deliberate step rather than
+part of the deploy script:
+
+```sh
+bun run db:remote      # after the first deploy, and after any schema change
+```
+
+It addresses the database by name because on a repo-connected deploy the
+generated id never reaches this config.
 
 ### Pin the Bun version
 
@@ -87,7 +115,7 @@ BUN_VERSION = 1.4.0
 they pin every other CI and keep local installs honest, and they are the place
 to look when the build variable needs bumping.
 
-Two things Cloudflare cannot do for you, both one-time:
+### Two things Cloudflare cannot do for you
 
 1. **Create the Discord application** at
    [discord.com/developers/applications](https://discord.com/developers/applications)
@@ -107,14 +135,12 @@ always be undone.
 ### Deploying by hand instead
 
 ```sh
-bunx wrangler d1 create yuzono-tracker    # paste database_id into wrangler.jsonc
 bunx wrangler secret put DISCORD_CLIENT_ID
 bunx wrangler secret put DISCORD_CLIENT_SECRET
 bunx wrangler secret put OWNER_DISCORD_ID
-bun run deploy                            # build, migrate remote D1, deploy
+bun run deploy      # build and deploy; D1 and KV are provisioned on the way
+bun run db:remote   # then create the tables
 ```
-
-The KV namespace for sessions is provisioned by the adapter on first deploy.
 
 ## Scripts
 
