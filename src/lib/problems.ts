@@ -57,9 +57,28 @@ export const PROBLEMS = [
     stage: 'browse',
     cause: 'down',
   },
+  {
+    key: 'other',
+    label: 'Something else',
+    hint: 'Wrong episode plays, subtitles broken, or anything not listed above',
+    kind: 'bug',
+    stage: null,
+    cause: 'other',
+    /** No fixed category to infer from, so a description is the report. */
+    needsDetail: true,
+  },
 ] as const;
 
-export type ProblemKey = (typeof PROBLEMS)[number]['key'];
+export type Problem = (typeof PROBLEMS)[number];
+export type ProblemKey = Problem['key'];
+
+/**
+ * Typed against the real union rather than a loose structural shape: only two
+ * of the seven entries carry these flags, so a `{ needsUrl?: boolean }`
+ * parameter doesn't describe the others.
+ */
+export const problemNeedsUrl = (p: Problem) => 'needsUrl' in p && p.needsUrl === true;
+export const problemNeedsDetail = (p: Problem) => 'needsDetail' in p && p.needsDetail === true;
 export const problemByKey = (k: string) => PROBLEMS.find((p) => p.key === k);
 
 /**

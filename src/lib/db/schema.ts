@@ -101,7 +101,14 @@ export const reports = sqliteTable(
       .notNull()
       .references(() => users.discordId),
 
+    /**
+     * The reporter's actual setup. Mandatory on new reports: "which version"
+     * is the first thing a maintainer asks, and a stale extension is the most
+     * common non-bug, so it is cheaper to collect than to chase.
+     */
     extVersion: text('ext_version'),
+    appName: text('app_name'),
+    appVersion: text('app_version'),
     githubIssue: integer('github_issue'),
     duplicateOf: integer('duplicate_of'),
 

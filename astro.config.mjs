@@ -10,6 +10,15 @@ export default defineConfig({
     persistState: true,
   }),
   integrations: [svelte()],
+
+  vite: {
+    optimizeDeps: {
+      // The adapter's server entrypoint is resolved by the Cloudflare plugin at
+      // request time; letting Vite pre-bundle it leaves stale deps_ssr files
+      // behind whenever dependencies change under a running dev server.
+      exclude: ['@astrojs/cloudflare/entrypoints/server'],
+    },
+  },
   prefetch: { prefetchAll: true, defaultStrategy: 'viewport' },
   devToolbar: { enabled: false },
 

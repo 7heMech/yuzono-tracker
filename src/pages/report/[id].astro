@@ -81,7 +81,21 @@ const filed = Astro.url.searchParams.has('filed');
       )}
       <div><dt class="label">Language</dt><dd>{langLabel(report.lang)}</dd></div>
       {report.extVersion && (
-        <div><dt class="label">Version</dt><dd class="num">v{report.extVersion}</dd></div>
+        <div>
+          <dt class="label">Extension</dt>
+          <dd class="num">
+            v{report.extVersion}
+            {source && report.extVersion !== source.extVersion && (
+              <span class="behind"> · v{source.extVersion} is current</span>
+            )}
+          </dd>
+        </div>
+      )}
+      {report.appName && (
+        <div>
+          <dt class="label">App</dt>
+          <dd>{report.appName}{report.appVersion && <span class="num"> {report.appVersion}</span>}</dd>
+        </div>
       )}
       <div><dt class="label">Reported</dt><dd>{relativeAge(report.createdAt)} ago</dd></div>
     </dl>
@@ -135,6 +149,9 @@ const filed = Astro.url.searchParams.has('filed');
     text-decoration: underline;
     text-underline-offset: 2px;
   }
+  /* The report was filed on a version that has since moved on — worth saying,
+     not worth shouting, since it was current when it was filed. */
+  .behind { color: var(--text-muted); font-family: var(--font-ui); }
   .body p { color: var(--text-secondary); white-space: pre-wrap; }
   .gh { margin-block-start: var(--space-6); font-size: var(--text-sm); color: var(--text-tertiary); }
   .gh a { font-family: var(--font-data); color: var(--signal-ink); text-decoration: underline; }
