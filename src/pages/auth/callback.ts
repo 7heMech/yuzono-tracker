@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { buildSessionUser, exchangeCode } from '../../lib/auth';
+import { ensureVote } from '../../lib/vote';
 
 export const prerender = false;
 
@@ -18,13 +19,20 @@ export const GET: APIRoute = async (ctx) => {
   try {
     const { access_token } = await exchangeCode(code, redirectUri);
     const user = await buildSessionUser(access_token);
-    await ctx.session?.set('user', user);
+    ctx.session?.set('user', user);
+
+    // Finish whatever the user was trying to do before they were interrupted.
+    const pendingVote = await ctx.session?.get('pending_vote');
+    if (pendingVote && user.canWrite) {
+      await ensureVote(Number(pendingVote), user.id);
+    }
+    ctx.session?.delete('pending_vote');
   } catch {
     return ctx.redirect('/?auth=failed', 302);
   } finally {
     // The access token is never stored: everything we need is resolved now.
-    await ctx.session?.delete('oauth_state');
-    await ctx.session?.delete('oauth_next');
+    ctx.session?.delete('oauth_state');
+    ctx.session?.delete('oauth_next');
   }
 
   return ctx.redirect(next, 302);

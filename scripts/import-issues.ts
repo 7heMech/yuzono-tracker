@@ -8,7 +8,7 @@
  *
  *   gh api -X GET repos/yuzono/anime-extensions/issues -f state=all -f per_page=100 \
  *     --paginate --jq '[...]' > issues_full.json
- *   bun scripts/import-issues.ts issues_full.json > drizzle/seed.sql
+ *   bun scripts/import-issues.ts issues_full.json > seeds/seed.sql
  */
 
 import { SOURCES } from '../src/lib/sources';

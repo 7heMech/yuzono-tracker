@@ -1,0 +1,1 @@
+ALTER TABLE `reports` ADD `new_url` text;

@@ -1,8 +1,6 @@
 import type { APIRoute } from 'astro';
-import { and, eq, sql } from 'drizzle-orm';
-import { db } from '../lib/db/client';
-import { reports, votes } from '../lib/db/schema';
 import { currentUser } from '../lib/auth';
+import { toggleVote } from '../lib/vote';
 
 export const prerender = false;
 
@@ -13,35 +11,14 @@ export const POST: APIRoute = async (ctx) => {
   if (!Number.isInteger(reportId)) return ctx.redirect(back, 303);
 
   const user = await currentUser(ctx);
-  // Never dead-end the obvious action: send them to sign in and come back.
-  if (!user) return ctx.redirect(`/auth/discord?next=${encodeURIComponent(back)}`, 302);
+  if (!user) {
+    // Remember the intent so signing in completes the click instead of
+    // silently discarding it.
+    ctx.session?.set('pending_vote', reportId);
+    return ctx.redirect(`/auth/discord?next=${encodeURIComponent(back)}`, 302);
+  }
   if (!user.canWrite) return ctx.redirect('/cant-post', 302);
 
-  const d = db();
-  const existing = await d
-    .select({ reportId: votes.reportId })
-    .from(votes)
-    .where(and(eq(votes.reportId, reportId), eq(votes.discordId, user.id)));
-
-  // The counter and the vote row move together in one D1 batch, so the ranking
-  // column can never drift from the truth.
-  if (existing.length) {
-    await d.batch([
-      d.delete(votes).where(and(eq(votes.reportId, reportId), eq(votes.discordId, user.id))),
-      d
-        .update(reports)
-        .set({ votes: sql`max(0, ${reports.votes} - 1)` })
-        .where(eq(reports.id, reportId)),
-    ]);
-  } else {
-    await d.batch([
-      d.insert(votes).values({ reportId, discordId: user.id }).onConflictDoNothing(),
-      d
-        .update(reports)
-        .set({ votes: sql`${reports.votes} + 1` })
-        .where(eq(reports.id, reportId)),
-    ]);
-  }
-
+  await toggleVote(reportId, user.id);
   return ctx.redirect(back, 303);
 };

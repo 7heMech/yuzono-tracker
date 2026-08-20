@@ -78,6 +78,14 @@ export const reports = sqliteTable(
     proposedName: text('proposed_name'),
     proposedUrl: text('proposed_url'),
 
+    /**
+     * Where the site moved to, for `domain` reports. Deliberately not
+     * `proposed_url`: that column carries the request dedupe index, so sharing
+     * it would make a domain change collide with an unrelated source request.
+     * Maps to the `link` field of 03_report_url_change.yml on promotion.
+     */
+    newUrl: text('new_url'),
+
     /** Denormalised from the catalogue so the board can filter in SQL. */
     lang: text('lang').notNull(),
     nsfw: integer('nsfw', { mode: 'boolean' }).notNull().default(false),

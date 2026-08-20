@@ -5,12 +5,16 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../lib/db/client';
 import { OPEN_STATUSES, reports, votes } from '../lib/db/schema';
 import { currentUser } from '../lib/auth';
+import { ensureVote } from '../lib/vote';
 import { getSource, langLabel, SOURCES } from '../lib/sources';
-import { PROBLEMS, problemByKey } from '../lib/problems';
+import { normaliseUrl, PROBLEMS, problemByKey } from '../lib/problems';
 
 export const prerender = false;
 
 const user = await currentUser(Astro);
+let error: string | null = null;
+let openUrlCard = false;
+let resumed = false;
 
 /* ---------------------------------------------------------------------------
    POST — filing. If an open report already covers this source and problem, we
@@ -18,19 +22,42 @@ const user = await currentUser(Astro);
    the existing report and take them there. Filing again *is* upvoting.
    ------------------------------------------------------------------------ */
 if (Astro.request.method === 'POST') {
-  if (!user) return Astro.redirect('/auth/discord?next=/new', 302);
-  if (!user.canWrite) return Astro.redirect('/cant-post', 302);
-
   const form = await Astro.request.formData();
   const sourceId = String(form.get('source') ?? '').trim();
   const problem = problemByKey(String(form.get('problem') ?? ''));
   const detail = String(form.get('detail') ?? '').trim().slice(0, 2000);
   const source = getSource(sourceId);
 
-  if (source && problem) {
+  if (!user) {
+    // Keep the draft in the session rather than the query string: it survives
+    // the OAuth round trip whatever its length, and never lands in a log.
+    Astro.session?.set('pending_report', {
+      sourceId,
+      problem: problem?.key ?? '',
+      newUrl: String(form.get('newUrl') ?? ''),
+      detail,
+    });
+    return Astro.redirect('/auth/discord?next=/new', 302);
+  }
+  if (!user.canWrite) return Astro.redirect('/cant-post', 302);
+
+  let newUrl: string | null = null;
+  if (problem && 'needsUrl' in problem && problem.needsUrl) {
+    const raw = String(form.get('newUrl') ?? '');
+    newUrl = normaliseUrl(raw);
+    if (!newUrl) {
+      error = raw.trim()
+        ? "That doesn't look like a web address. Paste the full link, e.g. https://example.com"
+        : 'Add the new address so a maintainer knows where the site moved to.';
+      openUrlCard = true;
+    }
+  }
+  if (!source) error ??= 'Pick which source this is about first.';
+
+  if (source && problem && !error) {
     const d = db();
     const [existing] = await d
-      .select({ id: reports.id })
+      .select({ id: reports.id, newUrl: reports.newUrl })
       .from(reports)
       .where(
         and(
@@ -41,13 +68,15 @@ if (Astro.request.method === 'POST') {
       );
 
     if (existing) {
-      await d.batch([
-        d.insert(votes).values({ reportId: existing.id, discordId: user.id }).onConflictDoNothing(),
-        d
+      // Filing again upvotes. A *new* address is still news, so record it if
+      // the existing report never had one.
+      await ensureVote(existing.id, user.id);
+      if (newUrl && !existing.newUrl) {
+        await d
           .update(reports)
-          .set({ votes: sql`${reports.votes} + 1`, updatedAt: sql`(unixepoch())` })
-          .where(eq(reports.id, existing.id)),
-      ]);
+          .set({ newUrl, updatedAt: sql`(unixepoch())` })
+          .where(eq(reports.id, existing.id));
+      }
       return Astro.redirect(`/report/${existing.id}?joined=1`, 303);
     }
 
@@ -60,8 +89,9 @@ if (Astro.request.method === 'POST') {
         nsfw: source.nsfw,
         stage: problem.stage,
         cause: problem.cause,
-        title: problem.label,
+        title: newUrl ? `Moved to ${new URL(newUrl).host}` : problem.label,
         body: detail || null,
+        newUrl,
         reporterId: user.id,
         extVersion: source.extVersion,
         votes: 1,
@@ -69,6 +99,8 @@ if (Astro.request.method === 'POST') {
       .returning({ id: reports.id });
 
     if (created) {
+      // votes starts at 1 for the reporter, so record the row without
+      // incrementing the counter again.
       await d.insert(votes).values({ reportId: created.id, discordId: user.id }).onConflictDoNothing();
       return Astro.redirect(`/report/${created.id}?filed=1`, 303);
     }
@@ -76,8 +108,18 @@ if (Astro.request.method === 'POST') {
 }
 
 /* --- GET ---------------------------------------------------------------- */
-const preselect = Astro.url.searchParams.get('source') ?? '';
+type Draft = { sourceId: string; problem: string; newUrl: string; detail: string };
+const draft = (await Astro.session?.get('pending_report')) as Draft | undefined;
+if (draft) Astro.session?.delete('pending_report');
+
+const preselect = draft?.sourceId || Astro.url.searchParams.get('source') || '';
 const preselected = getSource(preselect);
+const draftUrl = draft?.newUrl ?? '';
+const draftDetail = draft?.detail ?? '';
+if (draft?.problem === 'moved') openUrlCard = true;
+if (draft) {
+  resumed = true;
+}
 const pickerRows = SOURCES.map((s) => ({
   id: s.id,
   name: s.name,
@@ -103,6 +145,18 @@ const langLabels = Object.fromEntries(
   }
 
   <form method="POST" class="flow">
+    {resumed && !error && (
+      <p class="note" role="status">
+        Welcome back — your draft is still here. Tap the problem again to send it.
+      </p>
+    )}
+
+    {error && (
+      <p class="error" id="url-error" role="alert">
+        {error}
+      </p>
+    )}
+
     <section class="step">
       <h2 class="step-h"><span class="step-n">1</span> Which source?</h2>
       <SourcePicker
@@ -118,19 +172,54 @@ const langLabels = Object.fromEntries(
       <h2 class="step-h"><span class="step-n">2</span> What's wrong?</h2>
       <ul class="problems">
         {
-          PROBLEMS.map((p) => (
-            <li>
-              <button class="problem" type="submit" name="problem" value={p.key}>
-                <span class="problem-label">{p.label}</span>
-                <span class="problem-hint">{p.hint}</span>
-              </button>
-            </li>
-          ))
+          PROBLEMS.map((p) =>
+            'needsUrl' in p && p.needsUrl ? (
+              <li class="wide">
+                {/* A native disclosure, so asking for the address costs no
+                    JavaScript and no extra page. */}
+                <details class="problem problem-open" open={openUrlCard}>
+                  <summary>
+                    <span class="problem-label">{p.label}</span>
+                    <span class="problem-hint">{p.hint}</span>
+                  </summary>
+                  <div class="url-row">
+                    <label class="sr-only" for="newUrl">New address</label>
+                    <input
+                      class="input"
+                      id="newUrl"
+                      name="newUrl"
+                      type="url"
+                      inputmode="url"
+                      autocomplete="off"
+                      spellcheck="false"
+                      value={draftUrl}
+                      placeholder="new-address.com"
+                      aria-invalid={error && openUrlCard ? 'true' : undefined}
+                      aria-describedby={error && openUrlCard ? 'url-error' : 'url-hint'}
+                    />
+                    <button class="btn btn-primary" type="submit" name="problem" value={p.key}>
+                      Send
+                    </button>
+                  </div>
+                  <p class="field-hint" id="url-hint">
+                    Paste the address you were redirected to. Just the domain is fine.
+                  </p>
+                </details>
+              </li>
+            ) : (
+              <li>
+                <button class="problem" type="submit" name="problem" value={p.key}>
+                  <span class="problem-label">{p.label}</span>
+                  <span class="problem-hint">{p.hint}</span>
+                </button>
+              </li>
+            ),
+          )
         }
       </ul>
     </section>
 
-    <details class="extra">
+    <details class="extra" open={!!draftDetail}>
       <summary>Add details (optional)</summary>
       <label class="sr-only" for="detail">Extra detail</label>
       <textarea
@@ -138,7 +227,8 @@ const langLabels = Object.fromEntries(
         id="detail"
         name="detail"
         placeholder="Anything that helps — which anime, which episode, the exact error."
-      ></textarea>
+        >{draftDetail}</textarea
+      >
       <p class="field-hint">
         Skip this if you're in a hurry. A report with no detail still counts.
       </p>
@@ -208,6 +298,40 @@ const langLabels = Object.fromEntries(
   }
   .problem-label { font-weight: var(--weight-medium); color: var(--text-primary); }
   .problem-hint { font-size: var(--text-sm); color: var(--text-tertiary); }
+
+  /* The one problem that needs a second piece of information. It spans the
+     grid so the address field has room to be typed into. */
+  li.wide { grid-column: 1 / -1; }
+  .problem-open { display: block; padding: 0; }
+  .problem-open summary {
+    display: grid;
+    gap: 2px;
+    padding: var(--space-3);
+    cursor: pointer;
+    list-style: none;
+  }
+  .problem-open summary::-webkit-details-marker { display: none; }
+  .problem-open[open] {
+    border-color: var(--signal-dim);
+    background: var(--signal-fill);
+  }
+  .url-row {
+    display: flex;
+    gap: var(--space-2);
+    padding-inline: var(--space-3);
+  }
+  .url-row .input { flex: 1; }
+  .problem-open .field-hint { padding: var(--space-2) var(--space-3) var(--space-3); }
+
+  .error {
+    padding: var(--space-2) var(--space-3);
+    margin-block-end: var(--space-2);
+    border: 1px solid var(--dead);
+    border-radius: var(--radius-md);
+    background: var(--dead-fill);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+  }
 
   .extra summary {
     cursor: pointer;

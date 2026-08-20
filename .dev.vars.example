@@ -1,0 +1,13 @@
+# Copy to `.dev.vars` (git-ignored) and fill in.
+# Create the app at https://discord.com/developers/applications
+# → OAuth2 → Redirects → add http://localhost:4321/auth/callback
+DISCORD_CLIENT_ID=
+DISCORD_CLIENT_SECRET=
+
+# Comma-separated Discord ROLE ids that grant maintainer rights on the board.
+# Ids, not names: resolving names needs a bot in the guild, which we avoid.
+MAINTAINER_ROLE_IDS=
+
+# Optional
+GITHUB_TOKEN=
+DISCORD_WEBHOOK_URL=

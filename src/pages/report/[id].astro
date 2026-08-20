@@ -69,6 +69,16 @@ const filed = Astro.url.searchParams.has('filed');
       {report.cause && (
         <div><dt class="label">Cause</dt><dd>{CAUSE_LABELS[report.cause]}</dd></div>
       )}
+      {report.newUrl && (
+        <div class="wide">
+          <dt class="label">New address</dt>
+          <dd>
+            <a class="new-url" href={report.newUrl} rel="nofollow noopener noreferrer external">
+              {report.newUrl.replace(/^https?:\/\//, '')}
+            </a>
+          </dd>
+        </div>
+      )}
       <div><dt class="label">Language</dt><dd>{langLabel(report.lang)}</dd></div>
       {report.extVersion && (
         <div><dt class="label">Version</dt><dd class="num">v{report.extVersion}</dd></div>
@@ -117,6 +127,14 @@ const filed = Astro.url.searchParams.has('filed');
     border-block: 1px solid var(--border-subtle);
   }
   .facts dd { margin-block-start: 2px; font-size: var(--text-sm); }
+  /* The actionable fact on a domain-change report, so give it its own line. */
+  .facts .wide { flex-basis: 100%; }
+  .new-url {
+    font-family: var(--font-data);
+    color: var(--signal-ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
   .body p { color: var(--text-secondary); white-space: pre-wrap; }
   .gh { margin-block-start: var(--space-6); font-size: var(--text-sm); color: var(--text-tertiary); }
   .gh a { font-family: var(--font-data); color: var(--signal-ink); text-decoration: underline; }
