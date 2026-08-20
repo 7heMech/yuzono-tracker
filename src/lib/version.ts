@@ -41,6 +41,12 @@ export function isOutdated(reported: string, latest: string): boolean {
   return compareVersions(reported, latest) < 0;
 }
 
-/** The apps that can install these extensions. */
-export const APPS = ['Anikku', 'Aniyomi', 'Other fork'] as const;
+/**
+ * The two apps this repo targets, plus an escape hatch. "Other" is not a
+ * throwaway option: plenty of players can install these extensions and are not
+ * forks of either, so picking it asks for the actual name rather than
+ * flattening everything else into one useless bucket.
+ */
+export const APPS = ['Anikku', 'Aniyomi', 'Other'] as const;
+export const APP_OTHER = 'Other';
 export type AppName = (typeof APPS)[number];

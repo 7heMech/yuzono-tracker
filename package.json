@@ -14,7 +14,9 @@
     "db:remote": "bunx wrangler d1 migrations apply yuzono-tracker --remote",
     "deploy": "ASTRO_BUILD=1 astro build && bunx wrangler deploy",
     "db:seed": "bunx wrangler d1 execute yuzono-tracker --local --file=seeds/seed.sql",
-    "types": "bunx wrangler types"
+    "types": "bunx wrangler types",
+    "shot": "bun scripts/shot.ts",
+    "shot:desktop": "bun scripts/shot.ts --desktop"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.2.3",

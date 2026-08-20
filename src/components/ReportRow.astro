@@ -39,6 +39,11 @@ const stalled = stalledLabel(r.createdAt);
       <span class="what">{r.title}</span>
     </span>
     <span class="row-meta">
+      {r.status !== 'open' && (
+        <span class="status" data-status={r.status}>
+          {STATUS_LABELS[r.status]}
+        </span>
+      )}
       {whatBroke && <span class="tag">{whatBroke}</span>}
       {why && <span class="tag">{why}</span>}
       <span>{langLabel(r.lang)}</span>
@@ -54,13 +59,6 @@ const stalled = stalledLabel(r.createdAt);
     </span>
   </a>
 
-  {
-    r.status !== 'open' && (
-      <span class="status" data-status={r.status}>
-        {STATUS_LABELS[r.status]}
-      </span>
-    )
-  }
 </li>
 
 <style>
@@ -95,6 +93,8 @@ const stalled = stalledLabel(r.createdAt);
   @media (max-width: 640px) {
     .row-title { flex-wrap: wrap; }
     .what { white-space: normal; }
+    /* Version is desktop detail; on a phone it costs a whole wrapped line. */
     .row-meta .data { display: none; }
+    .gh { display: none; }
   }
 </style>

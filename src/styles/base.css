@@ -33,6 +33,15 @@
     letter-spacing: var(--track-tight);
   }
 
+  /* Hydration wrappers are plumbing, not layout: without this they default to
+     display:inline and their children stop participating in the parent's
+     flex/grid layout. */
+  astro-island,
+  astro-slot,
+  astro-static-slot {
+    display: contents;
+  }
+
   :focus-visible {
     outline: 2px solid var(--signal);
     outline-offset: 2px;
@@ -190,7 +199,7 @@
   .rows { border: 1px solid var(--border-default); border-radius: var(--radius-lg); overflow: hidden; }
   .row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--space-3);
     padding: var(--space-3);
     background: var(--surface-raised);
@@ -198,7 +207,7 @@
   }
   .row + .row { border-block-start: 1px solid var(--border-subtle); }
   .row:hover { background: var(--surface-hover); }
-  .row-main { min-inline-size: 0; flex: 1; }
+  .row-main { min-inline-size: 0; flex: 1; overflow: hidden; }
   .row-title {
     font-size: var(--text-md);
     font-weight: var(--weight-medium);
@@ -210,6 +219,8 @@
   .row-meta {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
     gap: var(--space-2);
     margin-block-start: 3px;
     font-size: var(--text-sm);
@@ -258,6 +269,16 @@
 
 /* ========================================================================== */
 @layer utilities {
+  /* Touch targets. 26-30px controls are fine with a mouse and wrong on a phone,
+     and this audience is overwhelmingly on phones. */
+  @media (pointer: coarse) {
+    .btn { block-size: 38px; }
+    .btn-lg { block-size: 44px; }
+    .chip { block-size: 34px; padding-inline: var(--space-2); }
+    .input, .select, .textarea { block-size: 44px; }
+    .textarea { block-size: auto; }
+  }
+
   .sr-only {
     position: absolute; inline-size: 1px; block-size: 1px;
     padding: 0; margin: -1px; overflow: hidden;

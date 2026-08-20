@@ -71,7 +71,28 @@ bun run db:seed
 | `bun run db:seed` | Load `seeds/seed.sql` into local D1 |
 | `bun run types` | Regenerate `worker-configuration.d.ts` from wrangler.jsonc |
 | `bun run check` | Typecheck |
+| `bun run shot /new /` | Screenshot pages at phone size (390x844, touch, DPR 3) |
+| `bun run shot:desktop /` | Same at 1280x900 |
 | `bun run deploy` | Build and deploy |
+
+## Reviewing the UI
+
+Mobile is the primary target, so `scripts/shot.ts` drives Chromium over the
+DevTools protocol rather than using CLI flags: `--window-size` clamps to a 500px
+minimum and headless desktop never matches `pointer: coarse`, so flags cannot
+review a phone layout at all. The harness sets the real layout viewport, DPR,
+touch support and mobile flag, then reports any element wider than the viewport.
+
+```sh
+bun run shot /new /            # writes shot_new_390.png, shot_home_390.png
+bun run shot --w 768 --h 1024 /
+SHOT_EVAL="innerWidth" bun run shot /   # evaluate an expression in the page
+```
+
+Two traps it exists to avoid: Chromium's default profile keeps a persistent HTTP
+cache that silently serves a stale page, and **`astro dev` does not reliably pick
+up scoped style changes in `.astro` files** — restart the dev server before
+trusting a screenshot review.
 
 ## Permissions this deliberately does not need
 

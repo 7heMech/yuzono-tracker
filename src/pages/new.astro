@@ -8,7 +8,7 @@ import { currentUser } from '../lib/auth';
 import { ensureVote } from '../lib/vote';
 import { getSource, langLabel, SOURCES } from '../lib/sources';
 import { normaliseUrl, problemByKey, problemNeedsDetail, problemNeedsUrl, PROBLEMS } from '../lib/problems';
-import { isOutdated } from '../lib/version';
+import { APP_OTHER, isOutdated } from '../lib/version';
 
 export const prerender = false;
 
@@ -38,7 +38,9 @@ if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const sourceId = String(form.get('source') ?? '').trim();
   const problem = problemByKey(String(form.get('problem') ?? ''));
-  const appName = String(form.get('appName') ?? '').trim();
+  const appChoice = String(form.get('appName') ?? '').trim();
+  const appName =
+    appChoice === APP_OTHER ? String(form.get('appNameOther') ?? '').trim().slice(0, 48) : appChoice;
   const appVersion = String(form.get('appVersion') ?? '').trim().slice(0, 32);
   const extVersion = String(form.get('extVersion') ?? '').trim().slice(0, 32);
   const detail = String(form.get('problemDetail') ?? '').trim().slice(0, 2000);
@@ -64,6 +66,8 @@ if (Astro.request.method === 'POST') {
 
   if (!source) {
     error = 'Pick which source this is about first.';
+  } else if (appChoice === APP_OTHER && appName.length < 2) {
+    error = 'Type the name of the app you use.';
   } else if (!appName || !appVersion || !extVersion) {
     error = 'Fill in your app and version — a report without them can rarely be acted on.';
   } else if (isOutdated(extVersion, source.extVersion)) {
@@ -221,7 +225,7 @@ const draftDetail = draft?.detail ?? '';
               );
             }
             return (
-              <li>
+              <li class="wide">
                 {/* Native disclosure: the extra field costs no JavaScript and
                     no second page. */}
                 <details class="problem problem-open" open={openCard === p.key}>
@@ -231,22 +235,26 @@ const draftDetail = draft?.detail ?? '';
                   </summary>
                   {needsUrl ? (
                     <div class="card-body">
-                      <label class="sr-only" for="newUrl">New address</label>
-                      <input
-                        class="input"
-                        id="newUrl"
-                        name="newUrl"
-                        type="url"
-                        inputmode="url"
-                        autocomplete="off"
-                        spellcheck="false"
-                        value={draft?.newUrl ?? ''}
-                        placeholder="new-address.com"
-                      />
-                      <p class="field-hint">Just the domain is fine.</p>
-                      <button class="btn btn-primary send" type="submit" name="problem" value={p.key}>
-                        Send
-                      </button>
+                      <div class="row-2">
+                        <label class="sr-only" for="newUrl">New address</label>
+                        <input
+                          class="input"
+                          id="newUrl"
+                          name="newUrl"
+                          type="url"
+                          inputmode="url"
+                          autocomplete="off"
+                          spellcheck="false"
+                          value={draft?.newUrl ?? ''}
+                          placeholder="new-address.com"
+                        />
+                        <button class="btn btn-primary" type="submit" name="problem" value={p.key}>
+                          Send
+                        </button>
+                      </div>
+                      <p class="field-hint">
+                        Paste the address you were redirected to. Just the domain is fine.
+                      </p>
                     </div>
                   ) : (
                     <div class="card-body">
@@ -256,13 +264,15 @@ const draftDetail = draft?.detail ?? '';
                         id="problemDetail"
                         name="problemDetail"
                         rows="3"
-                        placeholder="e.g. Episode 5 plays episode 3 instead"
+                        placeholder="e.g. Episode 5 plays episode 3 instead, or subtitles are out of sync"
                         >{draftDetail}</textarea
                       >
-                      <p class="field-hint">One or two sentences is plenty.</p>
-                      <button class="btn btn-primary send" type="submit" name="problem" value={p.key}>
-                        Send
-                      </button>
+                      <div class="row-2 end">
+                        <p class="field-hint">One or two sentences is plenty.</p>
+                        <button class="btn btn-primary" type="submit" name="problem" value={p.key}>
+                          Send
+                        </button>
+                      </div>
                     </div>
                   )}
                 </details>
@@ -285,6 +295,7 @@ const draftDetail = draft?.detail ?? '';
   h1 { font-size: var(--text-xl); }
   .lede { color: var(--text-tertiary); margin-block: var(--space-1) var(--space-6); }
   .note {
+    margin-block-end: var(--space-6);
     padding: var(--space-2) var(--space-3);
     border: 1px solid var(--border-default);
     border-inline-start: 2px solid var(--signal);
@@ -303,6 +314,7 @@ const draftDetail = draft?.detail ?? '';
   }
 
   .flow { display: flex; flex-direction: column; gap: var(--space-8); }
+  .flow > .note, .flow > .error { margin-block-end: 0; }
   .flow :global(.step-h) {
     display: flex;
     align-items: center;
@@ -324,9 +336,10 @@ const draftDetail = draft?.detail ?? '';
 
   .problems { display: grid; gap: var(--space-2); }
   @media (min-width: 640px) { .problems { grid-template-columns: 1fr 1fr; } }
-  /* Cards never change grid position — an open card grows downward in its own
-     column, so the only movement is the rows below it, and the card you just
-     tapped stays under your finger. */
+  /* The two cards that carry a field are full width in every state, so opening
+     one reflows nothing: no sideways jump, no re-pairing of its neighbours.
+     They sit last in the list, so the single-tap cards still pair up cleanly. */
+  .problems li.wide { grid-column: 1 / -1; }
 
   .problem {
     display: grid;
@@ -362,7 +375,9 @@ const draftDetail = draft?.detail ?? '';
   }
   .card-body .textarea { min-block-size: 0; }
   .card-body .field-hint { margin: 0; }
-  .send { justify-self: start; }
+  .row-2 { display: flex; gap: var(--space-2); align-items: center; }
+  .row-2 .input { flex: 1; }
+  .row-2.end { justify-content: space-between; }
 
   /* Where supported, the card animates its own height so the change reads as
      growth rather than a jump. Falls back to instant. */

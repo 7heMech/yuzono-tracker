@@ -57,7 +57,9 @@ const closed = all.filter((r) => !(OPEN_STATUSES as readonly string[]).includes(
 }
 
 <style>
-  section + section { margin-block-start: var(--space-8); }
+  /* Not `section + section`: the empty state is a div, so the history section
+     ended up flush against it. */
+  .history { margin-block-start: var(--space-8); }
   .label { margin-block-end: var(--space-2); }
   .add { margin-block-start: var(--space-3); }
   .ok {

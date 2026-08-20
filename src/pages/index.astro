@@ -115,6 +115,13 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, sta
     color: var(--stalled);
   }
 
+  @media (max-width: 640px) {
+    .sub { display: none; }
+    .tallies { gap: var(--space-5); }
+    .tallies dd { font-size: var(--text-xl); }
+    .head { padding-block-end: var(--space-3); }
+  }
+
   .finder-block {
     display: flex;
     align-items: flex-end;

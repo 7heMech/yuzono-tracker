@@ -36,6 +36,20 @@ const sorts = [
       }
     </select>
 
+    <span class="spacer"></span>
+
+    <button
+      class="chip"
+      type="submit"
+      name="nsfw"
+      value={nsfw ? '' : '1'}
+      aria-pressed={nsfw}
+      title="108 of 310 sources are marked 18+">
+      18+
+    </button>
+  </div>
+
+  <div class="line">
     <div class="segmented" role="group" aria-label="Sort order">
       {
         sorts.map((s) => (
@@ -50,18 +64,6 @@ const sorts = [
         ))
       }
     </div>
-
-    <span class="spacer"></span>
-
-    <button
-      class="chip"
-      type="submit"
-      name="nsfw"
-      value={nsfw ? '' : '1'}
-      aria-pressed={nsfw}
-      title="108 of 310 sources are marked 18+">
-      18+
-    </button>
   </div>
 
   {
@@ -113,10 +115,29 @@ const sorts = [
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
   }
+  /* A control label that wraps mid-word ("Most / wanted") reads as breakage. */
+  .segmented .chip { white-space: nowrap; }
   .segmented .chip {
     border-color: transparent;
   }
   .causes .label {
     margin-inline-end: var(--space-1);
+    flex: none;
+  }
+  /* Phone: one scrollable row instead of three wrapped ones, so the list the
+     page exists for is not pushed below the fold by its own filters. */
+  @media (max-width: 640px) {
+    .causes {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      margin-inline: calc(-1 * var(--space-4));
+      padding-inline: var(--space-4);
+    }
+    .causes::-webkit-scrollbar { display: none; }
+    /* No scroll-snap: it snapped past the "Cause" label on load, hiding it. */
+    .causes .chip { flex: none; }
+    .segmented { inline-size: 100%; }
+    .segmented .chip { flex: 1; text-align: center; }
   }
 </style>

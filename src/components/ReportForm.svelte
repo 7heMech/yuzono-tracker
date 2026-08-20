@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { isOutdated, APPS } from '../lib/version';
+  import { isOutdated, APPS, APP_OTHER } from '../lib/version';
 
   // Source picking and the setup fields live in one island because they depend
   // on each other: choosing a source is what tells us the current extension
@@ -39,7 +39,14 @@
   );
   let q = $state('');
   let active = $state(0);
-  let app = $state(appName || 'Anikku');
+  // A remembered custom app name arrives as the appName itself, so anything
+  // not in the list means "Other" was chosen last time.
+  const known = (APPS as readonly string[]).includes(appName);
+  let app = $state(appName && known ? appName : appName ? APP_OTHER : 'Anikku');
+  let appOther = $state(appName && !known ? appName : '');
+  // Remembered from a previous report: collapse it to a line. The extension
+  // version still gets asked, because it is per-source and prefillable.
+  let editingApp = $state(!(appName && appVersion));
   let appVer = $state(appVersion);
   let extVer = $state(extVersion);
   let input: HTMLInputElement | undefined;
@@ -61,7 +68,8 @@
 
   const latest = $derived(chosen?.extVersion ?? '');
   const stale = $derived(!!latest && !!extVer && isOutdated(extVer, latest));
-  const ready = $derived(!!chosen && !!app && !!appVer.trim() && !!extVer.trim() && !stale);
+  const appOk = $derived(app !== APP_OTHER ? !!app : appOther.trim().length > 1);
+  const ready = $derived(!!chosen && appOk && !!appVer.trim() && !!extVer.trim() && !stale);
 
   function pick(s: Row) {
     chosen = s;
@@ -136,17 +144,43 @@
 <section class="step">
   <h2 class="step-h"><span class="step-n">2</span> Your setup</h2>
   <p class="step-sub">
-    Asked once and remembered. Nearly every "broken" source turns out to be an
-    old extension, so this is the fastest way to rule that out.
+    <span class="long">Asked once and remembered. Nearly every "broken" source turns out to be an
+    old extension, so this is the fastest way to rule that out.</span>
+    <span class="short">Asked once, then remembered.</span>
   </p>
 
-  <div class="setup">
+  {#if !editingApp}
+    <p class="remembered">
+      <span>{app === APP_OTHER ? appOther : app} <b class="num">{appVer}</b></span>
+      <button class="btn btn-ghost" type="button" onclick={() => (editingApp = true)}>Change</button>
+      <input type="hidden" name="appName" value={app} />
+      <input type="hidden" name="appNameOther" value={appOther} />
+      <input type="hidden" name="appVersion" value={appVer} />
+    </p>
+  {/if}
+
+  <div class="setup" class:hidden={!editingApp}>
     <div class="field">
       <label class="label" for="appName">App</label>
       <select class="select" id="appName" name="appName" bind:value={app} required>
         {#each APPS as a}<option value={a}>{a}</option>{/each}
       </select>
     </div>
+
+    {#if app === APP_OTHER}
+      <div class="field">
+        <label class="label" for="appNameOther">Which app?</label>
+        <input
+          class="input"
+          id="appNameOther"
+          name="appNameOther"
+          bind:value={appOther}
+          placeholder="e.g. Suwayomi, Kuukiyomi"
+          autocomplete="off"
+          required
+        />
+      </div>
+    {/if}
 
     <div class="field">
       <label class="label" for="appVersion">App version</label>
@@ -206,6 +240,11 @@
 </section>
 
 <style>
+  .step-sub .short { display: none; }
+  @media (max-width: 620px) {
+    .step-sub .long { display: none; }
+    .step-sub .short { display: inline; }
+  }
   .step-sub {
     max-inline-size: 60ch;
     margin-block: -8px var(--space-3);
@@ -250,9 +289,30 @@
   }
   .picked-name { font-weight: var(--weight-medium); }
 
-  .setup { display: grid; gap: var(--space-3); }
+  .setup {
+    display: grid;
+    gap: var(--space-3);
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+  .setup .field:has(#extVersion) { grid-column: 1 / -1; }
+  .setup.hidden { display: none; }
   @media (min-width: 620px) {
-    .setup { grid-template-columns: 1fr 1fr 1fr; align-items: start; }
+    .setup { grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }
+    .setup .field:has(#extVersion) { grid-column: auto; }
+  }
+
+  .remembered {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-inset);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
   }
   .setup .field + .field { margin-block-start: 0; }
 

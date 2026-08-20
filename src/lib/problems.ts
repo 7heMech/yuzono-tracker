@@ -1,6 +1,10 @@
 /**
  * The entire report taxonomy, expressed as things a person would actually say.
  *
+ * Order matters for layout: the five single-tap problems come first so they
+ * pair up in the two-column grid, and the two that need an extra field come
+ * last, where being full-width leaves no hole.
+ *
  * Six choices keeps the decision inside Hick's-law territory, and each one is a
  * submit button — so filing is: find your source, tap what's wrong. Two taps.
  * Everything the schema needs (kind, stage, cause) is derived from the choice
@@ -32,16 +36,6 @@ export const PROBLEMS = [
     cause: 'other',
   },
   {
-    key: 'moved',
-    label: 'Site moved to a new address',
-    hint: 'The old domain redirects or is parked somewhere else',
-    kind: 'domain',
-    stage: 'browse',
-    cause: 'domain',
-    /** The new address is the whole point of this report, so ask for it. */
-    needsUrl: true,
-  },
-  {
     key: 'blocked',
     label: 'Blocked before it loads',
     hint: 'Cloudflare check, captcha, or blocked in my country',
@@ -56,6 +50,16 @@ export const PROBLEMS = [
     kind: 'dead',
     stage: 'browse',
     cause: 'down',
+  },
+  {
+    key: 'moved',
+    label: 'Site moved to a new address',
+    hint: 'The old domain redirects or is parked somewhere else',
+    kind: 'domain',
+    stage: 'browse',
+    cause: 'domain',
+    /** The new address is the whole point of this report, so ask for it. */
+    needsUrl: true,
   },
   {
     key: 'other',

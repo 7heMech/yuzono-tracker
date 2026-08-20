@@ -18,6 +18,8 @@ const tabs = [
       <span class="mark-text">yuzono <span>tracker</span></span>
     </a>
 
+    <span class="spacer desktop-only"></span>
+
     <nav class="tabs" aria-label="Sections">
       {
         tabs.map((t) => (
@@ -27,8 +29,6 @@ const tabs = [
         ))
       }
     </nav>
-
-    <span class="spacer"></span>
 
     <ThemeToggle client:load />
     <a class="btn btn-discord" href="/auth/discord">
@@ -53,7 +53,20 @@ const tabs = [
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    block-size: 52px;
+    flex-wrap: wrap;
+    min-block-size: 52px;
+    padding-block: var(--space-2);
+  }
+  /* Mobile: the mark and the controls hold the first line, the tabs take a
+     full-width second line. Nothing gets pushed off-screen, which is what
+     happened when all five items fought for 390px. */
+  .tabs { order: 3; flex-basis: 100%; }
+  .mark { order: 0; }
+  .spacer { order: 1; }
+  @media (min-width: 620px) {
+    .inner { flex-wrap: nowrap; padding-block: 0; block-size: 52px; }
+    .tabs { order: 0; flex-basis: auto; }
+    .desktop-only { display: none; }
   }
 
   .mark {
@@ -80,10 +93,17 @@ const tabs = [
   .tabs {
     display: flex;
     gap: var(--space-1);
-    margin-inline-start: var(--space-4);
+    /* If the labels ever outgrow the line, scroll rather than overflow. */
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  @media (min-width: 620px) {
+    .tabs { margin-inline-start: var(--space-4); }
   }
   .tab {
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    white-space: nowrap;
     border-radius: var(--radius-md);
     font-size: var(--text-sm);
     font-weight: var(--weight-medium);
@@ -102,7 +122,5 @@ const tabs = [
 
   @media (max-width: 560px) {
     .mark-text span { display: none; }
-    .tabs { margin-inline-start: var(--space-1); }
-    .login-text { display: none; }
   }
 </style>
