@@ -4,10 +4,17 @@
 DISCORD_CLIENT_ID=
 DISCORD_CLIENT_SECRET=
 
-# Comma-separated Discord ROLE ids that grant maintainer rights on the board.
-# Ids, not names: resolving names needs a bot in the guild, which we avoid.
-MAINTAINER_ROLE_IDS=
+# Your Discord user id. This is the one authority the dashboard cannot grant
+# or take away, so a mistake made in /admin is always recoverable here.
+# Discord → Settings → Advanced → Developer Mode, then right-click your name →
+# Copy User ID. (In production this lives in wrangler.jsonc instead.)
+OWNER_DISCORD_ID=
 
 # Optional
 GITHUB_TOKEN=
+
+# Seeds only. Staff roles, the account-age gate and the announcement webhook
+# are edited in /admin and stored in D1; these are just the values a fresh
+# database starts from.
+MAINTAINER_ROLE_IDS=
 DISCORD_WEBHOOK_URL=

@@ -1,22 +1,52 @@
 ---
 import Base from '../../layouts/Base.astro';
 import VoteButton from '../../components/VoteButton.astro';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '../../lib/db/client';
 import { reports, votes } from '../../lib/db/schema';
 import { currentUser } from '../../lib/auth';
+import { atLeast } from '../../lib/levels';
+import { isResponse, levelOf, logAction, requireStaff } from '../../lib/staff';
+import { announceFixed } from '../../lib/webhook';
 import { getSource, langLabel } from '../../lib/sources';
 import { CAUSE_LABELS, relativeAge, STAGE_FAILURE, STATUS_LABELS } from '../../lib/format';
+import { STATUSES } from '../../lib/db/schema';
 
 export const prerender = false;
 
 const id = Number(Astro.params.id);
 if (!Number.isInteger(id)) return Astro.redirect('/', 302);
 
+/* Moderator action: move the report along. Authorisation is re-read from D1
+   here rather than taken from the session, so a revoked moderator loses this
+   immediately instead of when they next sign in. */
+if (Astro.request.method === 'POST') {
+  const gate = await requireStaff(Astro, 'mod');
+  if (isResponse(gate)) return gate;
+
+  const form = await Astro.request.formData();
+  const wanted = String(form.get('status') ?? '');
+  if ((STATUSES as readonly string[]).includes(wanted)) {
+    const status = wanted as (typeof STATUSES)[number];
+    const [updated] = await db()
+      .update(reports)
+      .set({ status, statusChangedAt: sql`(unixepoch())`, updatedAt: sql`(unixepoch())` })
+      .where(eq(reports.id, id))
+      .returning();
+    if (updated) {
+      await logAction(gate.user, 'report.status', String(id), status);
+      if (status === 'fixed') await announceFixed(updated, Astro.url.origin);
+    }
+  }
+  return Astro.redirect(`/report/${id}?saved=1`, 303);
+}
+
 const [report] = await db().select().from(reports).where(eq(reports.id, id));
 if (!report) return new Response('Not found', { status: 404 });
 
 const user = await currentUser(Astro);
+// Display-only: the POST above is what actually decides.
+const canModerate = user ? atLeast(await levelOf(user.id), 'mod') : false;
 const mine = user
   ? (
       await db()
@@ -29,9 +59,13 @@ const mine = user
 const source = getSource(report.sourceId);
 const joined = Astro.url.searchParams.has('joined');
 const filed = Astro.url.searchParams.has('filed');
+const saved = Astro.url.searchParams.has('saved');
 ---
 
 <Base title={`${source?.name ?? report.proposedName ?? 'Report'} — ${report.title}`} narrow>
+  {
+    saved && <p class="flash" role="status">Status updated.</p>
+  }
   {
     (joined || filed) && (
       <p class="flash" role="status">
@@ -102,6 +136,24 @@ const filed = Astro.url.searchParams.has('filed');
 
     {report.body && <div class="body"><p>{report.body}</p></div>}
 
+    {
+      canModerate && (
+        <form method="POST" class="mod">
+          <p class="mod-label">Move this report</p>
+          <div class="mod-row">
+            {STATUSES.filter((st) => st !== report.status).map((st) => (
+              <button class="btn" type="submit" name="status" value={st}>
+                {STATUS_LABELS[st]}
+              </button>
+            ))}
+          </div>
+          <p class="mod-hint">
+            Marking it fixed announces it to Discord if a webhook is set, once.
+          </p>
+        </form>
+      )
+    }
+
     {report.githubIssue && (
       <p class="gh">
         Tracked on GitHub as{' '}
@@ -153,6 +205,22 @@ const filed = Astro.url.searchParams.has('filed');
      not worth shouting, since it was current when it was filed. */
   .behind { color: var(--text-muted); font-family: var(--font-ui); }
   .body p { color: var(--text-secondary); white-space: pre-wrap; }
+  .mod {
+    margin-block-start: var(--space-6);
+    padding: var(--space-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-inset);
+  }
+  .mod-label { font-size: var(--text-sm); font-weight: var(--weight-medium); }
+  .mod-row {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-block: var(--space-2);
+  }
+  .mod-hint { font-size: var(--text-sm); color: var(--text-muted); }
+
   .gh { margin-block-start: var(--space-6); font-size: var(--text-sm); color: var(--text-tertiary); }
   .gh a { font-family: var(--font-data); color: var(--signal-ink); text-decoration: underline; }
 </style>

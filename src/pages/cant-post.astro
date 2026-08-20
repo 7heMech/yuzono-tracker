@@ -1,11 +1,11 @@
 ---
 import Base from '../layouts/Base.astro';
 import { currentUser } from '../lib/auth';
-import { env } from 'cloudflare:workers';
+import { readSetting } from '../lib/settings';
 
 export const prerender = false;
 const user = await currentUser(Astro);
-const minDays = Number(env.MIN_ACCOUNT_AGE_DAYS ?? 30);
+const minDays = Number((await readSetting('min_account_age_days')) || 30);
 const ageDays = user ? Math.floor((Date.now() / 1000 - user.accountCreatedAt) / 86_400) : 0;
 const tooNew = user ? ageDays < minDays : false;
 ---

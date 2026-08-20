@@ -1,0 +1,67 @@
+---
+import { atLeast } from '../lib/levels';
+import { avatarUrl, currentUser } from '../lib/auth';
+
+/**
+ * The signed-in corner of the header, as a server island.
+ *
+ * It has to be one: the header appears on 310 prerendered source pages, and a
+ * session read there would either fail or force the whole page to render on
+ * demand — losing exactly the edge-cached anonymous path the board is built
+ * around. As an island the page stays static and only this fragment is live.
+ */
+const user = await currentUser(Astro);
+const avatar = user ? avatarUrl(user, 48) : null;
+// Only admins get a link: a moderator's powers live on the report they are
+// moderating, not on a settings page.
+const staff = user ? atLeast(user.level, 'admin') : false;
+---
+
+{
+  user ? (
+    <div class="who">
+      {staff && (
+        <a class="btn btn-ghost staff-link" href="/admin">Dashboard</a>
+      )}
+      <span class="me" title={user.username}>
+        {avatar ? (
+          <img class="avatar" src={avatar} alt="" width="22" height="22" />
+        ) : (
+          <span class="avatar avatar-blank" aria-hidden="true" />
+        )}
+        <span class="name">{user.username}</span>
+      </span>
+      <a class="btn btn-ghost" href="/auth/logout">Sign out</a>
+    </div>
+  ) : (
+    <a class="btn btn-discord" href="/auth/discord">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M19.3 5.3A16.6 16.6 0 0 0 15.2 4l-.3.6a12.4 12.4 0 0 1 3.7 1.2 12.9 12.9 0 0 0-11-.5l.3-.7A16.5 16.5 0 0 0 4.7 5.3C2.2 9 1.5 12.6 1.9 16.2a16.4 16.4 0 0 0 5 2.5l.6-1a10.7 10.7 0 0 1-1.8-.9l.4-.3a11.7 11.7 0 0 0 10 0l.4.3a10.8 10.8 0 0 1-1.8.9l.6 1a16.3 16.3 0 0 0 5-2.5c.5-4.2-.6-7.8-2.9-10.9ZM8.7 14c-1 0-1.7-.9-1.7-2s.8-2 1.7-2 1.8.9 1.7 2c0 1.1-.8 2-1.7 2Zm6.6 0c-1 0-1.7-.9-1.7-2s.8-2 1.7-2 1.8.9 1.7 2c0 1.1-.8 2-1.7 2Z" />
+      </svg>
+      <span class="login-text">Sign in</span>
+    </a>
+  )
+}
+
+<style>
+  .who { display: flex; align-items: center; gap: var(--space-1); }
+  .me {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-inline: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+  .avatar { border-radius: var(--radius-full); }
+  .avatar-blank {
+    inline-size: 22px;
+    block-size: 22px;
+    background: var(--surface-active);
+  }
+  /* On a phone the name is the first thing worth dropping: the avatar already
+     says who you are, and the two buttons must stay tappable. */
+  @media (max-width: 700px) {
+    .name { display: none; }
+  }
+</style>

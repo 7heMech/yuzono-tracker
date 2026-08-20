@@ -16,9 +16,10 @@ export const prerender = false;
 // nothing to pick from the catalogue, so none of this form applies. Old
 // ?kind=request links (and the ones in the wild) keep working.
 if (Astro.url.searchParams.get('kind') === 'request') {
+  const to = new URL('/request', Astro.url);
   const wanted = Astro.url.searchParams.get('name');
-  const to = wanted ? '/request?name=' + encodeURIComponent(wanted) : '/request';
-  return Astro.redirect(to, 302);
+  if (wanted) to.searchParams.set('name', wanted);
+  return Astro.redirect(to.pathname + to.search, 302);
 }
 
 const user = await currentUser(Astro);

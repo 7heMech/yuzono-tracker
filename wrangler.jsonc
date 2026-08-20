@@ -20,7 +20,15 @@
 
   "vars": {
     "DISCORD_CLIENT_ID": "",
+
+    // The one authority the dashboard cannot grant or revoke. Your Discord
+    // user id: enable Developer Mode in Discord, then right-click your name →
+    // Copy User ID.
+    "OWNER_DISCORD_ID": "",
+
     "DISCORD_GUILD_ID": "1377136877491982366",
+    // Seeds for the editable settings of the same name. Once /admin writes a
+    // value it wins; these stay as the defaults a fresh database starts from.
     "MAINTAINER_ROLE_IDS": "",
     "MIN_ACCOUNT_AGE_DAYS": "30",
     "GITHUB_REPO": "yuzono/anime-extensions",

@@ -2,14 +2,28 @@ import { env } from 'cloudflare:workers';
 import type { APIContext, AstroGlobal } from 'astro';
 import { eq, sql } from 'drizzle-orm';
 import { db } from './db/client';
-import { users, type User } from './db/schema';
+import { users, type StaffLevel, type User } from './db/schema';
+import { combine, type Level } from './levels';
+import { idList, readConfig } from './settings';
 
 export interface SessionUser {
   id: string;
   username: string;
   avatarHash: string | null;
   accountCreatedAt: number;
-  isMaintainer: boolean;
+  /**
+   * Staff level as it stood at login, for deciding what to *show*. Never for
+   * deciding what to allow: every privileged action re-reads the level from
+   * D1 (see lib/staff.ts), so a revocation takes effect immediately instead of
+   * waiting for the person to log in again.
+   */
+  level: Level;
+  /**
+   * The role ids this member holds in the guild, captured at login. Shown in
+   * the dashboard because role *names* need a bot to resolve — this is the
+   * only way to find an id from inside the app.
+   */
+  guildRoles: string[];
   /** Passed the guild-membership and account-age gate at login. */
   canWrite: boolean;
 }
@@ -70,8 +84,9 @@ export async function buildSessionUser(token: string): Promise<SessionUser> {
     avatar: string | null;
   };
 
+  const cfg = await readConfig();
   const guildId = String(env.DISCORD_GUILD_ID);
-  const minAgeDays = Number(env.MIN_ACCOUNT_AGE_DAYS ?? 30);
+  const minAgeDays = Number(cfg.min_account_age_days || 30);
   const accountCreatedAt = snowflakeCreatedAt(me.id);
   const ageDays = (Date.now() / 1000 - accountCreatedAt) / 86_400;
 
@@ -80,7 +95,8 @@ export async function buildSessionUser(token: string): Promise<SessionUser> {
   ).json()) as { id: string }[];
   const inGuild = Array.isArray(guilds) && guilds.some((g) => g.id === guildId);
 
-  let isMaintainer = false;
+  let discordLevel: StaffLevel | null = null;
+  let roles: string[] = [];
   let joinedAt: number | null = null;
   if (inGuild) {
     const res = await fetch(`${DISCORD_API}/users/@me/guilds/${guildId}/member`, {
@@ -88,46 +104,51 @@ export async function buildSessionUser(token: string): Promise<SessionUser> {
     });
     if (res.ok) {
       const member = (await res.json()) as { roles: string[]; joined_at: string };
-      const maintainerRoles = String(env.MAINTAINER_ROLE_IDS ?? '')
-        .split(',')
-        .map((r) => r.trim())
-        .filter(Boolean);
-      isMaintainer = member.roles?.some((r) => maintainerRoles.includes(r)) ?? false;
+      roles = member.roles ?? [];
+      const admins = idList(cfg.admin_role_ids);
+      const mods = idList(cfg.mod_role_ids);
+      if (roles.some((r) => admins.includes(r))) discordLevel = 'admin';
+      else if (roles.some((r) => mods.includes(r))) discordLevel = 'mod';
       joinedAt = member.joined_at ? Math.floor(new Date(member.joined_at).getTime() / 1000) : null;
     }
   }
 
-  const user: SessionUser = {
-    id: me.id,
-    username: me.username,
-    avatarHash: me.avatar,
-    accountCreatedAt,
-    isMaintainer,
-    canWrite: inGuild && ageDays >= minAgeDays,
-  };
-
-  await db()
+  // Upsert and read back in one statement: `manual_level` is granted in the
+  // dashboard and must not be clobbered by a login, but it is needed here to
+  // resolve the level this session displays.
+  const [row] = await db()
     .insert(users)
     .values({
-      discordId: user.id,
-      username: user.username,
-      avatarHash: user.avatarHash,
+      discordId: me.id,
+      username: me.username,
+      avatarHash: me.avatar,
       accountCreatedAt: Math.floor(accountCreatedAt),
       guildJoinedAt: joinedAt,
-      isMaintainer,
+      discordLevel,
     })
     .onConflictDoUpdate({
       target: users.discordId,
       set: {
-        username: user.username,
-        avatarHash: user.avatarHash,
-        isMaintainer,
+        username: me.username,
+        avatarHash: me.avatar,
+        discordLevel,
         guildJoinedAt: joinedAt,
         lastLogin: sql`(unixepoch())`,
       },
-    });
+    })
+    .returning({ manualLevel: users.manualLevel });
 
-  return user;
+  const owner = !!env.OWNER_DISCORD_ID && String(env.OWNER_DISCORD_ID).trim() === me.id;
+
+  return {
+    id: me.id,
+    username: me.username,
+    avatarHash: me.avatar,
+    accountCreatedAt,
+    level: owner ? 'owner' : combine(discordLevel, row?.manualLevel ?? null),
+    guildRoles: roles,
+    canWrite: inGuild && ageDays >= minAgeDays,
+  };
 }
 
 export async function currentUser(
@@ -135,6 +156,12 @@ export async function currentUser(
 ): Promise<SessionUser | null> {
   return (await ctx.session?.get('user')) ?? null;
 }
+
+/** The avatar URL Discord serves for this user, or null for the default one. */
+export const avatarUrl = (u: SessionUser, size = 32) =>
+  u.avatarHash
+    ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatarHash}.png?size=${size}`
+    : null;
 
 /** Why a signed-in user still can't write — shown as a real explanation. */
 export function writeBlockReason(u: SessionUser | null): string | null {

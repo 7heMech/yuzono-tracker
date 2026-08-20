@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { currentUser } from '../lib/auth';
 import { toggleVote } from '../lib/vote';
+import { announceDemand } from '../lib/webhook';
 
 export const prerender = false;
 
@@ -19,6 +20,14 @@ export const POST: APIRoute = async (ctx) => {
   }
   if (!user.canWrite) return ctx.redirect('/cant-post', 302);
 
-  await toggleVote(reportId, user.id);
+  const result = await toggleVote(reportId, user.id);
+  if (result === 'added') {
+    // Crossing the demand threshold is worth a Discord post, but not worth
+    // making the voter wait for Discord to answer.
+    const announce = announceDemand(reportId, ctx.url.origin);
+    const cf = ctx.locals.cfContext;
+    if (cf) cf.waitUntil(announce);
+    else await announce;
+  }
   return ctx.redirect(back, 303);
 };

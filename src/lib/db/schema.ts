@@ -55,6 +55,15 @@ export const STATUSES = [
 /** Statuses that still count as live demand — the dedupe window. */
 export const OPEN_STATUSES = ['open', 'confirmed', 'in_progress'] as const;
 
+/**
+ * Staff tiers. `mod` moves reports along; `admin` also changes settings and
+ * hands out these levels. Ownership is deliberately *not* a tier — it comes
+ * from OWNER_DISCORD_ID in the environment, so no dashboard action can grant
+ * it and a bad grant is always recoverable.
+ */
+export const STAFF_LEVELS = ['mod', 'admin'] as const;
+export type StaffLevel = (typeof STAFF_LEVELS)[number];
+
 export const users = sqliteTable('users', {
   discordId: text('discord_id').primaryKey(),
   username: text('username').notNull(),
@@ -62,7 +71,14 @@ export const users = sqliteTable('users', {
   /** Decoded from the Discord snowflake — no extra OAuth scope needed. */
   accountCreatedAt: integer('account_created_at').notNull(),
   guildJoinedAt: integer('guild_joined_at'),
-  isMaintainer: integer('is_maintainer', { mode: 'boolean' }).notNull().default(false),
+  /**
+   * Staff comes from two independent sources, kept in separate columns so
+   * neither can quietly erase the other: `discord_level` is recomputed from
+   * the member's roles at every login, `manual_level` is granted by hand and
+   * survives any role change. The effective level is the higher of the two.
+   */
+  discordLevel: text('discord_level', { enum: STAFF_LEVELS }),
+  manualLevel: text('manual_level', { enum: STAFF_LEVELS }),
   firstSeen: integer('first_seen').notNull().default(sql`(unixepoch())`),
   lastLogin: integer('last_login').notNull().default(sql`(unixepoch())`),
 });
@@ -123,6 +139,9 @@ export const reports = sqliteTable(
     createdAt: integer('created_at').notNull().default(sql`(unixepoch())`),
     updatedAt: integer('updated_at').notNull().default(sql`(unixepoch())`),
     statusChangedAt: integer('status_changed_at'),
+
+    /** When this report was last announced to Discord — so it happens once. */
+    announcedAt: integer('announced_at'),
   },
   (t) => [
     /**
@@ -192,3 +211,37 @@ export type User = typeof users.$inferSelect;
 export type Report = typeof reports.$inferSelect;
 export type NewReport = typeof reports.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
+
+/**
+ * Runtime configuration, editable from /admin.
+ *
+ * Key/value rather than one wide row: the settings this grows into are a
+ * ragged set (a URL here, a threshold there), and a redeploy to add a column
+ * is exactly the friction the dashboard exists to remove. Every read falls
+ * back to an environment default, so an empty table is a working config.
+ */
+export const settings = sqliteTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value'),
+  updatedAt: integer('updated_at').notNull().default(sql`(unixepoch())`),
+  updatedBy: text('updated_by'),
+});
+
+/**
+ * Who did what. Staff powers on a community board are only as trustworthy as
+ * they are visible, and "who marked this fixed" is the first question asked
+ * when a report is wrong.
+ */
+export const audit = sqliteTable(
+  'audit',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    actorId: text('actor_id').notNull(),
+    actorName: text('actor_name').notNull(),
+    action: text('action').notNull(),
+    target: text('target'),
+    detail: text('detail'),
+    createdAt: integer('created_at').notNull().default(sql`(unixepoch())`),
+  },
+  (t) => [index('audit_recent').on(t.createdAt)],
+);

@@ -1,0 +1,441 @@
+---
+import Base from '../layouts/Base.astro';
+import { desc, isNotNull, or } from 'drizzle-orm';
+import { db } from '../lib/db/client';
+import { audit, STAFF_LEVELS, users, type StaffLevel } from '../lib/db/schema';
+import { snowflakeCreatedAt } from '../lib/auth';
+import { LEVEL_LABELS, combine } from '../lib/levels';
+import { idList, readConfig, writeSettings } from '../lib/settings';
+import { isOwner, isResponse, logAction, requireStaff, setManualLevel } from '../lib/staff';
+import { testWebhook } from '../lib/webhook';
+import { relativeAge } from '../lib/format';
+
+export const prerender = false;
+
+/**
+ * The dashboard.
+ *
+ * Admin-only, and every action is re-authorised against D1 rather than the
+ * session — see lib/staff.ts. Ownership is the one thing not editable here: it
+ * comes from OWNER_DISCORD_ID, so a mistake made on this page is always
+ * recoverable from the environment.
+ */
+const gate = await requireStaff(Astro, 'admin');
+if (isResponse(gate)) return gate;
+const { user, level } = gate;
+
+let error: string | null = null;
+let done: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const intent = String(form.get('intent') ?? '');
+  const origin = Astro.url.origin;
+
+  if (intent === 'roles') {
+    const mod = idList(String(form.get('mod_role_ids') ?? '')).join(',');
+    const admin = idList(String(form.get('admin_role_ids') ?? '')).join(',');
+    await writeSettings({ mod_role_ids: mod, admin_role_ids: admin }, user.id);
+    await logAction(user, 'settings.roles', null, `mod=[${mod}] admin=[${admin}]`);
+    done = 'Role mapping saved. It applies to each person the next time they sign in.';
+  } else if (intent === 'gate') {
+    const days = Math.max(0, Math.min(3650, Number(form.get('min_account_age_days') ?? 30)));
+    await writeSettings({ min_account_age_days: String(days) }, user.id);
+    await logAction(user, 'settings.gate', null, `min_account_age_days=${days}`);
+    done = `Accounts must now be ${days} days old to post or vote.`;
+  } else if (intent === 'webhook') {
+    const raw = String(form.get('webhook_url') ?? '').trim();
+    const onFixed = form.get('webhook_on_fixed') === '1' ? '1' : '0';
+    const threshold = Math.max(0, Math.min(9999, Number(form.get('webhook_vote_threshold') ?? 0)));
+    const patch: Record<string, string> = {
+      webhook_on_fixed: onFixed,
+      webhook_vote_threshold: String(threshold),
+    };
+    if (raw === '__clear__') {
+      patch.webhook_url = '';
+    } else if (raw) {
+      if (!/^https:\/\/(discord\.com|discordapp\.com)\/api\/webhooks\//.test(raw)) {
+        error = 'That is not a Discord webhook URL. Copy it from Channel → Edit Channel → Integrations → Webhooks.';
+      } else {
+        patch.webhook_url = raw;
+      }
+    }
+    if (!error) {
+      await writeSettings(patch, user.id);
+      // The URL itself is never written to the audit log.
+      await logAction(user, 'settings.webhook', null,
+        `${patch.webhook_url === '' ? 'cleared' : raw ? 'replaced' : 'unchanged'}, on_fixed=${onFixed}, threshold=${threshold}`);
+      done = 'Announcement settings saved.';
+    }
+  } else if (intent === 'webhook-test') {
+    const cfg = await readConfig();
+    if (!cfg.webhook_url) {
+      error = 'Save a webhook URL first.';
+    } else {
+      const res = await testWebhook(cfg.webhook_url, origin, user.username);
+      done = res.ok ? 'Test message sent — check the channel.' : null;
+      error = res.ok ? null : `Discord rejected it (${res.status}). ${res.body.slice(0, 200)}`;
+    }
+  } else if (intent === 'staff-set') {
+    const target = String(form.get('discord_id') ?? '').trim();
+    const wanted = String(form.get('level') ?? '');
+    const newLevel = (STAFF_LEVELS as readonly string[]).includes(wanted)
+      ? (wanted as StaffLevel)
+      : null;
+    if (!/^\d{17,20}$/.test(target)) {
+      error = 'That is not a Discord user id. Enable Developer Mode in Discord, then right-click a name → Copy User ID.';
+    } else if (target === user.id && level !== 'owner') {
+      error = "You can't change your own level. Ask the owner, or edit OWNER_DISCORD_ID.";
+    } else if (isOwner(target) && newLevel !== 'admin') {
+      error = 'The owner cannot be demoted from here — that is the point of the environment variable.';
+    } else {
+      // Grant to someone who has never signed in: the row is created now, so
+      // their rights are waiting for them rather than needing a second visit
+      // from you after they arrive.
+      await db()
+        .insert(users)
+        .values({
+          discordId: target,
+          username: 'not signed in yet',
+          accountCreatedAt: Math.floor(snowflakeCreatedAt(target)),
+          manualLevel: newLevel,
+        })
+        .onConflictDoNothing();
+      await setManualLevel(target, newLevel);
+      await logAction(user, newLevel ? 'staff.grant' : 'staff.revoke', target, newLevel ?? 'none');
+      done = newLevel
+        ? `Granted ${LEVEL_LABELS[newLevel]} to ${target}.`
+        : `Removed the manual grant from ${target}.`;
+    }
+  }
+}
+
+const cfg = await readConfig();
+const staff = await db()
+  .select({
+    discordId: users.discordId,
+    username: users.username,
+    avatarHash: users.avatarHash,
+    discordLevel: users.discordLevel,
+    manualLevel: users.manualLevel,
+    lastLogin: users.lastLogin,
+  })
+  .from(users)
+  .where(or(isNotNull(users.discordLevel), isNotNull(users.manualLevel)));
+
+const log = await db().select().from(audit).orderBy(desc(audit.createdAt)).limit(15);
+const webhookSet = !!cfg.webhook_url;
+const webhookTail = webhookSet ? cfg.webhook_url.slice(-6) : '';
+---
+
+<Base title="Dashboard">
+  <header class="head">
+    <div>
+      <h1>Dashboard</h1>
+      <p class="sub">
+        You're signed in as <b>{user.username}</b> — {LEVEL_LABELS[level]}.
+        {level === 'owner' && ' Ownership comes from the environment, so nothing on this page can take it away from you.'}
+      </p>
+    </div>
+  </header>
+
+  {done && <p class="flash" role="status">{done}</p>}
+  {error && <p class="error" role="alert">{error}</p>}
+
+  <section class="panel">
+    <h2>Staff</h2>
+    <p class="panel-sub">
+      Moderators change a report's status and promote it to GitHub. Admins can
+      also edit this page. A grant made here survives any Discord role change.
+    </p>
+
+    {
+      staff.length === 0 ? (
+        <p class="empty-line">No staff yet — you are the only one who can act.</p>
+      ) : (
+        <ul class="staff">
+          {staff.map((s) => {
+            const eff = isOwner(s.discordId) ? 'owner' : combine(s.discordLevel, s.manualLevel);
+            return (
+              <li>
+                <div class="staff-who">
+                  <span class="staff-name">{s.username}</span>
+                  <span class="staff-id num">{s.discordId}</span>
+                </div>
+                <div class="staff-meta">
+                  <span class="tag">{LEVEL_LABELS[eff]}</span>
+                  <span class="from">
+                    {s.discordLevel && s.manualLevel
+                      ? 'Discord role and manual grant'
+                      : s.discordLevel
+                        ? 'From Discord role'
+                        : 'Granted here'}
+                  </span>
+                </div>
+                <form method="POST" class="staff-actions">
+                  <input type="hidden" name="intent" value="staff-set" />
+                  <input type="hidden" name="discord_id" value={s.discordId} />
+                  {eff !== 'admin' && eff !== 'owner' && (
+                    <button class="btn btn-ghost" type="submit" name="level" value="admin">
+                      Make admin
+                    </button>
+                  )}
+                  {eff !== 'mod' && eff !== 'owner' && (
+                    <button class="btn btn-ghost" type="submit" name="level" value="mod">
+                      Make moderator
+                    </button>
+                  )}
+                  {s.manualLevel && (
+                    <button class="btn btn-ghost danger" type="submit" name="level" value="">
+                      Remove grant
+                    </button>
+                  )}
+                </form>
+              </li>
+            );
+          })}
+        </ul>
+      )
+    }
+
+    <form method="POST" class="add">
+      <input type="hidden" name="intent" value="staff-set" />
+      <div class="field">
+        <label class="label" for="discord_id">Add by Discord user id</label>
+        <input
+          class="input"
+          id="discord_id"
+          name="discord_id"
+          inputmode="numeric"
+          placeholder="e.g. 216154654256398347"
+          autocomplete="off"
+        />
+        <p class="field-hint">
+          Developer Mode in Discord → right-click a name → Copy User ID. They don't
+          need to have signed in here yet.
+        </p>
+      </div>
+      <div class="add-actions">
+        <button class="btn" type="submit" name="level" value="mod">Add as moderator</button>
+        <button class="btn" type="submit" name="level" value="admin">Add as admin</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Discord roles that grant staff</h2>
+    <p class="panel-sub">
+      Role <b>ids</b>, comma-separated — names can't be resolved without a bot in
+      the guild, and this board deliberately has none. Your own roles are listed
+      below to copy from; for a role you don't hold, send <code>\@RoleName</code>
+      in any channel and Discord will render its raw id.
+    </p>
+    <form method="POST" class="rows-2">
+      <input type="hidden" name="intent" value="roles" />
+      <div class="field">
+        <label class="label" for="mod_role_ids">Moderator roles</label>
+        <input class="input num" id="mod_role_ids" name="mod_role_ids" value={cfg.mod_role_ids} autocomplete="off" />
+      </div>
+      <div class="field">
+        <label class="label" for="admin_role_ids">Admin roles</label>
+        <input class="input num" id="admin_role_ids" name="admin_role_ids" value={cfg.admin_role_ids} autocomplete="off" />
+      </div>
+      <div class="wide">
+        <button class="btn btn-primary" type="submit">Save roles</button>
+        <p class="field-hint">
+          Takes effect the next time each person signs in, since roles are read
+          from Discord at login.
+        </p>
+      </div>
+    </form>
+    {
+      user.guildRoles.length > 0 && (
+        <p class="own-roles">
+          Your role ids: <span class="num">{user.guildRoles.join(', ')}</span>
+        </p>
+      )
+    }
+  </section>
+
+  <section class="panel">
+    <h2>Discord announcements</h2>
+    <p class="panel-sub">
+      A channel webhook needs only Manage Webhooks on that one channel, so
+      nobody has to add a bot. Channel → Edit Channel → Integrations → Webhooks
+      → New Webhook → Copy URL.
+    </p>
+    <form method="POST" class="rows-2">
+      <input type="hidden" name="intent" value="webhook" />
+      <div class="field wide">
+        <label class="label" for="webhook_url">Webhook URL</label>
+        <input
+          class="input"
+          id="webhook_url"
+          name="webhook_url"
+          type="password"
+          placeholder={webhookSet ? `saved, ending …${webhookTail} — paste a new one to replace` : 'https://discord.com/api/webhooks/…'}
+          autocomplete="off"
+        />
+        <p class="field-hint">
+          {webhookSet
+            ? 'Stored. Leave empty to keep it, or type __clear__ to remove it.'
+            : 'Nothing is announced until this is set.'}
+        </p>
+      </div>
+      <div class="field">
+        <label class="label" for="webhook_vote_threshold">Announce at this many votes</label>
+        <input
+          class="input num"
+          id="webhook_vote_threshold"
+          name="webhook_vote_threshold"
+          inputmode="numeric"
+          value={cfg.webhook_vote_threshold}
+        />
+        <p class="field-hint">0 turns demand alerts off.</p>
+      </div>
+      <div class="field">
+        <label class="check">
+          <input type="checkbox" name="webhook_on_fixed" value="1" checked={cfg.webhook_on_fixed === '1'} />
+          <span>Announce fixes</span>
+        </label>
+      </div>
+      <div class="wide actions">
+        <button class="btn btn-primary" type="submit">Save announcements</button>
+      </div>
+    </form>
+    <form method="POST" class="test">
+      <input type="hidden" name="intent" value="webhook-test" />
+      <button class="btn" type="submit" disabled={!webhookSet}>Send a test message</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Who can post</h2>
+    <form method="POST" class="rows-2">
+      <input type="hidden" name="intent" value="gate" />
+      <div class="field">
+        <label class="label" for="min_account_age_days">Minimum Discord account age (days)</label>
+        <input
+          class="input num"
+          id="min_account_age_days"
+          name="min_account_age_days"
+          inputmode="numeric"
+          value={cfg.min_account_age_days}
+        />
+        <p class="field-hint">
+          Guild membership is always required. This is the throwaway-account
+          brake, and it is what keeps a vote count meaningful.
+        </p>
+      </div>
+      <div class="wide">
+        <button class="btn btn-primary" type="submit">Save</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Recent staff actions</h2>
+    {
+      log.length === 0 ? (
+        <p class="empty-line">Nothing yet.</p>
+      ) : (
+        <ol class="log">
+          {log.map((e) => (
+            <li>
+              <span class="log-who">{e.actorName}</span>
+              <span class="log-what">{e.action}</span>
+              {e.target && <span class="log-target num">{e.target}</span>}
+              {e.detail && <span class="log-detail">{e.detail}</span>}
+              <span class="log-when">{relativeAge(e.createdAt)} ago</span>
+            </li>
+          ))}
+        </ol>
+      )
+    }
+  </section>
+</Base>
+
+<style>
+  .head { padding-block-end: var(--space-4); border-block-end: 1px solid var(--border-subtle); }
+  h1 { font-size: var(--text-xl); letter-spacing: var(--track-tight); }
+  .sub { max-inline-size: 64ch; margin-block-start: var(--space-1); color: var(--text-tertiary); font-size: var(--text-sm); }
+
+  .flash, .error {
+    margin-block-start: var(--space-4);
+    padding: var(--space-3);
+    border: 1px solid var(--border-default);
+    border-inline-start-width: 2px;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+  }
+  .flash { border-inline-start-color: var(--live); background: var(--live-fill); }
+  .error { border-color: var(--dead); background: var(--dead-fill); }
+
+  .panel {
+    padding-block: var(--space-6);
+    border-block-end: 1px solid var(--border-subtle);
+  }
+  .panel h2 { font-size: var(--text-md); }
+  .panel-sub {
+    max-inline-size: 68ch;
+    margin-block: var(--space-1) var(--space-4);
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+  }
+  .panel-sub code { font-family: var(--font-data); color: var(--text-secondary); }
+  .empty-line { font-size: var(--text-sm); color: var(--text-muted); }
+
+  .staff { display: grid; gap: var(--space-2); margin-block-end: var(--space-5); }
+  .staff li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface-raised);
+  }
+  .staff-who { display: flex; flex-direction: column; min-inline-size: 0; }
+  .staff-name { font-weight: var(--weight-medium); }
+  .staff-id { font-size: var(--text-xs); color: var(--text-muted); }
+  .staff-meta { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); }
+  .from { color: var(--text-tertiary); }
+  .staff-actions { display: flex; gap: var(--space-1); margin-inline-start: auto; flex-wrap: wrap; }
+  .danger { color: var(--dead); }
+
+  .add { display: grid; gap: var(--space-3); max-inline-size: 42rem; }
+  .add-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+  .rows-2 {
+    display: grid;
+    gap: var(--space-4);
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    max-inline-size: 46rem;
+  }
+  .rows-2 .wide, .rows-2 .field.wide { grid-column: 1 / -1; }
+  .rows-2 .field + .field { margin-block-start: 0; }
+  @media (max-width: 640px) {
+    .rows-2 { grid-template-columns: 1fr; }
+  }
+  .actions { display: flex; gap: var(--space-2); }
+  .check { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); cursor: pointer; }
+  .check input { inline-size: 18px; block-size: 18px; accent-color: var(--signal); }
+  .test { margin-block-start: var(--space-3); }
+  .own-roles {
+    margin-block-start: var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+    overflow-wrap: anywhere;
+  }
+
+  .log { display: grid; gap: var(--space-1); font-size: var(--text-sm); }
+  .log li { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: baseline; }
+  .log-who { font-weight: var(--weight-medium); }
+  .log-what { color: var(--signal-ink); font-family: var(--font-data); font-size: var(--text-xs); }
+  .log-target { color: var(--text-muted); }
+  .log-detail { color: var(--text-tertiary); }
+  .log-when { margin-inline-start: auto; color: var(--text-muted); }
+</style>
