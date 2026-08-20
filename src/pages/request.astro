@@ -1,0 +1,251 @@
+---
+import Base from '../layouts/Base.astro';
+import { and, eq, inArray } from 'drizzle-orm';
+import { db } from '../lib/db/client';
+import { OPEN_STATUSES, reports } from '../lib/db/schema';
+import { currentUser } from '../lib/auth';
+import { ensureVote } from '../lib/vote';
+import { languageFacets } from '../lib/sources';
+import { normaliseUrl } from '../lib/problems';
+
+export const prerender = false;
+
+/**
+ * Asking for a source that does not exist yet.
+ *
+ * Separate from /new because none of that page applies: there is no extension
+ * to be out of date, no failure stage, and nothing to pick from the catalogue.
+ * Requests are 58% of the open backlog, so this is a first-class flow rather
+ * than a mode of the report form.
+ */
+
+const user = await currentUser(Astro);
+const langs = languageFacets();
+
+type Draft = { name: string; url: string; lang: string; nsfw: boolean };
+
+let error: string | null = null;
+let resumed = false;
+
+const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g, '');
+
+let name = '';
+let url = '';
+let lang = '';
+let nsfw = false;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  name = String(form.get('name') ?? '').trim().slice(0, 80);
+  url = String(form.get('url') ?? '').trim().slice(0, 200);
+  lang = String(form.get('lang') ?? '').trim();
+  nsfw = form.get('nsfw') === '1';
+
+  if (!user) {
+    Astro.session?.set('pending_request', { name, url, lang, nsfw } satisfies Draft);
+    return Astro.redirect('/auth/discord?next=/request', 302);
+  }
+  if (!user.canWrite) return Astro.redirect('/cant-post', 302);
+
+  const link = normaliseUrl(url);
+
+  if (name.length < 2) {
+    error = "What's the site called?";
+  } else if (!link) {
+    error = url.trim()
+      ? "That doesn't look like a web address. Paste the full link, e.g. https://example.com"
+      : 'Add the address — a request without a link cannot be built from.';
+  } else if (!lang) {
+    error = 'Pick the language the site is in.';
+  } else {
+    const d = db();
+    // Small table (~130 open requests), so match in memory: same link *or* the
+    // same name, because the point is that filing again upvotes rather than
+    // duplicating, and people reach the same site by different URLs.
+    const open = await d
+      .select({
+        id: reports.id,
+        proposedName: reports.proposedName,
+        proposedUrl: reports.proposedUrl,
+      })
+      .from(reports)
+      .where(and(eq(reports.kind, 'request'), inArray(reports.status, [...OPEN_STATUSES])));
+
+    const host = new URL(link).host.replace(/^www\./, '');
+    const existing = open.find(
+      (r) =>
+        (r.proposedUrl && r.proposedUrl.replace(/^www\./, '').includes(host)) ||
+        (r.proposedName && norm(r.proposedName) === norm(name)),
+    );
+
+    if (existing) {
+      await ensureVote(existing.id, user.id);
+      return Astro.redirect(`/report/${existing.id}?joined=1`, 303);
+    }
+
+    const [created] = await d
+      .insert(reports)
+      .values({
+        kind: 'request',
+        proposedName: name,
+        proposedUrl: link,
+        lang,
+        nsfw,
+        title: `Add ${name}`,
+        reporterId: user.id,
+        votes: 1,
+      })
+      .returning({ id: reports.id });
+
+    if (created) {
+      await ensureVote(created.id, user.id);
+      return Astro.redirect(`/report/${created.id}?filed=1`, 303);
+    }
+  }
+}
+
+if (Astro.request.method === 'GET') {
+  const draft = (await Astro.session?.get('pending_request')) as Draft | undefined;
+  if (draft) {
+    Astro.session?.delete('pending_request');
+    resumed = true;
+    ({ name, url, lang, nsfw } = draft);
+  } else {
+    name = Astro.url.searchParams.get('name')?.trim().slice(0, 80) ?? '';
+  }
+}
+---
+
+<Base title="Request a source" narrow>
+  <h1>Request a source</h1>
+  <p class="lede">
+    Name, address, language. If someone already asked for this site you'll be
+    added to their request instead of making a second one.
+  </p>
+
+  {
+    !user && (
+      <p class="note">
+        You'll be asked to sign in with Discord when you send — what you typed is kept.
+      </p>
+    )
+  }
+
+  <form method="POST" class="flow">
+    {
+      resumed && !error && (
+        <p class="note" role="status">Welcome back — your request is still here. Send it.</p>
+      )
+    }
+    {error && <p class="error" role="alert">{error}</p>}
+
+    <div class="field">
+      <label class="label" for="name">Site name</label>
+      <input
+        class="input"
+        id="name"
+        name="name"
+        value={name}
+        placeholder="e.g. AnimeFire"
+        autocomplete="off"
+        required
+      />
+    </div>
+
+    <div class="field">
+      <label class="label" for="url">Address</label>
+      <input
+        class="input"
+        id="url"
+        name="url"
+        type="url"
+        inputmode="url"
+        value={url}
+        placeholder="animefire.plus"
+        autocomplete="off"
+        spellcheck="false"
+        required
+      />
+      <p class="field-hint">Just the domain is fine.</p>
+    </div>
+
+    <div class="field">
+      <label class="label" for="lang">Language</label>
+      <select class="select" id="lang" name="lang" required>
+        <option value="" disabled selected={!lang}>Pick one…</option>
+        {
+          langs.map((l) => (
+            <option value={l.code} selected={l.code === lang}>
+              {l.label}
+            </option>
+          ))
+        }
+      </select>
+      <p class="field-hint">
+        The language the site is in — it's the main filter on the requests board.
+      </p>
+    </div>
+
+    <label class="check">
+      <input type="checkbox" name="nsfw" value="1" checked={nsfw} />
+      <span>It's an 18+ site</span>
+    </label>
+
+    <div>
+      <button class="btn btn-primary btn-lg" type="submit">Send request</button>
+    </div>
+  </form>
+
+  <p class="foot-note">
+    Requests are ranked by how many people ask for the same site, so voting on an
+    existing one counts for as much as filing a new one.
+  </p>
+</Base>
+
+<style>
+  h1 { font-size: var(--text-xl); }
+  .lede {
+    max-inline-size: 56ch;
+    color: var(--text-tertiary);
+    margin-block: var(--space-1) var(--space-6);
+  }
+  .note {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-default);
+    border-inline-start: 2px solid var(--signal);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+  .flow { display: flex; flex-direction: column; gap: var(--space-5); }
+  .flow .field + .field { margin-block-start: 0; }
+  .error {
+    padding: var(--space-3);
+    border: 1px solid var(--dead);
+    border-inline-start-width: 2px;
+    border-radius: var(--radius-md);
+    background: var(--dead-fill);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+  }
+  .check {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .check input {
+    inline-size: 18px;
+    block-size: 18px;
+    accent-color: var(--signal);
+  }
+  .foot-note {
+    margin-block-start: var(--space-8);
+    padding-block-start: var(--space-4);
+    border-block-start: 1px solid var(--border-subtle);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+</style>

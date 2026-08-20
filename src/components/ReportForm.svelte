@@ -132,7 +132,7 @@
           {:else}
             <li class="none">
               Not in this repo.
-              <a href={`/new?kind=request&name=${encodeURIComponent(q)}`}>Request it</a> instead.
+              <a href={`/request?name=${encodeURIComponent(q)}`}>Request it</a> instead.
             </li>
           {/each}
         </ul>
@@ -167,21 +167,6 @@
       </select>
     </div>
 
-    {#if app === APP_OTHER}
-      <div class="field">
-        <label class="label" for="appNameOther">Which app?</label>
-        <input
-          class="input"
-          id="appNameOther"
-          name="appNameOther"
-          bind:value={appOther}
-          placeholder="e.g. Suwayomi, Kuukiyomi"
-          autocomplete="off"
-          required
-        />
-      </div>
-    {/if}
-
     <div class="field">
       <label class="label" for="appVersion">App version</label>
       <input
@@ -197,7 +182,22 @@
       />
     </div>
 
-    <div class="field">
+    {#if app === APP_OTHER}
+      <div class="field full">
+        <label class="label" for="appNameOther">Which app?</label>
+        <input
+          class="input"
+          id="appNameOther"
+          name="appNameOther"
+          bind:value={appOther}
+          placeholder="e.g. Suwayomi, Kuukiyomi"
+          autocomplete="off"
+          required
+        />
+      </div>
+    {/if}
+
+    <div class="field full">
       <label class="label" for="extVersion">Extension version</label>
       <input
         class="input"
@@ -289,18 +289,18 @@
   }
   .picked-name { font-weight: var(--weight-medium); }
 
+  /* Two columns at every width. `auto-fit` used to squeeze four fields onto
+     one line on desktop, which is what made the labels and placeholders
+     overflow their inputs. The two fields that carry long values get their own
+     full-width row instead. */
   .setup {
     display: grid;
     gap: var(--space-3);
     grid-template-columns: 1fr 1fr;
     align-items: start;
   }
-  .setup .field:has(#extVersion) { grid-column: 1 / -1; }
+  .setup .full { grid-column: 1 / -1; }
   .setup.hidden { display: none; }
-  @media (min-width: 620px) {
-    .setup { grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }
-    .setup .field:has(#extVersion) { grid-column: auto; }
-  }
 
   .remembered {
     display: flex;

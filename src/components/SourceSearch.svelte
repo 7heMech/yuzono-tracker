@@ -46,7 +46,7 @@
   <div class="empty">
     <p class="empty-title">No source matches “{q}”</p>
     <p>It may not be in this repo yet — you can request it.</p>
-    <a class="btn btn-primary" href="/new?kind=request">Request a source</a>
+    <a class="btn btn-primary" href="/request">Request a source</a>
   </div>
 {:else}
   <ul class="grid">

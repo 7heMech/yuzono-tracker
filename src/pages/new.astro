@@ -12,6 +12,15 @@ import { APP_OTHER, isOutdated } from '../lib/version';
 
 export const prerender = false;
 
+// Requests have their own page: there is no extension to be out of date and
+// nothing to pick from the catalogue, so none of this form applies. Old
+// ?kind=request links (and the ones in the wild) keep working.
+if (Astro.url.searchParams.get('kind') === 'request') {
+  const wanted = Astro.url.searchParams.get('name');
+  const to = wanted ? '/request?name=' + encodeURIComponent(wanted) : '/request';
+  return Astro.redirect(to, 302);
+}
+
 const user = await currentUser(Astro);
 
 let error: string | null = null;

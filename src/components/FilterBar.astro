@@ -23,7 +23,7 @@ const sorts = [
 ---
 
 <form class="filters" method="get" role="search">
-  <div class="line">
+  <div class="line primary">
     <label class="sr-only" for="lang">Language</label>
     <select class="select compact" id="lang" name="lang" onchange="this.form.requestSubmit()">
       <option value="">All languages</option>
@@ -36,20 +36,6 @@ const sorts = [
       }
     </select>
 
-    <span class="spacer"></span>
-
-    <button
-      class="chip"
-      type="submit"
-      name="nsfw"
-      value={nsfw ? '' : '1'}
-      aria-pressed={nsfw}
-      title="108 of 310 sources are marked 18+">
-      18+
-    </button>
-  </div>
-
-  <div class="line">
     <div class="segmented" role="group" aria-label="Sort order">
       {
         sorts.map((s) => (
@@ -64,6 +50,18 @@ const sorts = [
         ))
       }
     </div>
+
+    <span class="spacer"></span>
+
+    <button
+      class="chip nsfw"
+      type="submit"
+      name="nsfw"
+      value={nsfw ? '' : '1'}
+      aria-pressed={nsfw}
+      title="108 of 310 sources are marked 18+">
+      18+
+    </button>
   </div>
 
   {
@@ -82,10 +80,14 @@ const sorts = [
     )
   }
 
-  <!-- Keep the other facets when a chip submits. -->
+  <!-- Keep the other facets when a chip submits. These sit last on purpose:
+       a chip earlier in the form wins, because the server reads the first
+       value of a repeated parameter. Without the cause line, changing the sort
+       silently reset the cause to Any. -->
   {sort && <input type="hidden" name="sort" value={sort} />}
   {nsfw && <input type="hidden" name="nsfw" value="1" />}
   {lang && <input type="hidden" name="lang" value={lang} />}
+  {cause && <input type="hidden" name="cause" value={cause} />}
 </form>
 
 <style>
@@ -101,12 +103,29 @@ const sorts = [
     gap: var(--space-2);
     flex-wrap: wrap;
   }
+  /* Desktop keeps language, sort and 18+ on one line. Phones drop the sort to
+     its own full-width row — hence the explicit orders, so the 18+ chip stays
+     beside the language select instead of being stranded on a third row. */
+  .primary #lang { order: 0; }
+  .primary .spacer { order: 1; }
+  .primary .nsfw { order: 2; }
+  .primary .segmented { order: 3; flex-basis: 100%; }
+  @media (min-width: 641px) {
+    .primary .segmented { order: 1; flex-basis: auto; margin-inline-start: var(--space-2); }
+    .primary .spacer { order: 2; }
+    .primary .nsfw { order: 3; }
+  }
   .select.compact {
     inline-size: auto;
     min-inline-size: 11rem;
     block-size: 26px;
     font-size: var(--text-sm);
     padding-inline: var(--space-2);
+  }
+  /* Scoped styles are unlayered, so they beat the coarse-pointer utility —
+     the select has to opt back in to a touchable height itself. */
+  @media (pointer: coarse) {
+    .select.compact { block-size: 36px; }
   }
   .segmented {
     display: flex;

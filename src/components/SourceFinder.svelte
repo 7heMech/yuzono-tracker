@@ -84,7 +84,7 @@
       {:else}
         <li class="none">
           <p>No source called “{q}” in this repo.</p>
-          <a class="btn btn-primary" href={`/new?kind=request&name=${encodeURIComponent(q)}`}>
+          <a class="btn btn-primary" href={`/request?name=${encodeURIComponent(q)}`}>
             Request it instead
           </a>
         </li>
