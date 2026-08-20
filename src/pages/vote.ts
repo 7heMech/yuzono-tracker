@@ -2,13 +2,14 @@ import type { APIRoute } from 'astro';
 import { currentUser } from '../lib/auth';
 import { toggleVote } from '../lib/vote';
 import { announceDemand } from '../lib/webhook';
+import { safeReturnTo } from '../lib/redirect';
 
 export const prerender = false;
 
 export const POST: APIRoute = async (ctx) => {
   const form = await ctx.request.formData();
   const reportId = Number(form.get('report'));
-  const back = ctx.request.headers.get('referer') ?? '/';
+  const back = safeReturnTo(ctx.request.headers.get('referer'), ctx.url.origin);
   if (!Number.isInteger(reportId)) return ctx.redirect(back, 303);
 
   const user = await currentUser(ctx);

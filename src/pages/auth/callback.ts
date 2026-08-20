@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { buildSessionUser, exchangeCode } from '../../lib/auth';
+import { safeReturnTo } from '../../lib/redirect';
 import { ensureVote } from '../../lib/vote';
 
 export const prerender = false;
@@ -8,7 +9,9 @@ export const GET: APIRoute = async (ctx) => {
   const code = ctx.url.searchParams.get('code');
   const state = ctx.url.searchParams.get('state');
   const expected = await ctx.session?.get('oauth_state');
-  const next = (await ctx.session?.get('oauth_next')) ?? '/';
+  // Re-checked on the way out as well: the session is ours, but a value that
+  // only gets validated on the way in is one refactor away from not being.
+  const next = safeReturnTo(await ctx.session?.get('oauth_next'), ctx.url.origin);
 
   // CSRF: the state must round-trip through our own session.
   if (!code || !state || state !== expected) {

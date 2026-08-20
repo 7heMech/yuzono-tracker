@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import type { APIRoute } from 'astro';
 import { authorizeUrl } from '../../lib/auth';
+import { safeReturnTo } from '../../lib/redirect';
 
 export const prerender = false;
 
@@ -15,7 +16,7 @@ export const GET: APIRoute = async (ctx) => {
     );
   }
 
-  const next = ctx.url.searchParams.get('next') ?? '/';
+  const next = safeReturnTo(ctx.url.searchParams.get('next'), ctx.url.origin);
   const state = crypto.randomUUID();
   ctx.session?.set('oauth_state', state);
   ctx.session?.set('oauth_next', next);

@@ -31,7 +31,12 @@ const staff = user ? atLeast(user.level, 'admin') : false;
         )}
         <span class="name">{user.username}</span>
       </span>
-      <a class="btn btn-ghost" href="/auth/logout">Sign out</a>
+      {/* A form, not a link: /auth/logout is POST-only, both because a link
+          would 404 against it and because a GET sign-out is trivially
+          triggered by any page that can embed an image. */}
+      <form method="POST" action="/auth/logout">
+        <button class="btn btn-ghost" type="submit">Sign out</button>
+      </form>
     </div>
   ) : (
     <a class="btn btn-discord" href="/auth/discord">
