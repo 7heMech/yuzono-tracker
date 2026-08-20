@@ -27,7 +27,10 @@ export const GET: APIRoute = async (ctx) => {
       await ensureVote(Number(pendingVote), user.id);
     }
     ctx.session?.delete('pending_vote');
-  } catch {
+  } catch (err) {
+    // `?auth=failed` is all the visitor needs, but swallowing the cause makes
+    // first-time OAuth setup undebuggable.
+    console.error('[auth] callback failed:', err);
     return ctx.redirect('/?auth=failed', 302);
   } finally {
     // The access token is never stored: everything we need is resolved now.

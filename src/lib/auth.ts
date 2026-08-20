@@ -45,7 +45,11 @@ export async function exchangeCode(code: string, redirectUri: string) {
       redirect_uri: redirectUri,
     }),
   });
-  if (!res.ok) throw new Error(`token exchange failed: ${res.status}`);
+  if (!res.ok) {
+    // Discord explains itself in the body — usually a redirect_uri that does
+    // not exactly match the one registered on the application.
+    throw new Error(`token exchange failed: ${res.status} ${await res.text()}`);
+  }
   return (await res.json()) as { access_token: string };
 }
 
