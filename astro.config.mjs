@@ -12,12 +12,15 @@ export default defineConfig({
   integrations: [svelte()],
 
   vite: {
-    optimizeDeps: {
-      // The adapter's server entrypoint is resolved by the Cloudflare plugin at
-      // request time; letting Vite pre-bundle it leaves stale deps_ssr files
-      // behind whenever dependencies change under a running dev server.
-      exclude: ['@astrojs/cloudflare/entrypoints/server'],
-    },
+    /**
+     * `astro build` and `astro dev` both default to node_modules/.vite, so a
+     * build run while the dev server is up deletes the pre-bundled deps the dev
+     * server is still holding references to — which surfaces as
+     * "The file does not exist at .../deps_ssr/..." on the next request.
+     * Giving the build its own cache directory keeps them out of each other's
+     * way. `bun run build` sets ASTRO_BUILD.
+     */
+    cacheDir: process.env.ASTRO_BUILD ? 'node_modules/.vite-build' : 'node_modules/.vite-dev',
   },
   prefetch: { prefetchAll: true, defaultStrategy: 'viewport' },
   devToolbar: { enabled: false },

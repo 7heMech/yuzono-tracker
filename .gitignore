@@ -7,3 +7,4 @@ dist/
 .env.production
 *.log
 
+node_modules/.vite*

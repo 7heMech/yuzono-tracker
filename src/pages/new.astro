@@ -41,9 +41,7 @@ if (Astro.request.method === 'POST') {
   const appName = String(form.get('appName') ?? '').trim();
   const appVersion = String(form.get('appVersion') ?? '').trim().slice(0, 32);
   const extVersion = String(form.get('extVersion') ?? '').trim().slice(0, 32);
-  const detail = (String(form.get('problemDetail') ?? '') || String(form.get('detail') ?? ''))
-    .trim()
-    .slice(0, 2000);
+  const detail = String(form.get('problemDetail') ?? '').trim().slice(0, 2000);
   const source = getSource(sourceId);
 
   if (!user) {
@@ -223,7 +221,7 @@ const draftDetail = draft?.detail ?? '';
               );
             }
             return (
-              <li class="wide">
+              <li>
                 {/* Native disclosure: the extra field costs no JavaScript and
                     no second page. */}
                 <details class="problem problem-open" open={openCard === p.key}>
@@ -262,7 +260,7 @@ const draftDetail = draft?.detail ?? '';
                         id="problemDetail"
                         name="problemDetail"
                         placeholder="e.g. Episode 5 plays episode 3 instead. Or: subtitles are out of sync on every episode."
-                        >{openCard === p.key ? draftDetail : ''}</textarea
+                        >{draftDetail}</textarea
                       >
                       <div class="url-row end">
                         <button class="btn btn-primary" type="submit" name="problem" value={p.key}>
@@ -282,20 +280,6 @@ const draftDetail = draft?.detail ?? '';
       </ul>
     </section>
 
-    <details class="extra" open={!!draftDetail && !openCard}>
-      <summary>Add details (optional)</summary>
-      <label class="sr-only" for="detail">Extra detail</label>
-      <textarea
-        class="textarea"
-        id="detail"
-        name="detail"
-        placeholder="Anything that helps — which anime, which episode, the exact error."
-        >{openCard ? '' : draftDetail}</textarea
-      >
-      <p class="field-hint">
-        Skip this if you're in a hurry. A report with no detail still counts.
-      </p>
-    </details>
   </form>
 
   <p class="foot-note">
@@ -347,7 +331,9 @@ const draftDetail = draft?.detail ?? '';
 
   .problems { display: grid; gap: var(--space-2); }
   @media (min-width: 640px) { .problems { grid-template-columns: 1fr 1fr; } }
-  li.wide { grid-column: 1 / -1; }
+  /* Every card is the same size closed, so the two-column flow has no holes in
+     it. A card only spans the grid once it's open and needs room to type. */
+  .problems li:has(details[open]) { grid-column: 1 / -1; }
 
   .problem {
     display: grid;
@@ -382,14 +368,6 @@ const draftDetail = draft?.detail ?? '';
   .url-row .input { flex: 1; }
   .card-body .field-hint { margin-block-start: var(--space-2); }
 
-  .extra summary {
-    cursor: pointer;
-    font-size: var(--text-sm);
-    color: var(--text-tertiary);
-    padding-block: var(--space-2);
-  }
-  .extra summary:hover { color: var(--text-secondary); }
-  .extra .textarea { margin-block: var(--space-2); }
 
   .foot-note {
     margin-block-start: var(--space-8);
