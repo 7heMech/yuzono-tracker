@@ -24,11 +24,18 @@
 
   "kv_namespaces": [{ "binding": "SESSION" }],
 
-  // DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET and OWNER_DISCORD_ID are not
-  // here on purpose: they are per-install values, and the Deploy to Cloudflare
-  // flow prompts for whatever `.dev.vars.example` lists. A `vars` entry of the
-  // same name would overwrite the value the deployer typed with an empty one.
+  // Anything in this block is *replaced* on every deploy, so a value set only
+  // in the dashboard gets deleted by the next push. That is why the Discord
+  // application id lives here rather than there — it is public by nature (it
+  // appears in the OAuth URL every visitor sees), so committing it costs
+  // nothing and makes the deploy reproducible. Fork this and it is the one
+  // value you must change.
+  //
+  // DISCORD_CLIENT_SECRET and OWNER_DISCORD_ID are deliberately *not* here.
+  // They are secrets, and secrets are untouched by a deploy — so they survive
+  // pushes for the opposite reason, without being published.
   "vars": {
+    "DISCORD_CLIENT_ID": "1540099681827430530",
     "DISCORD_GUILD_ID": "1377136877491982366",
     // Seeds for the editable settings of the same name. Once /admin writes a
     // value it wins; these stay as the defaults a fresh database starts from.

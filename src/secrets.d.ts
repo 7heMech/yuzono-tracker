@@ -5,8 +5,6 @@
  * with `bunx wrangler secret put <NAME>`.
  */
 interface Env {
-  /** Discord application id. Public, but per-install, so not a committed var. */
-  DISCORD_CLIENT_ID?: string;
   DISCORD_CLIENT_SECRET: string;
   /** Bootstraps the dashboard: the one authority /admin cannot grant. */
   OWNER_DISCORD_ID?: string;
@@ -18,7 +16,6 @@ interface Env {
 
 declare namespace Cloudflare {
   interface Env {
-    DISCORD_CLIENT_ID?: string;
     DISCORD_CLIENT_SECRET: string;
     OWNER_DISCORD_ID?: string;
     GITHUB_TOKEN?: string;
