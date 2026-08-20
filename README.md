@@ -72,6 +72,21 @@ tables. Cloudflare prompts for the three values in `.dev.vars.example`: the two
 Discord credentials and your `OWNER_DISCORD_ID`. Nothing else is asked for,
 because everything else is editable in `/admin` afterwards.
 
+### Pin the Bun version
+
+Workers Builds ships **Bun 1.2.15** by default and does *not* read the
+`packageManager` field in `package.json` — for Bun the only override is a build
+variable. Set it once, in the Worker's **Settings → Build → Build Variables and
+Secrets**:
+
+```
+BUN_VERSION = 1.4.0
+```
+
+`packageManager` and `engines.bun` are declared in `package.json` all the same:
+they pin every other CI and keep local installs honest, and they are the place
+to look when the build variable needs bumping.
+
 Two things Cloudflare cannot do for you, both one-time:
 
 1. **Create the Discord application** at
