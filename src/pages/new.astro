@@ -231,26 +231,22 @@ const draftDetail = draft?.detail ?? '';
                   </summary>
                   {needsUrl ? (
                     <div class="card-body">
-                      <div class="url-row">
-                        <label class="sr-only" for="newUrl">New address</label>
-                        <input
-                          class="input"
-                          id="newUrl"
-                          name="newUrl"
-                          type="url"
-                          inputmode="url"
-                          autocomplete="off"
-                          spellcheck="false"
-                          value={draft?.newUrl ?? ''}
-                          placeholder="new-address.com"
-                        />
-                        <button class="btn btn-primary" type="submit" name="problem" value={p.key}>
-                          Send
-                        </button>
-                      </div>
-                      <p class="field-hint">
-                        Paste the address you were redirected to. Just the domain is fine.
-                      </p>
+                      <label class="sr-only" for="newUrl">New address</label>
+                      <input
+                        class="input"
+                        id="newUrl"
+                        name="newUrl"
+                        type="url"
+                        inputmode="url"
+                        autocomplete="off"
+                        spellcheck="false"
+                        value={draft?.newUrl ?? ''}
+                        placeholder="new-address.com"
+                      />
+                      <p class="field-hint">Just the domain is fine.</p>
+                      <button class="btn btn-primary send" type="submit" name="problem" value={p.key}>
+                        Send
+                      </button>
                     </div>
                   ) : (
                     <div class="card-body">
@@ -259,17 +255,14 @@ const draftDetail = draft?.detail ?? '';
                         class="textarea"
                         id="problemDetail"
                         name="problemDetail"
-                        placeholder="e.g. Episode 5 plays episode 3 instead. Or: subtitles are out of sync on every episode."
+                        rows="3"
+                        placeholder="e.g. Episode 5 plays episode 3 instead"
                         >{draftDetail}</textarea
                       >
-                      <div class="url-row end">
-                        <button class="btn btn-primary" type="submit" name="problem" value={p.key}>
-                          Send
-                        </button>
-                      </div>
-                      <p class="field-hint">
-                        One or two sentences is plenty — say what you did and what happened.
-                      </p>
+                      <p class="field-hint">One or two sentences is plenty.</p>
+                      <button class="btn btn-primary send" type="submit" name="problem" value={p.key}>
+                        Send
+                      </button>
                     </div>
                   )}
                 </details>
@@ -331,9 +324,9 @@ const draftDetail = draft?.detail ?? '';
 
   .problems { display: grid; gap: var(--space-2); }
   @media (min-width: 640px) { .problems { grid-template-columns: 1fr 1fr; } }
-  /* Every card is the same size closed, so the two-column flow has no holes in
-     it. A card only spans the grid once it's open and needs room to type. */
-  .problems li:has(details[open]) { grid-column: 1 / -1; }
+  /* Cards never change grid position — an open card grows downward in its own
+     column, so the only movement is the rows below it, and the card you just
+     tapped stays under your finger. */
 
   .problem {
     display: grid;
@@ -362,11 +355,27 @@ const draftDetail = draft?.detail ?? '';
   }
   .problem-open summary::-webkit-details-marker { display: none; }
   .problem-open[open] { border-color: var(--signal-dim); background: var(--signal-fill); }
-  .card-body { padding: 0 var(--space-3) var(--space-3); }
-  .url-row { display: flex; gap: var(--space-2); }
-  .url-row.end { justify-content: flex-end; margin-block-start: var(--space-2); }
-  .url-row .input { flex: 1; }
-  .card-body .field-hint { margin-block-start: var(--space-2); }
+  .card-body {
+    display: grid;
+    gap: var(--space-2);
+    padding: 0 var(--space-3) var(--space-3);
+  }
+  .card-body .textarea { min-block-size: 0; }
+  .card-body .field-hint { margin: 0; }
+  .send { justify-self: start; }
+
+  /* Where supported, the card animates its own height so the change reads as
+     growth rather than a jump. Falls back to instant. */
+  @supports (interpolate-size: allow-keywords) {
+    :root { interpolate-size: allow-keywords; }
+    .problem-open::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition: block-size var(--dur-slow) var(--ease-out), content-visibility var(--dur-slow);
+      transition-behavior: allow-discrete;
+    }
+    .problem-open[open]::details-content { block-size: auto; }
+  }
 
 
   .foot-note {
