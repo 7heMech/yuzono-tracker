@@ -1,0 +1,38 @@
+---
+import Base from '../layouts/Base.astro';
+import { currentUser } from '../lib/auth';
+import { env } from 'cloudflare:workers';
+
+export const prerender = false;
+const user = await currentUser(Astro);
+const minDays = Number(env.MIN_ACCOUNT_AGE_DAYS ?? 30);
+const ageDays = user ? Math.floor((Date.now() / 1000 - user.accountCreatedAt) / 86_400) : 0;
+const tooNew = user ? ageDays < minDays : false;
+---
+
+<Base title="Can't post yet" narrow>
+  <h1>You can read everything — posting needs one more step</h1>
+  {
+    tooNew ? (
+      <p>
+        Your Discord account is {ageDays} days old. Posting and voting open up at {minDays} days. This keeps throwaway accounts from stuffing the vote counts,
+        which is the only thing making this board useful.
+      </p>
+    ) : (
+      <p>
+        You need to be in the Yuzōnō Discord to post or vote — that's the whole
+        gate, and it exists so vote counts mean something.
+      </p>
+    )
+  }
+  <p class="actions">
+    <a class="btn btn-primary btn-lg" href="https://discord.gg/85MZhUX688">Join the Discord</a>
+    <a class="btn btn-lg" href="/">Back to the board</a>
+  </p>
+</Base>
+
+<style>
+  h1 { font-size: var(--text-xl); margin-block-end: var(--space-3); }
+  p { color: var(--text-secondary); margin-block-end: var(--space-4); }
+  .actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+</style>

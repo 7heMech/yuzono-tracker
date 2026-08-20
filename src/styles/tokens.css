@@ -127,13 +127,8 @@
     --dead-fill: light-dark(oklch(0.53 0.20 25 / 0.12),  oklch(0.68 0.185 25 / 0.14));
     --discord:   light-dark(oklch(0.50 0.20 285),        oklch(0.63 0.19 285));
 
-    /* --- rot ramp: the age rail ------------------------------------------
-       Quiet when fresh, loud when neglected. Thresholds mirror the real
-       backlog — median open age is 69 days, p90 is 147. */
-    --rot-0: light-dark(oklch(0.70 0.010 85), oklch(0.45 0.010 85)); /* <7d   new */
-    --rot-1: light-dark(oklch(0.72 0.110 92), oklch(0.62 0.090 96)); /* 7-30d noticed */
-    --rot-2: light-dark(oklch(0.64 0.150 58), oklch(0.70 0.150 60)); /* 30-90d stale */
-    --rot-3: light-dark(oklch(0.55 0.190 30), oklch(0.66 0.170 32)); /* >90d  rotting */
+    /* Neglect, said in words by the UI — this only tints that text. */
+    --stalled: light-dark(oklch(0.55 0.190 30), oklch(0.66 0.170 32));
   }
 
   @media (prefers-contrast: more) {

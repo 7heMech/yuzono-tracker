@@ -11,7 +11,7 @@ const lang = q.get('lang') ?? '';
 const nsfw = q.get('nsfw') === '1';
 const sort = (q.get('sort') ?? 'demand') as Sort;
 
-const [{ rows, peak }, counts] = await Promise.all([
+const [{ rows }, counts] = await Promise.all([
   board({ family: 'wanted', lang, nsfw, sort }),
   boardCounts(),
 ]);
@@ -42,7 +42,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, sta
     ) : (
       <ol class="rows">
         {rows.map((r) => (
-          <ReportRow report={r} peak={peak} />
+          <ReportRow report={r} />
         ))}
       </ol>
     )

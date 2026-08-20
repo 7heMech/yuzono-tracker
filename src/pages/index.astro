@@ -2,7 +2,9 @@
 import Base from '../layouts/Base.astro';
 import FilterBar from '../components/FilterBar.astro';
 import ReportRow from '../components/ReportRow.astro';
+import SourceFinder from '../components/SourceFinder.svelte';
 import { board, boardCounts, type Sort } from '../lib/queries';
+import { SOURCES, langLabel } from '../lib/sources';
 
 // Reads D1, so this route is on-demand. The per-source pages are the ones that
 // prerender; this board is cached at the edge instead.
@@ -14,13 +16,16 @@ const cause = q.get('cause') ?? '';
 const nsfw = q.get('nsfw') === '1';
 const sort = (q.get('sort') ?? 'demand') as Sort;
 
-const [{ rows, peak }, counts] = await Promise.all([
+const [{ rows }, counts] = await Promise.all([
   board({ family: 'broken', lang, cause, nsfw, sort }),
   boardCounts(),
 ]);
 
 // Anonymous browsing is the overwhelming majority of traffic and touches no
 // user state, so it can sit in the edge cache for a minute.
+const finderRows = SOURCES.map((s) => ({ id: s.id, name: s.name, lang: s.lang, nsfw: s.nsfw, extName: s.extName }));
+const langLabels = Object.fromEntries([...new Set(SOURCES.map((s) => s.lang))].map((c) => [c, langLabel(c)]));
+
 Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
 ---
 
@@ -29,8 +34,8 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, sta
     <div class="head-text">
       <h1>Broken sources</h1>
       <p class="sub">
-        Ranked by how many people are actually hit. One report per source per
-        problem — if it's already here, add your weight instead of filing again.
+        Ranked by how many people are hit. Reporting something already listed
+        just adds you to it.
       </p>
     </div>
     <dl class="tallies">
@@ -42,6 +47,13 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, sta
       </div>
     </dl>
   </header>
+
+  <section class="finder-block">
+    <SourceFinder sources={finderRows} langLabels={langLabels} client:load />
+    <p class="finder-hint">
+      Or <a href="/new">report a problem</a> — takes two taps.
+    </p>
+  </section>
 
   <FilterBar family="broken" lang={lang} cause={cause} nsfw={nsfw} sort={sort} />
 
@@ -59,26 +71,12 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, sta
     ) : (
       <ol class="rows">
         {rows.map((r) => (
-          <ReportRow report={r} peak={peak} />
+          <ReportRow report={r} />
         ))}
       </ol>
     )
   }
 
-  <p class="legend">
-    <span class="legend-item"><span class="rot" data-age="0"></span> filed this week</span>
-    <span class="legend-item"><span class="rot" data-age="2"></span> waiting months</span>
-    <span class="legend-item"><span class="rot" data-age="3"></span> stalled 90d+</span>
-    <span class="legend-sep" aria-hidden="true"></span>
-    <span class="legend-item">
-      <span class="stage" aria-hidden="true">
-        <span class="stage-seg" data-state="ok"></span>
-        <span class="stage-seg" data-state="fail"></span>
-        <span class="stage-seg" data-state="unknown"></span>
-      </span>
-      browse · episodes · video
-    </span>
-  </p>
 </Base>
 
 <style>
@@ -114,30 +112,26 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, sta
     margin-block-start: var(--space-1);
   }
   .rotting {
-    color: var(--rot-3);
+    color: var(--stalled);
   }
 
-  .legend {
+  .finder-block {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: var(--space-4);
     flex-wrap: wrap;
-    padding-block-start: var(--space-4);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
+    padding-block: var(--space-5) var(--space-1);
   }
-  .legend-item {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
+  .finder-block :global(.finder) { flex: 1; min-inline-size: 18rem; max-inline-size: 30rem; }
+  .finder-hint {
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+    padding-block-end: var(--space-2);
   }
-  /* The rail is stretch-height inside a row; give it a fixed height here. */
-  .legend .rot {
-    block-size: 12px;
+  .finder-hint a {
+    color: var(--signal-ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
-  .legend-sep {
-    inline-size: 1px;
-    block-size: 12px;
-    background: var(--border-default);
-  }
+
 </style>

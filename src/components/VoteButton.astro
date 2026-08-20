@@ -1,0 +1,70 @@
+---
+interface Props {
+  reportId: number;
+  votes: number;
+  mine?: boolean;
+}
+const { reportId, votes, mine = false } = Astro.props;
+
+// A plain form post, so it works with JavaScript off. The endpoint redirects to
+// Discord sign-in when there's no session, which means the obvious action never
+// dead-ends — it just asks you to sign in and comes back.
+---
+
+<form method="POST" action="/vote" class="vote">
+  <input type="hidden" name="report" value={reportId} />
+  <button
+    class="vote-btn"
+    type="submit"
+    aria-pressed={mine}
+    title={mine ? "You're counted on this" : 'Me too — this is broken for me'}>
+    <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
+      <path d="M6 2.2 10.6 8H1.4z" fill="currentColor" />
+    </svg>
+    <span class="vote-n">{votes}</span>
+    <span class="sr-only">
+      {mine ? 'You already said this affects you. ' : 'Me too — '}
+      {votes} {votes === 1 ? 'person' : 'people'} affected
+    </span>
+  </button>
+</form>
+
+<style>
+  .vote { flex: none; }
+  .vote-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    inline-size: 44px;
+    padding-block: var(--space-1);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-inset);
+    color: var(--text-tertiary);
+    transition: border-color var(--dur-fast) var(--ease-standard),
+      color var(--dur-fast) var(--ease-standard),
+      background var(--dur-fast) var(--ease-standard);
+  }
+  .vote-btn:hover {
+    border-color: var(--signal-dim);
+    color: var(--signal-ink);
+    background: var(--signal-fill);
+  }
+  .vote-n {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-md);
+    font-weight: var(--weight-semi);
+    line-height: var(--leading-none);
+    letter-spacing: var(--track-tight);
+    color: var(--text-primary);
+  }
+  /* Already counted: filled, unmistakable, still clickable to undo. */
+  .vote-btn[aria-pressed='true'] {
+    background: var(--signal-fill-hi);
+    border-color: var(--signal-dim);
+    color: var(--signal-ink);
+  }
+  .vote-btn[aria-pressed='true'] .vote-n { color: var(--signal-ink); }
+</style>

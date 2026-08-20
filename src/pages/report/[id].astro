@@ -1,0 +1,123 @@
+---
+import Base from '../../layouts/Base.astro';
+import VoteButton from '../../components/VoteButton.astro';
+import { and, eq } from 'drizzle-orm';
+import { db } from '../../lib/db/client';
+import { reports, votes } from '../../lib/db/schema';
+import { currentUser } from '../../lib/auth';
+import { getSource, langLabel } from '../../lib/sources';
+import { CAUSE_LABELS, relativeAge, STAGE_FAILURE, STATUS_LABELS } from '../../lib/format';
+
+export const prerender = false;
+
+const id = Number(Astro.params.id);
+if (!Number.isInteger(id)) return Astro.redirect('/', 302);
+
+const [report] = await db().select().from(reports).where(eq(reports.id, id));
+if (!report) return new Response('Not found', { status: 404 });
+
+const user = await currentUser(Astro);
+const mine = user
+  ? (
+      await db()
+        .select({ r: votes.reportId })
+        .from(votes)
+        .where(and(eq(votes.reportId, id), eq(votes.discordId, user.id)))
+    ).length > 0
+  : false;
+
+const source = getSource(report.sourceId);
+const joined = Astro.url.searchParams.has('joined');
+const filed = Astro.url.searchParams.has('filed');
+---
+
+<Base title={`${source?.name ?? report.proposedName ?? 'Report'} — ${report.title}`} narrow>
+  {
+    (joined || filed) && (
+      <p class="flash" role="status">
+        {joined
+          ? "Someone had already reported this — you've been added to it, so it counts twice as loud now."
+          : "Filed. You're the first to report this one."}
+      </p>
+    )
+  }
+
+  <article>
+    <header class="head">
+      <VoteButton reportId={report.id} votes={report.votes} mine={mine} />
+      <div>
+        <h1>{report.title}</h1>
+        <p class="on">
+          on{' '}
+          {source ? (
+            <a href={`/source/${source.id}`}>{source.name}</a>
+          ) : (
+            <span>{report.proposedName ?? 'an unknown source'}</span>
+          )}
+        </p>
+      </div>
+    </header>
+
+    <dl class="facts">
+      <div>
+        <dt class="label">Status</dt>
+        <dd class="status" data-status={report.status}>{STATUS_LABELS[report.status]}</dd>
+      </div>
+      {report.stage && (
+        <div><dt class="label">Fails at</dt><dd>{STAGE_FAILURE[report.stage]}</dd></div>
+      )}
+      {report.cause && (
+        <div><dt class="label">Cause</dt><dd>{CAUSE_LABELS[report.cause]}</dd></div>
+      )}
+      <div><dt class="label">Language</dt><dd>{langLabel(report.lang)}</dd></div>
+      {report.extVersion && (
+        <div><dt class="label">Version</dt><dd class="num">v{report.extVersion}</dd></div>
+      )}
+      <div><dt class="label">Reported</dt><dd>{relativeAge(report.createdAt)} ago</dd></div>
+    </dl>
+
+    {report.body && <div class="body"><p>{report.body}</p></div>}
+
+    {report.githubIssue && (
+      <p class="gh">
+        Tracked on GitHub as{' '}
+        <a
+          href={`https://github.com/yuzono/anime-extensions/issues/${report.githubIssue}`}
+          rel="noopener noreferrer">
+          #{report.githubIssue}
+        </a>
+      </p>
+    )}
+  </article>
+</Base>
+
+<style>
+  .flash {
+    padding: var(--space-3);
+    margin-block-end: var(--space-6);
+    border: 1px solid var(--border-default);
+    border-inline-start: 2px solid var(--signal);
+    border-radius: var(--radius-md);
+    background: var(--signal-fill);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+  }
+  .head { display: flex; align-items: flex-start; gap: var(--space-4); }
+  h1 { font-size: var(--text-xl); letter-spacing: var(--track-tight); }
+  .on { margin-block-start: var(--space-1); color: var(--text-tertiary); font-size: var(--text-sm); }
+  .on a { color: var(--text-secondary); text-decoration: underline; text-underline-offset: 2px; }
+  .on a:hover { color: var(--signal-ink); }
+
+  .facts {
+    display: flex;
+    gap: var(--space-6);
+    flex-wrap: wrap;
+    padding-block: var(--space-5);
+    margin-block: var(--space-5);
+    border-block: 1px solid var(--border-subtle);
+  }
+  .facts dd { margin-block-start: 2px; font-size: var(--text-sm); }
+  .body p { color: var(--text-secondary); white-space: pre-wrap; }
+  .gh { margin-block-start: var(--space-6); font-size: var(--text-sm); color: var(--text-tertiary); }
+  .gh a { font-family: var(--font-data); color: var(--signal-ink); text-decoration: underline; }
+</style>

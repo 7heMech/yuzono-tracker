@@ -1,0 +1,228 @@
+---
+import Base from '../layouts/Base.astro';
+import SourcePicker from '../components/SourcePicker.svelte';
+import { and, eq, inArray, sql } from 'drizzle-orm';
+import { db } from '../lib/db/client';
+import { OPEN_STATUSES, reports, votes } from '../lib/db/schema';
+import { currentUser } from '../lib/auth';
+import { getSource, langLabel, SOURCES } from '../lib/sources';
+import { PROBLEMS, problemByKey } from '../lib/problems';
+
+export const prerender = false;
+
+const user = await currentUser(Astro);
+
+/* ---------------------------------------------------------------------------
+   POST — filing. If an open report already covers this source and problem, we
+   do NOT error and we do not explain deduplication: we just add the person to
+   the existing report and take them there. Filing again *is* upvoting.
+   ------------------------------------------------------------------------ */
+if (Astro.request.method === 'POST') {
+  if (!user) return Astro.redirect('/auth/discord?next=/new', 302);
+  if (!user.canWrite) return Astro.redirect('/cant-post', 302);
+
+  const form = await Astro.request.formData();
+  const sourceId = String(form.get('source') ?? '').trim();
+  const problem = problemByKey(String(form.get('problem') ?? ''));
+  const detail = String(form.get('detail') ?? '').trim().slice(0, 2000);
+  const source = getSource(sourceId);
+
+  if (source && problem) {
+    const d = db();
+    const [existing] = await d
+      .select({ id: reports.id })
+      .from(reports)
+      .where(
+        and(
+          eq(reports.sourceId, sourceId),
+          eq(reports.kind, problem.kind),
+          inArray(reports.status, [...OPEN_STATUSES]),
+        ),
+      );
+
+    if (existing) {
+      await d.batch([
+        d.insert(votes).values({ reportId: existing.id, discordId: user.id }).onConflictDoNothing(),
+        d
+          .update(reports)
+          .set({ votes: sql`${reports.votes} + 1`, updatedAt: sql`(unixepoch())` })
+          .where(eq(reports.id, existing.id)),
+      ]);
+      return Astro.redirect(`/report/${existing.id}?joined=1`, 303);
+    }
+
+    const [created] = await d
+      .insert(reports)
+      .values({
+        kind: problem.kind,
+        sourceId,
+        lang: source.lang,
+        nsfw: source.nsfw,
+        stage: problem.stage,
+        cause: problem.cause,
+        title: problem.label,
+        body: detail || null,
+        reporterId: user.id,
+        extVersion: source.extVersion,
+        votes: 1,
+      })
+      .returning({ id: reports.id });
+
+    if (created) {
+      await d.insert(votes).values({ reportId: created.id, discordId: user.id }).onConflictDoNothing();
+      return Astro.redirect(`/report/${created.id}?filed=1`, 303);
+    }
+  }
+}
+
+/* --- GET ---------------------------------------------------------------- */
+const preselect = Astro.url.searchParams.get('source') ?? '';
+const preselected = getSource(preselect);
+const pickerRows = SOURCES.map((s) => ({
+  id: s.id,
+  name: s.name,
+  lang: s.lang,
+  nsfw: s.nsfw,
+  extName: s.extName,
+}));
+const langLabels = Object.fromEntries(
+  [...new Set(SOURCES.map((s) => s.lang))].map((c) => [c, langLabel(c)]),
+);
+---
+
+<Base title="Report a problem" narrow>
+  <h1>Report a problem</h1>
+  <p class="lede">Find your source, then tap what's wrong. That's it.</p>
+
+  {
+    !user && (
+      <p class="note">
+        You'll be asked to sign in with Discord when you tap — nothing is lost.
+      </p>
+    )
+  }
+
+  <form method="POST" class="flow">
+    <section class="step">
+      <h2 class="step-h"><span class="step-n">1</span> Which source?</h2>
+      <SourcePicker
+        sources={pickerRows}
+        langLabels={langLabels}
+        selectedId={preselected?.id ?? ''}
+        selectedName={preselected?.name ?? ''}
+        client:load
+      />
+    </section>
+
+    <section class="step">
+      <h2 class="step-h"><span class="step-n">2</span> What's wrong?</h2>
+      <ul class="problems">
+        {
+          PROBLEMS.map((p) => (
+            <li>
+              <button class="problem" type="submit" name="problem" value={p.key}>
+                <span class="problem-label">{p.label}</span>
+                <span class="problem-hint">{p.hint}</span>
+              </button>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <details class="extra">
+      <summary>Add details (optional)</summary>
+      <label class="sr-only" for="detail">Extra detail</label>
+      <textarea
+        class="textarea"
+        id="detail"
+        name="detail"
+        placeholder="Anything that helps — which anime, which episode, the exact error."
+      ></textarea>
+      <p class="field-hint">
+        Skip this if you're in a hurry. A report with no detail still counts.
+      </p>
+    </details>
+  </form>
+
+  <p class="foot-note">
+    Already reported by someone else? Tapping a problem adds you to their report
+    instead of making a duplicate.
+  </p>
+</Base>
+
+<style>
+  h1 { font-size: var(--text-xl); }
+  .lede { color: var(--text-tertiary); margin-block: var(--space-1) var(--space-6); }
+  .note {
+    padding: var(--space-2) var(--space-3);
+    margin-block-end: var(--space-5);
+    border: 1px solid var(--border-default);
+    border-inline-start: 2px solid var(--signal);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+
+  .flow { display: flex; flex-direction: column; gap: var(--space-8); }
+  .step-h {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-md);
+    margin-block-end: var(--space-3);
+  }
+  .step-n {
+    display: grid;
+    place-items: center;
+    inline-size: 20px;
+    block-size: 20px;
+    border-radius: var(--radius-full);
+    background: var(--surface-active);
+    font-family: var(--font-data);
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+  }
+
+  .problems { display: grid; gap: var(--space-2); }
+  @media (min-width: 640px) {
+    .problems { grid-template-columns: 1fr 1fr; }
+  }
+  /* Each choice submits. Big target, plain language, no radio to then confirm. */
+  .problem {
+    display: grid;
+    gap: 2px;
+    inline-size: 100%;
+    min-block-size: 58px;
+    padding: var(--space-3);
+    text-align: start;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-raised);
+    transition: border-color var(--dur-fast) var(--ease-standard),
+      background var(--dur-fast) var(--ease-standard);
+  }
+  .problem:hover {
+    border-color: var(--signal-dim);
+    background: var(--signal-fill);
+  }
+  .problem-label { font-weight: var(--weight-medium); color: var(--text-primary); }
+  .problem-hint { font-size: var(--text-sm); color: var(--text-tertiary); }
+
+  .extra summary {
+    cursor: pointer;
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+    padding-block: var(--space-2);
+  }
+  .extra summary:hover { color: var(--text-secondary); }
+  .extra .textarea { margin-block: var(--space-2); }
+
+  .foot-note {
+    margin-block-start: var(--space-8);
+    padding-block-start: var(--space-4);
+    border-block-start: 1px solid var(--border-subtle);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+</style>

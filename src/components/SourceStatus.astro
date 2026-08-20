@@ -14,7 +14,6 @@ const { sourceId } = Astro.props;
 const all = await reportsForSource(sourceId);
 const open = all.filter((r) => (OPEN_STATUSES as readonly string[]).includes(r.status));
 const closed = all.filter((r) => !(OPEN_STATUSES as readonly string[]).includes(r.status));
-const peak = Math.max(1, ...all.map((r) => r.votes));
 ---
 
 {
@@ -34,7 +33,7 @@ const peak = Math.max(1, ...all.map((r) => r.votes));
       <h2 class="label">Open problems</h2>
       <ol class="rows">
         {open.map((r) => (
-          <ReportRow report={r} peak={peak} />
+          <ReportRow report={r} />
         ))}
       </ol>
       <a class="btn add" href={`/new?source=${sourceId}`}>
@@ -50,7 +49,7 @@ const peak = Math.max(1, ...all.map((r) => r.votes));
       <h2 class="label">Previously fixed</h2>
       <ol class="rows dim">
         {closed.slice(0, 8).map((r) => (
-          <ReportRow report={r} peak={peak} />
+          <ReportRow report={r} />
         ))}
       </ol>
     </section>

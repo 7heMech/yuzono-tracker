@@ -138,7 +138,9 @@ for (const iss of issues) {
   const kind = kindOf(iss.labels);
   const sourceId = kind === 'request' ? undefined : matchSource(iss.title);
   const lang = langOf(iss.title, sourceId);
-  const problem = problemOf(iss.title);
+  // A request's title is the source's name, so say what's being asked for.
+  const problem =
+    kind === 'request' ? `Add ${headOf(iss.title).slice(0, 70) || 'this source'}` : problemOf(iss.title);
   const cause =
     kind === 'bug' || kind === 'domain' || kind === 'dead' ? causeOf(iss.labels, problem) : null;
   const stage = cause ? stageOf(problem, cause) : null;

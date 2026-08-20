@@ -1,27 +1,3 @@
-/**
- * Age is the pathology this board exists to expose: the median open issue on
- * the repo is 69 days old and p90 is 147, so a timestamp alone hides the story.
- * These thresholds drive the rot rail.
- */
-export const ROT_THRESHOLDS_DAYS = [7, 30, 90] as const;
-
-export type RotLevel = 0 | 1 | 2 | 3;
-
-export function rotLevel(createdAt: number, now = Date.now() / 1000): RotLevel {
-  const days = (now - createdAt) / 86_400;
-  if (days < ROT_THRESHOLDS_DAYS[0]) return 0;
-  if (days < ROT_THRESHOLDS_DAYS[1]) return 1;
-  if (days < ROT_THRESHOLDS_DAYS[2]) return 2;
-  return 3;
-}
-
-export const ROT_DESCRIPTION: Record<RotLevel, string> = {
-  0: 'filed this week',
-  1: 'waiting weeks',
-  2: 'waiting months',
-  3: 'stalled over 90 days',
-};
-
 export function relativeAge(createdAt: number, now = Date.now() / 1000): string {
   const s = Math.max(0, now - createdAt);
   const d = Math.floor(s / 86_400);
@@ -36,6 +12,24 @@ export const STAGE_LABELS = {
   episodes: 'Episodes',
   video: 'Video',
 } as const;
+
+/** Said as a sentence fragment, so a row needs no key to read. */
+export const STAGE_FAILURE = {
+  browse: "Can't browse",
+  episodes: 'No episodes',
+  video: 'No video',
+} as const;
+
+/**
+ * Only the genuinely neglected get called out, and in words. Median open age
+ * here is 69 days, so "old" is not remarkable — "ignored" is.
+ */
+export function stalledLabel(createdAt: number, now = Date.now() / 1000): string | null {
+  const days = (now - createdAt) / 86_400;
+  if (days < 90) return null;
+  const months = Math.floor(days / 30);
+  return months >= 12 ? `waiting ${Math.floor(months / 12)}y` : `waiting ${months} months`;
+}
 
 export const CAUSE_LABELS = {
   redesign: 'Site redesigned',
