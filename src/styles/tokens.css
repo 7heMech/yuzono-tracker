@@ -1,0 +1,147 @@
+/* ============================================================================
+   yuzono tracker — design tokens
+   Direction: Precision & Density. Dark-first, borders-only depth, 4px base.
+   The palette comes from the product's world: letterbox black, subtitle
+   yellow, the teal of a link that still resolves, the red of a dead source.
+
+   Every colour is declared once with light-dark(light, dark). `color-scheme`
+   below decides which half is used, so explicit toggle and system preference
+   both work with no duplicated palette.
+   ========================================================================= */
+
+@layer tokens {
+  :root {
+    color-scheme: light dark;
+  }
+  :root[data-theme='light'] { color-scheme: light; }
+  :root[data-theme='dark']  { color-scheme: dark; }
+
+  :root {
+    /* --- type ------------------------------------------------------------ */
+    --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
+    --font-data: 'IBM Plex Mono', ui-monospace, monospace;
+
+    --text-xs: 0.75rem;    /* 12 — micro labels, rail counts */
+    --text-sm: 0.8125rem;  /* 13 — metadata, column labels */
+    --text-base: 0.875rem; /* 14 — body. dense by intent */
+    --text-md: 0.9375rem;  /* 15 — row titles */
+    --text-lg: 1.125rem;   /* 18 — section titles */
+    --text-xl: 1.25rem;    /* 20 — page titles */
+    --text-2xl: 1.5rem;    /* 24 — the one number that matters */
+    --text-3xl: 1.875rem;  /* 30 — hero counts */
+
+    --weight-normal: 400;
+    --weight-medium: 500;
+    --weight-semi: 600;
+
+    --track-tight: -0.015em;
+    --track-tighter: -0.025em;
+    --track-wide: 0.03em;
+    --track-widest: 0.08em;
+
+    --leading-none: 1;
+    --leading-tight: 1.25;
+    --leading-snug: 1.4;
+    --leading-normal: 1.55;
+
+    /* --- space ----------------------------------------------------------- */
+    --space-px: 1px;
+    --space-0-5: 2px;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    --space-16: 64px;
+
+    /* --- radius: sharp. this is an instrument, not a toy ----------------- */
+    --radius-sm: 3px;
+    --radius-md: 4px;
+    --radius-lg: 6px;
+    --radius-full: 999px;
+
+    /* --- layout ---------------------------------------------------------- */
+    --measure: 1180px;
+    --measure-prose: 68ch;
+    --row-height: 34px;
+    --control-height: 30px;
+    --control-height-lg: 38px;
+
+    /* --- z --------------------------------------------------------------- */
+    --z-sticky: 200;
+    --z-dropdown: 300;
+    --z-modal: 400;
+    --z-toast: 500;
+
+    /* --- motion ---------------------------------------------------------- */
+    --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --dur-fast: 120ms;
+    --dur-base: 160ms;
+    --dur-slow: 240ms;
+
+    /* --- surfaces --------------------------------------------------------
+       Dark: +3% lightness per level, hue 85 at near-zero chroma, so the canvas
+       is *related* to the yellow accent instead of sitting next to it as grey.
+       Light: white cards on a barely-warm canvas; lift comes from borders. */
+    --surface-canvas:  light-dark(oklch(0.985 0.003 85), oklch(0.155 0.004 85));
+    --surface-raised:  light-dark(oklch(1 0 0),          oklch(0.185 0.005 85));
+    --surface-overlay: light-dark(oklch(1 0 0),          oklch(0.215 0.006 85));
+    --surface-modal:   light-dark(oklch(1 0 0),          oklch(0.245 0.006 85));
+    --surface-inset:   light-dark(oklch(0.965 0.004 85), oklch(0.128 0.004 85));
+    --surface-hover:   light-dark(oklch(0 0 0 / 0.028),  oklch(1 0 0 / 0.035));
+    --surface-active:  light-dark(oklch(0 0 0 / 0.05),   oklch(1 0 0 / 0.06));
+
+    /* --- text ------------------------------------------------------------ */
+    --text-primary:   light-dark(oklch(0.19 0.008 85), oklch(0.955 0.004 85));
+    --text-secondary: light-dark(oklch(0.42 0.008 85), oklch(0.760 0.005 85));
+    --text-tertiary:  light-dark(oklch(0.56 0.008 85), oklch(0.600 0.006 85));
+    --text-muted:     light-dark(oklch(0.66 0.008 85), oklch(0.475 0.006 85));
+
+    /* --- borders: carry all the depth. no shadows anywhere. -------------- */
+    --border-subtle:    light-dark(oklch(0 0 0 / 0.055), oklch(1 0 0 / 0.055));
+    --border-default:   light-dark(oklch(0 0 0 / 0.10),  oklch(1 0 0 / 0.09));
+    --border-strong:    light-dark(oklch(0 0 0 / 0.16),  oklch(1 0 0 / 0.14));
+    --border-strongest: light-dark(oklch(0 0 0 / 0.26),  oklch(1 0 0 / 0.22));
+
+    /* --- signal: subtitle yellow -----------------------------------------
+       Attention, priority, your own position. Never a status, never small
+       text on light. --signal-ink is the text-safe variant: in light mode it
+       drops to a dark olive-gold because yellow cannot carry 13px on white. */
+    --signal:           light-dark(oklch(0.80 0.16 92),        oklch(0.865 0.165 96));
+    --signal-dim:       light-dark(oklch(0.86 0.10 92),        oklch(0.70 0.13 96));
+    --signal-ink:       light-dark(oklch(0.46 0.11 88),        oklch(0.865 0.165 96));
+    --signal-fill:      light-dark(oklch(0.80 0.16 92 / 0.22), oklch(0.865 0.165 96 / 0.16));
+    --signal-fill-hi:   light-dark(oklch(0.80 0.16 92 / 0.40), oklch(0.865 0.165 96 / 0.28));
+    --on-signal:        light-dark(oklch(0.20 0.03 92),        oklch(0.16 0.02 96));
+
+    /* --- semantic: teal not green, so good/bad survives deuteranopia ----- */
+    --live:      light-dark(oklch(0.55 0.11 195),        oklch(0.78 0.115 195));
+    --live-fill: light-dark(oklch(0.55 0.11 195 / 0.14), oklch(0.78 0.115 195 / 0.14));
+    --dead:      light-dark(oklch(0.53 0.20 25),         oklch(0.68 0.185 25));
+    --dead-fill: light-dark(oklch(0.53 0.20 25 / 0.12),  oklch(0.68 0.185 25 / 0.14));
+    --discord:   light-dark(oklch(0.50 0.20 285),        oklch(0.63 0.19 285));
+
+    /* --- rot ramp: the age rail ------------------------------------------
+       Quiet when fresh, loud when neglected. Thresholds mirror the real
+       backlog — median open age is 69 days, p90 is 147. */
+    --rot-0: light-dark(oklch(0.70 0.010 85), oklch(0.45 0.010 85)); /* <7d   new */
+    --rot-1: light-dark(oklch(0.72 0.110 92), oklch(0.62 0.090 96)); /* 7-30d noticed */
+    --rot-2: light-dark(oklch(0.64 0.150 58), oklch(0.70 0.150 60)); /* 30-90d stale */
+    --rot-3: light-dark(oklch(0.55 0.190 30), oklch(0.66 0.170 32)); /* >90d  rotting */
+  }
+
+  @media (prefers-contrast: more) {
+    :root {
+      --border-default:  light-dark(oklch(0 0 0 / 0.24), oklch(1 0 0 / 0.20));
+      --border-strong:   light-dark(oklch(0 0 0 / 0.38), oklch(1 0 0 / 0.32));
+      --text-secondary:  light-dark(oklch(0.30 0.008 85), oklch(0.88 0.004 85));
+      --text-tertiary:   light-dark(oklch(0.42 0.008 85), oklch(0.74 0.006 85));
+    }
+  }
+}

@@ -1,0 +1,119 @@
+---
+import Base from '../../layouts/Base.astro';
+import SourceStatus from '../../components/SourceStatus.astro';
+import { SOURCES, langDir, langLabel } from '../../lib/sources';
+
+// 310 static pages. These are the search-landing surface — someone googling
+// "animepahe not working" should hit real HTML from the nearest edge, with the
+// live report data arriving in the server island below.
+export const prerender = true;
+
+export function getStaticPaths() {
+  return SOURCES.map((s) => ({ params: { id: s.id }, props: { source: s } }));
+}
+
+const { source } = Astro.props;
+const host = (() => {
+  try {
+    return new URL(source.baseUrl).host;
+  } catch {
+    return source.baseUrl;
+  }
+})();
+---
+
+<Base title={source.name} description={`Is ${source.name} broken? Current status and open reports.`}>
+  <nav class="crumb" aria-label="Breadcrumb">
+    <a href="/sources">Sources</a>
+    <span aria-hidden="true">/</span>
+    <span>{source.name}</span>
+  </nav>
+
+  <header class="head">
+    <div>
+      <h1 dir={langDir(source.lang)}>{source.name}</h1>
+      <p class="host">
+        <a href={source.baseUrl} rel="nofollow noopener noreferrer external">{host}</a>
+      </p>
+    </div>
+    <dl class="facts">
+      <div>
+        <dt class="label">Language</dt>
+        <dd>{langLabel(source.lang)}</dd>
+      </div>
+      <div>
+        <dt class="label">Extension</dt>
+        <dd>{source.extName}</dd>
+      </div>
+      <div>
+        <dt class="label">Version</dt>
+        <dd class="num">v{source.extVersion}</dd>
+      </div>
+      <div>
+        <dt class="label">Source id</dt>
+        <dd class="num id">{source.id}</dd>
+      </div>
+    </dl>
+  </header>
+
+  {source.nsfw && <p class="nsfw">This source is marked 18+.</p>}
+
+  <SourceStatus sourceId={source.id} server:defer>
+    <div slot="fallback" class="loading">
+      <span class="skeleton line" style="--w: 34%"></span>
+      <span class="skeleton line" style="--w: 88%"></span>
+      <span class="skeleton line" style="--w: 72%"></span>
+    </div>
+  </SourceStatus>
+</Base>
+
+<style>
+  .crumb {
+    display: flex;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    padding-block-end: var(--space-3);
+  }
+  .crumb a:hover { color: var(--text-secondary); }
+
+  .head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+    padding-block-end: var(--space-5);
+    margin-block-end: var(--space-5);
+    border-block-end: 1px solid var(--border-subtle);
+  }
+  h1 {
+    font-size: var(--text-2xl);
+    letter-spacing: var(--track-tighter);
+  }
+  .host {
+    margin-block-start: var(--space-1);
+    font-family: var(--font-data);
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+  }
+  .host a { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 2px; }
+  .host a:hover { color: var(--signal-ink); }
+
+  .facts { display: flex; gap: var(--space-6); flex-wrap: wrap; }
+  .facts dd { margin-block-start: 2px; font-size: var(--text-sm); }
+  .facts .id { color: var(--text-tertiary); }
+
+  .nsfw {
+    margin-block-end: var(--space-4);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-default);
+    border-inline-start: 2px solid var(--dead);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+
+  .loading { display: grid; gap: var(--space-2); }
+  .loading .line { block-size: 14px; inline-size: var(--w); }
+</style>

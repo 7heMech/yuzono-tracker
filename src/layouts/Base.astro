@@ -1,0 +1,83 @@
+---
+import { Font } from 'astro:assets';
+import '../styles/tokens.css';
+import '../styles/base.css';
+import Header from '../components/Header.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Wide pages (the board) vs reading pages (docs, forms). */
+  narrow?: boolean;
+}
+
+const {
+  title,
+  description = 'Which anime extension sources are broken, and which ones the community wants most.',
+  narrow = false,
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · yuzono tracker</title>
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <Font cssVariable="--font-ui-family" preload />
+    <Font cssVariable="--font-data-family" />
+
+    <script is:inline>
+      // Applied before first paint so an explicit choice never flashes the
+      // system theme. `light-dark()` in the tokens resolves off color-scheme,
+      // which this attribute sets.
+      const stored = localStorage.getItem('theme');
+      if (stored === 'light' || stored === 'dark') {
+        document.documentElement.dataset.theme = stored;
+      }
+    </script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <Header />
+    <main id="main" class:list={['shell', { prose: narrow }]}>
+      <slot />
+    </main>
+
+    <footer class="shell foot">
+      <p>
+        Community-run tracker for <a href="https://github.com/yuzono/anime-extensions">yuzono/anime-extensions</a>.
+        Not affiliated with the extension maintainers.
+      </p>
+    </footer>
+
+    <style>
+      main {
+        padding-block: var(--space-6) var(--space-16);
+      }
+      main.prose {
+        max-inline-size: var(--measure-prose);
+      }
+      .foot {
+        padding-block: var(--space-6);
+        border-block-start: 1px solid var(--border-subtle);
+        font-size: var(--text-sm);
+        color: var(--text-muted);
+      }
+      .foot a {
+        color: var(--text-tertiary);
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+        text-underline-offset: 2px;
+      }
+      .foot a:hover {
+        color: var(--text-secondary);
+      }
+    </style>
+  </body>
+</html>

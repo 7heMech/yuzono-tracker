@@ -1,0 +1,108 @@
+---
+import ThemeToggle from './ThemeToggle.svelte';
+
+// Five destinations do not earn a 260px sidebar. A compact bar keeps the
+// board — the thing people came for — at the top of the viewport.
+const path = Astro.url.pathname;
+const tabs = [
+  { href: '/', label: 'Broken', match: (p: string) => p === '/' },
+  { href: '/requests', label: 'Requests', match: (p: string) => p.startsWith('/requests') },
+  { href: '/sources', label: 'Sources', match: (p: string) => p.startsWith('/source') },
+];
+---
+
+<header class="bar">
+  <div class="shell inner">
+    <a href="/" class="mark">
+      <span class="mark-dot" aria-hidden="true"></span>
+      <span class="mark-text">yuzono <span>tracker</span></span>
+    </a>
+
+    <nav class="tabs" aria-label="Sections">
+      {
+        tabs.map((t) => (
+          <a href={t.href} class="tab" aria-current={t.match(path) ? 'page' : undefined}>
+            {t.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <span class="spacer"></span>
+
+    <ThemeToggle client:load />
+    <a class="btn btn-discord" href="/auth/discord">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M19.3 5.3A16.6 16.6 0 0 0 15.2 4l-.3.6a12.4 12.4 0 0 1 3.7 1.2 12.9 12.9 0 0 0-11-.5l.3-.7A16.5 16.5 0 0 0 4.7 5.3C2.2 9 1.5 12.6 1.9 16.2a16.4 16.4 0 0 0 5 2.5l.6-1a10.7 10.7 0 0 1-1.8-.9l.4-.3a11.7 11.7 0 0 0 10 0l.4.3a10.8 10.8 0 0 1-1.8.9l.6 1a16.3 16.3 0 0 0 5-2.5c.5-4.2-.6-7.8-2.9-10.9ZM8.7 14c-1 0-1.7-.9-1.7-2s.8-2 1.7-2 1.8.9 1.7 2c0 1.1-.8 2-1.7 2Zm6.6 0c-1 0-1.7-.9-1.7-2s.8-2 1.7-2 1.8.9 1.7 2c0 1.1-.8 2-1.7 2Z" />
+      </svg>
+      <span class="login-text">Sign in</span>
+    </a>
+  </div>
+</header>
+
+<style>
+  .bar {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: var(--z-sticky);
+    background: color-mix(in oklab, var(--surface-canvas) 82%, transparent);
+    backdrop-filter: blur(14px) saturate(1.4);
+    border-block-end: 1px solid var(--border-subtle);
+  }
+  .inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    block-size: 52px;
+  }
+
+  .mark {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: var(--weight-semi);
+    letter-spacing: var(--track-tight);
+    white-space: nowrap;
+  }
+  /* The one place the accent appears unprompted: a live signal dot. */
+  .mark-dot {
+    inline-size: 7px;
+    block-size: 7px;
+    border-radius: var(--radius-full);
+    background: var(--signal);
+    box-shadow: 0 0 0 3px var(--signal-fill);
+  }
+  .mark-text span {
+    color: var(--text-tertiary);
+    font-weight: var(--weight-normal);
+  }
+
+  .tabs {
+    display: flex;
+    gap: var(--space-1);
+    margin-inline-start: var(--space-4);
+  }
+  .tab {
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--text-tertiary);
+    transition: color var(--dur-fast) var(--ease-standard),
+      background var(--dur-fast) var(--ease-standard);
+  }
+  .tab:hover {
+    color: var(--text-secondary);
+    background: var(--surface-hover);
+  }
+  .tab[aria-current='page'] {
+    color: var(--text-primary);
+    background: var(--surface-active);
+  }
+
+  @media (max-width: 560px) {
+    .mark-text span { display: none; }
+    .tabs { margin-inline-start: var(--space-1); }
+    .login-text { display: none; }
+  }
+</style>

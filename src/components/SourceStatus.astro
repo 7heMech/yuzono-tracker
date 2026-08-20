@@ -1,0 +1,86 @@
+---
+import ReportRow from './ReportRow.astro';
+import { reportsForSource } from '../lib/queries';
+import { OPEN_STATUSES } from '../lib/db/schema';
+
+interface Props {
+  sourceId: string;
+}
+const { sourceId } = Astro.props;
+
+// A server island: the page around it is prerendered and edge-cached, while
+// this fragment renders on demand with live data. SvelteKit has no equivalent —
+// showing a live count there would force the whole page to be dynamic.
+const all = await reportsForSource(sourceId);
+const open = all.filter((r) => (OPEN_STATUSES as readonly string[]).includes(r.status));
+const closed = all.filter((r) => !(OPEN_STATUSES as readonly string[]).includes(r.status));
+const peak = Math.max(1, ...all.map((r) => r.votes));
+---
+
+{
+  open.length === 0 ? (
+    <div class="ok">
+      <p class="ok-title">No open reports</p>
+      <p class="ok-sub">
+        Nobody has reported this source as broken. If it's failing for you, say so —
+        you'll be the first.
+      </p>
+      <a class="btn btn-primary" href={`/new?source=${sourceId}`}>
+        Report a problem
+      </a>
+    </div>
+  ) : (
+    <section>
+      <h2 class="label">Open problems</h2>
+      <ol class="rows">
+        {open.map((r) => (
+          <ReportRow report={r} peak={peak} />
+        ))}
+      </ol>
+      <a class="btn add" href={`/new?source=${sourceId}`}>
+        Something else is broken
+      </a>
+    </section>
+  )
+}
+
+{
+  closed.length > 0 && (
+    <section class="history">
+      <h2 class="label">Previously fixed</h2>
+      <ol class="rows dim">
+        {closed.slice(0, 8).map((r) => (
+          <ReportRow report={r} peak={peak} />
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+<style>
+  section + section { margin-block-start: var(--space-8); }
+  .label { margin-block-end: var(--space-2); }
+  .add { margin-block-start: var(--space-3); }
+  .ok {
+    display: grid;
+    justify-items: start;
+    gap: var(--space-2);
+    padding: var(--space-6);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    background: var(--surface-raised);
+    border-inline-start: 2px solid var(--live);
+  }
+  .ok-title {
+    font-size: var(--text-md);
+    font-weight: var(--weight-semi);
+    color: var(--live);
+  }
+  .ok-sub {
+    max-inline-size: 52ch;
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+  }
+  .history .dim { opacity: 0.62; }
+  .history .dim:hover { opacity: 1; }
+</style>

@@ -1,0 +1,121 @@
+---
+import StageBar from './StageBar.astro';
+import Weight from './Weight.astro';
+import { getSource, langDir, langLabel } from '../lib/sources';
+import {
+  CAUSE_LABELS,
+  relativeAge,
+  ROT_DESCRIPTION,
+  rotLevel,
+  STATUS_LABELS,
+} from '../lib/format';
+import type { Report } from '../lib/db/schema';
+
+interface Props {
+  report: Report;
+  peak: number;
+  mine?: boolean;
+}
+
+const { report: r, peak, mine = false } = Astro.props;
+
+const source = getSource(r.sourceId);
+const displayName = source?.name ?? r.proposedName ?? 'Unknown source';
+const rot = rotLevel(r.createdAt);
+const blocked = r.cause === 'cloudflare' || r.cause === 'geo';
+---
+
+<li class="row">
+  <span
+    class="rot"
+    data-age={rot}
+    role="img"
+    aria-label={ROT_DESCRIPTION[rot]}
+    title={ROT_DESCRIPTION[rot]}></span>
+
+  <Weight votes={r.votes} peak={peak} mine={mine} />
+
+  <a class="row-main" href={`/report/${r.id}`}>
+    <span class="row-title">
+      <span class="src" dir={langDir(r.lang)}>{displayName}</span>
+      <span class="sep" aria-hidden="true">·</span>
+      <span class="what">{r.title}</span>
+    </span>
+    <span class="row-meta">
+      <span class="lang" title={langLabel(r.lang)}>{r.lang}</span>
+      {r.cause && <span class="cause">{CAUSE_LABELS[r.cause]}</span>}
+      {r.extVersion && <span class="data ver">v{r.extVersion}</span>}
+      <span class="data age" title={`Filed ${relativeAge(r.createdAt)} ago`}>{relativeAge(r.createdAt)}</span>
+      {
+        r.githubIssue && (
+          <span class="gh">
+            #{r.githubIssue}
+          </span>
+        )
+      }
+    </span>
+  </a>
+
+  <StageBar stage={r.stage} blocked={blocked} />
+
+  {
+    r.status !== 'open' && (
+      <span class="status" data-status={r.status}>
+        {STATUS_LABELS[r.status]}
+      </span>
+    )
+  }
+</li>
+
+<style>
+  .row-title {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    min-inline-size: 0;
+  }
+  .src {
+    font-weight: var(--weight-semi);
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+  .sep {
+    color: var(--text-muted);
+  }
+  .what {
+    color: var(--text-secondary);
+    font-weight: var(--weight-normal);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cause {
+    color: var(--text-tertiary);
+  }
+  .ver,
+  .age {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .gh {
+    font-family: var(--font-data);
+    font-size: var(--text-xs);
+    color: var(--live);
+  }
+  .row-main:hover .what {
+    color: var(--text-primary);
+  }
+
+  @media (max-width: 640px) {
+    .ver,
+    .cause {
+      display: none;
+    }
+    .row-title {
+      flex-wrap: wrap;
+    }
+    .what {
+      white-space: normal;
+    }
+  }
+</style>

@@ -1,0 +1,122 @@
+---
+import { languageFacets } from '../lib/sources';
+import { CAUSE_LABELS } from '../lib/format';
+
+interface Props {
+  family: 'broken' | 'wanted';
+  lang?: string;
+  cause?: string;
+  nsfw: boolean;
+  sort: string;
+}
+
+const { family, lang = '', cause = '', nsfw, sort } = Astro.props;
+const langs = languageFacets();
+
+// 41 languages is past Hick's-law territory for chips, so language is a select
+// while the handful of causes stay as one-tap chips.
+const sorts = [
+  { key: 'demand', label: 'Most wanted' },
+  { key: 'stalled', label: 'Longest waiting' },
+  { key: 'recent', label: 'Newest' },
+];
+---
+
+<form class="filters" method="get" role="search">
+  <div class="line">
+    <label class="sr-only" for="lang">Language</label>
+    <select class="select compact" id="lang" name="lang" onchange="this.form.requestSubmit()">
+      <option value="">All languages</option>
+      {
+        langs.map((l) => (
+          <option value={l.code} selected={l.code === lang}>
+            {l.label} ({l.count})
+          </option>
+        ))
+      }
+    </select>
+
+    <div class="segmented" role="group" aria-label="Sort order">
+      {
+        sorts.map((s) => (
+          <button
+            class="chip"
+            type="submit"
+            name="sort"
+            value={s.key}
+            aria-pressed={sort === s.key}>
+            {s.label}
+          </button>
+        ))
+      }
+    </div>
+
+    <span class="spacer"></span>
+
+    <button
+      class="chip"
+      type="submit"
+      name="nsfw"
+      value={nsfw ? '' : '1'}
+      aria-pressed={nsfw}
+      title="108 of 310 sources are marked 18+">
+      18+
+    </button>
+  </div>
+
+  {
+    family === 'broken' && (
+      <div class="line causes">
+        <span class="label">Cause</span>
+        <button class="chip" type="submit" name="cause" value="" aria-pressed={!cause}>
+          Any
+        </button>
+        {Object.entries(CAUSE_LABELS).map(([key, label]) => (
+          <button class="chip" type="submit" name="cause" value={key} aria-pressed={cause === key}>
+            {label}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
+  <!-- Keep the other facets when a chip submits. -->
+  {sort && <input type="hidden" name="sort" value={sort} />}
+  {nsfw && <input type="hidden" name="nsfw" value="1" />}
+  {lang && <input type="hidden" name="lang" value={lang} />}
+</form>
+
+<style>
+  .filters {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-block: var(--space-3);
+  }
+  .line {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+  .select.compact {
+    inline-size: auto;
+    min-inline-size: 11rem;
+    block-size: 26px;
+    font-size: var(--text-sm);
+    padding-inline: var(--space-2);
+  }
+  .segmented {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+  }
+  .segmented .chip {
+    border-color: transparent;
+  }
+  .causes .label {
+    margin-inline-end: var(--space-1);
+  }
+</style>

@@ -1,0 +1,64 @@
+---
+import Base from '../layouts/Base.astro';
+import FilterBar from '../components/FilterBar.astro';
+import ReportRow from '../components/ReportRow.astro';
+import { board, boardCounts, type Sort } from '../lib/queries';
+
+export const prerender = false;
+
+const q = Astro.url.searchParams;
+const lang = q.get('lang') ?? '';
+const nsfw = q.get('nsfw') === '1';
+const sort = (q.get('sort') ?? 'demand') as Sort;
+
+const [{ rows, peak }, counts] = await Promise.all([
+  board({ family: 'wanted', lang, nsfw, sort }),
+  boardCounts(),
+]);
+
+Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+---
+
+<Base title="Requested sources">
+  <header class="head">
+    <div>
+      <h1>Requested sources</h1>
+      <p class="sub">
+        Sources people want added, ranked by demand. This is the larger half of
+        the backlog — {counts.wanted} open requests against {counts.broken} broken
+        sources — so votes here decide what gets built next.
+      </p>
+    </div>
+  </header>
+
+  <FilterBar family="wanted" lang={lang} nsfw={nsfw} sort={sort} />
+
+  {
+    rows.length === 0 ? (
+      <div class="empty">
+        <p class="empty-title">No open requests</p>
+        <a class="btn btn-primary" href="/new?kind=request">Request a source</a>
+      </div>
+    ) : (
+      <ol class="rows">
+        {rows.map((r) => (
+          <ReportRow report={r} peak={peak} />
+        ))}
+      </ol>
+    )
+  }
+</Base>
+
+<style>
+  .head {
+    padding-block-end: var(--space-4);
+    border-block-end: 1px solid var(--border-subtle);
+  }
+  h1 { font-size: var(--text-xl); letter-spacing: var(--track-tight); }
+  .sub {
+    max-inline-size: 62ch;
+    margin-block-start: var(--space-1);
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+  }
+</style>

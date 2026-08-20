@@ -1,0 +1,33 @@
+---
+import { STAGE_LABELS } from '../lib/format';
+
+interface Props {
+  /** Which stage the report says is broken. Null for requests and meta items. */
+  stage?: 'browse' | 'episodes' | 'video' | null;
+  /** Cloudflare and geo-blocks are not the extension's fault — mark, don't fail. */
+  blocked?: boolean;
+}
+
+const { stage = null, blocked = false } = Astro.props;
+const order = ['browse', 'episodes', 'video'] as const;
+
+// A source fails *at* a stage: everything before it works, everything from it
+// on is unknown rather than proven broken. Saying "unknown" is the honest
+// default until probe data exists to say otherwise.
+function stateOf(seg: (typeof order)[number]) {
+  if (!stage) return 'unknown';
+  const i = order.indexOf(seg);
+  const failAt = order.indexOf(stage);
+  if (i < failAt) return 'ok';
+  if (i === failAt) return blocked ? 'block' : 'fail';
+  return 'unknown';
+}
+
+const summary = stage
+  ? `${STAGE_LABELS[stage]} ${blocked ? 'blocked' : 'failing'}`
+  : 'No stage reported';
+---
+
+<span class="stage" role="img" aria-label={summary} title={summary}>
+  {order.map((seg) => <span class="stage-seg" data-state={stateOf(seg)}></span>)}
+</span>

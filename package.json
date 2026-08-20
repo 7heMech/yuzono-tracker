@@ -1,0 +1,30 @@
+{
+  "name": "yuzono-tracker",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "sync:sources": "bun scripts/sync-sources.ts",
+    "db:generate": "bunx drizzle-kit generate",
+    "db:local": "bunx wrangler d1 migrations apply yuzono-tracker --local",
+    "db:remote": "bunx wrangler d1 migrations apply yuzono-tracker --remote",
+    "deploy": "astro build && bunx wrangler deploy"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^14.2.3",
+    "@astrojs/svelte": "^9.0.1",
+    "astro": "^7.2.4",
+    "drizzle-orm": "^0.45.2",
+    "svelte": "^5.56.9"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260101.0",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^5.9.0",
+    "wrangler": "^4.124.0"
+  }
+}

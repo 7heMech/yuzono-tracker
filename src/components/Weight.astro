@@ -1,0 +1,20 @@
+---
+interface Props {
+  votes: number;
+  /** Highest vote count on the current board — sets the bar's scale. */
+  peak: number;
+  /** Has the signed-in viewer already added their weight? */
+  mine?: boolean;
+}
+
+const { votes, peak, mine = false } = Astro.props;
+// Square-root scaling: with a long tail, linear scaling flattens everything
+// below the top item into an invisible sliver.
+const w = peak > 0 ? Math.sqrt(votes / peak) : 0;
+---
+
+<span class="weight" data-mine={mine} style={`--w:${w.toFixed(3)}`}>
+  <b class="weight-n">{votes}</b>
+  <span class="weight-track"><span class="weight-fill"></span></span>
+  <span class="sr-only">{votes} {votes === 1 ? 'person' : 'people'} affected{mine ? ', including you' : ''}</span>
+</span>

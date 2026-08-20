@@ -1,0 +1,42 @@
+---
+import Base from '../../layouts/Base.astro';
+import SourceSearch from '../../components/SourceSearch.svelte';
+import { SOURCES, langLabel } from '../../lib/sources';
+
+// Fully prerendered: the catalogue only changes when the extension index does,
+// so this page is static HTML on the edge and costs no compute per visit.
+export const prerender = true;
+
+const rows = SOURCES.map((s) => ({
+  id: s.id,
+  name: s.name,
+  lang: s.lang,
+  nsfw: s.nsfw,
+  extName: s.extName,
+}));
+
+const langLabels = Object.fromEntries([...new Set(SOURCES.map((s) => s.lang))].map((c) => [c, langLabel(c)]));
+---
+
+<Base title="Sources">
+  <header class="head">
+    <h1>Sources</h1>
+    <p class="sub">
+      Every source in the repo — {SOURCES.length} across {Object.keys(langLabels).length} languages.
+      Open one to see whether it's known broken.
+    </p>
+  </header>
+
+  <SourceSearch sources={rows} langLabels={langLabels} client:load />
+</Base>
+
+<style>
+  .head { padding-block-end: var(--space-2); }
+  h1 { font-size: var(--text-xl); letter-spacing: var(--track-tight); }
+  .sub {
+    max-inline-size: 60ch;
+    margin-block-start: var(--space-1);
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+  }
+</style>

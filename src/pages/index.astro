@@ -1,0 +1,143 @@
+---
+import Base from '../layouts/Base.astro';
+import FilterBar from '../components/FilterBar.astro';
+import ReportRow from '../components/ReportRow.astro';
+import { board, boardCounts, type Sort } from '../lib/queries';
+
+// Reads D1, so this route is on-demand. The per-source pages are the ones that
+// prerender; this board is cached at the edge instead.
+export const prerender = false;
+
+const q = Astro.url.searchParams;
+const lang = q.get('lang') ?? '';
+const cause = q.get('cause') ?? '';
+const nsfw = q.get('nsfw') === '1';
+const sort = (q.get('sort') ?? 'demand') as Sort;
+
+const [{ rows, peak }, counts] = await Promise.all([
+  board({ family: 'broken', lang, cause, nsfw, sort }),
+  boardCounts(),
+]);
+
+// Anonymous browsing is the overwhelming majority of traffic and touches no
+// user state, so it can sit in the edge cache for a minute.
+Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+---
+
+<Base title="Broken sources">
+  <header class="head">
+    <div class="head-text">
+      <h1>Broken sources</h1>
+      <p class="sub">
+        Ranked by how many people are actually hit. One report per source per
+        problem — if it's already here, add your weight instead of filing again.
+      </p>
+    </div>
+    <dl class="tallies">
+      <div><dt class="label">Open</dt><dd class="num">{counts.broken}</dd></div>
+      <div><dt class="label">Wanted</dt><dd class="num">{counts.wanted}</dd></div>
+      <div>
+        <dt class="label">Stalled 90d+</dt>
+        <dd class="num rotting">{counts.stalled}</dd>
+      </div>
+    </dl>
+  </header>
+
+  <FilterBar family="broken" lang={lang} cause={cause} nsfw={nsfw} sort={sort} />
+
+  {
+    rows.length === 0 ? (
+      <div class="empty">
+        <p class="empty-title">Nothing broken here</p>
+        <p>
+          {lang || cause
+            ? 'No open reports match these filters. Try widening them.'
+            : 'No open reports yet. If a source is broken for you, be the first to say so.'}
+        </p>
+        <a class="btn btn-primary" href="/new">Report a broken source</a>
+      </div>
+    ) : (
+      <ol class="rows">
+        {rows.map((r) => (
+          <ReportRow report={r} peak={peak} />
+        ))}
+      </ol>
+    )
+  }
+
+  <p class="legend">
+    <span class="legend-item"><span class="rot" data-age="0"></span> filed this week</span>
+    <span class="legend-item"><span class="rot" data-age="2"></span> waiting months</span>
+    <span class="legend-item"><span class="rot" data-age="3"></span> stalled 90d+</span>
+    <span class="legend-sep" aria-hidden="true"></span>
+    <span class="legend-item">
+      <span class="stage" aria-hidden="true">
+        <span class="stage-seg" data-state="ok"></span>
+        <span class="stage-seg" data-state="fail"></span>
+        <span class="stage-seg" data-state="unknown"></span>
+      </span>
+      browse · episodes · video
+    </span>
+  </p>
+</Base>
+
+<style>
+  .head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+    padding-block-end: var(--space-4);
+    border-block-end: 1px solid var(--border-subtle);
+  }
+  h1 {
+    font-size: var(--text-xl);
+    letter-spacing: var(--track-tight);
+  }
+  .sub {
+    max-inline-size: 52ch;
+    margin-block-start: var(--space-1);
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+  }
+  .tallies {
+    display: flex;
+    gap: var(--space-6);
+  }
+  .tallies dd {
+    font-family: var(--font-data);
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-semi);
+    line-height: var(--leading-none);
+    letter-spacing: var(--track-tighter);
+    margin-block-start: var(--space-1);
+  }
+  .rotting {
+    color: var(--rot-3);
+  }
+
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    padding-block-start: var(--space-4);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  /* The rail is stretch-height inside a row; give it a fixed height here. */
+  .legend .rot {
+    block-size: 12px;
+  }
+  .legend-sep {
+    inline-size: 1px;
+    block-size: 12px;
+    background: var(--border-default);
+  }
+</style>
