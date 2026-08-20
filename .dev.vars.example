@@ -1,20 +1,7 @@
-# Copy to `.dev.vars` (git-ignored) and fill in.
-# Create the app at https://discord.com/developers/applications
-# → OAuth2 → Redirects → add http://localhost:4321/auth/callback
-DISCORD_CLIENT_ID=
-DISCORD_CLIENT_SECRET=
-
-# Your Discord user id. This is the one authority the dashboard cannot grant
-# or take away, so a mistake made in /admin is always recoverable here.
-# Discord → Settings → Advanced → Developer Mode, then right-click your name →
-# Copy User ID. (In production this lives in wrangler.jsonc instead.)
-OWNER_DISCORD_ID=
-
-# Optional
-GITHUB_TOKEN=
-
-# Seeds only. Staff roles, the account-age gate and the announcement webhook
-# are edited in /admin and stored in D1; these are just the values a fresh
-# database starts from.
-MAINTAINER_ROLE_IDS=
-DISCORD_WEBHOOK_URL=
+# Copy to `.dev.vars` (git-ignored) for local development. The Deploy to
+# Cloudflare button reads this same file to know what to ask a deployer for.
+DISCORD_CLIENT_ID= # Discord application id — discord.com/developers/applications → OAuth2
+DISCORD_CLIENT_SECRET= # Same page → Reset Secret. Shown once.
+OWNER_DISCORD_ID= # Your Discord user id: Settings → Advanced → Developer Mode, then right-click your name → Copy User ID. Grants the /admin dashboard, and is the only authority /admin itself cannot change.
+GITHUB_TOKEN= # Optional. Lifts the GitHub issue poll from 60 to 5000 requests/hour.
+DISCORD_WEBHOOK_URL= # Optional starting value for fix announcements. Easier to set later in /admin, which can test it.

@@ -18,14 +18,11 @@
   // The Cloudflare adapter provisions this automatically for Astro sessions.
   "kv_namespaces": [{ "binding": "SESSION", "id": "PLACEHOLDER_AUTO_PROVISIONED" }],
 
+  // DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET and OWNER_DISCORD_ID are not
+  // here on purpose: they are per-install values, and the Deploy to Cloudflare
+  // flow prompts for whatever `.dev.vars.example` lists. A `vars` entry of the
+  // same name would overwrite the value the deployer typed with an empty one.
   "vars": {
-    "DISCORD_CLIENT_ID": "",
-
-    // The one authority the dashboard cannot grant or revoke. Your Discord
-    // user id: enable Developer Mode in Discord, then right-click your name →
-    // Copy User ID.
-    "OWNER_DISCORD_ID": "",
-
     "DISCORD_GUILD_ID": "1377136877491982366",
     // Seeds for the editable settings of the same name. Once /admin writes a
     // value it wins; these stay as the defaults a fresh database starts from.
