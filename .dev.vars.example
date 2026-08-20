@@ -1,7 +1,8 @@
 # Copy to `.dev.vars` (git-ignored) for local development. The Deploy to
-# Cloudflare button reads this same file to know what to ask a deployer for.
+# Cloudflare button reads this same file to know what to ask a deployer for, so
+# only genuinely per-install values belong here. Anything with a UI in /admin —
+# the announcement webhook, staff roles, the account-age gate — is configured
+# there and stored in D1, not asked for at deploy time.
 DISCORD_CLIENT_ID= # Discord application id — discord.com/developers/applications → OAuth2
 DISCORD_CLIENT_SECRET= # Same page → Reset Secret. Shown once.
 OWNER_DISCORD_ID= # Your Discord user id: Settings → Advanced → Developer Mode, then right-click your name → Copy User ID. Grants the /admin dashboard, and is the only authority /admin itself cannot change.
-GITHUB_TOKEN= # Optional. Lifts the GitHub issue poll from 60 to 5000 requests/hour.
-DISCORD_WEBHOOK_URL= # Optional starting value for fix announcements. Easier to set later in /admin, which can test it.

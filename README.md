@@ -68,8 +68,9 @@ The button above forks this repo into your account, provisions the **D1
 database** and **KV namespace** declared in `wrangler.jsonc`, writes the
 generated ids back into that config, and runs `bun run deploy` — which applies
 migrations against the new database before it deploys, since a fresh D1 has no
-tables. Cloudflare prompts for the values in `.dev.vars.example`; the two
-Discord credentials and your `OWNER_DISCORD_ID` are the ones that matter.
+tables. Cloudflare prompts for the three values in `.dev.vars.example`: the two
+Discord credentials and your `OWNER_DISCORD_ID`. Nothing else is asked for,
+because everything else is editable in `/admin` afterwards.
 
 Two things Cloudflare cannot do for you, both one-time:
 

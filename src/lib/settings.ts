@@ -25,8 +25,10 @@ export const SETTING_KEYS = [
 export type SettingKey = (typeof SETTING_KEYS)[number];
 
 const DEFAULTS: Record<SettingKey, () => string> = {
-  // Seeded from the vars the board shipped with, so nothing is lost by moving
-  // configuration into the database.
+  // Seeded from the environment where a var exists, so nothing is lost by
+  // moving configuration into the database. DISCORD_WEBHOOK_URL is honoured if
+  // someone sets it by hand, but it is not asked for at deploy time — /admin
+  // owns that setting and can test it, which a deploy prompt cannot.
   mod_role_ids: () => String(env.MAINTAINER_ROLE_IDS ?? ''),
   admin_role_ids: () => '',
   min_account_age_days: () => String(env.MIN_ACCOUNT_AGE_DAYS ?? 30),
