@@ -57,8 +57,13 @@ export async function requireStaff(
 
 export const isResponse = (v: unknown): v is Response => v instanceof Response;
 
+/**
+ * `Pick` rather than `SessionUser`, because the GitHub sync writes audit rows
+ * and has no session to speak of — it passes a synthetic actor instead (see
+ * SYNC_ACTOR in lib/github-sync.ts). Only these two fields were ever read.
+ */
 export async function logAction(
-  actor: SessionUser,
+  actor: Pick<SessionUser, 'id' | 'username'>,
   action: string,
   target?: string | null,
   detail?: string | null,

@@ -63,7 +63,7 @@ Bun only.
 
 ```sh
 bun install
-cp .dev.vars.example .dev.vars     # add Discord client id + secret
+cp .dev.vars.example .dev.vars     # add the Discord client secret and your user id
 bun run sync:sources               # pull the extension index → src/data/sources.json
 bunx wrangler d1 create yuzono-tracker   # paste database_id into wrangler.jsonc
 bun run db:local                   # apply migrations to local D1
@@ -100,16 +100,18 @@ values in `.dev.vars.example` and writes the generated resource ids back into
 your fork. A repo-connected deploy does neither. The ids exist only in the
 dashboard, and you supply the three values yourself.
 
-### Set the three values as secrets, not variables
+### Set the two secrets
 
-Add `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `OWNER_DISCORD_ID` as
-secrets under Settings → Variables and Secrets.
+Add `DISCORD_CLIENT_SECRET` and `OWNER_DISCORD_ID` as secrets under Settings →
+Variables and Secrets.
 
-Not as plain-text variables. `wrangler deploy` replaces the Worker's whole
-`vars` block with the one in `wrangler.jsonc`, so a variable that this repo
-does not declare gets deleted on the next deploy. Deploys leave secrets alone.
-That is why these three are absent from `wrangler.jsonc` rather than sitting
-there empty.
+As secrets, not plain-text variables. `wrangler deploy` replaces the Worker's
+whole `vars` block with the one in `wrangler.jsonc`, so a variable this repo does
+not declare gets deleted on the next deploy. Deploys leave secrets alone. That
+is why these two are absent from `wrangler.jsonc` rather than sitting there
+empty — and why `DISCORD_CLIENT_ID` *is* declared there: it appears in the OAuth
+URL every visitor sees, so publishing it costs nothing, and committing it is
+what stops each deploy from deleting it.
 
 ### Migrations
 
@@ -159,7 +161,6 @@ a bad grant can always be undone.
 ### Deploying by hand instead
 
 ```sh
-bunx wrangler secret put DISCORD_CLIENT_ID
 bunx wrangler secret put DISCORD_CLIENT_SECRET
 bunx wrangler secret put OWNER_DISCORD_ID
 bun run deploy      # build and deploy; D1 and KV are provisioned on the way
@@ -172,6 +173,8 @@ bun run db:remote   # then create the tables
 |---|---|
 | `bun run dev` | Local dev on workerd, with persisted D1/KV |
 | `bun run sync:sources` | Regenerate the source catalogue from the extension index |
+| `bun scripts/sync-issues.ts` | Push upstream issue state into the tracker (`--dry-run`, `--backfill`) |
+| `bun scripts/check-github-sync.ts` | End-to-end check of the sync against a running dev server |
 | `bun run db:generate` | Generate a migration from the Drizzle schema |
 | `bun run db:local` / `db:remote` | Apply migrations |
 | `bun run db:seed` | Load `seeds/seed.sql` into local D1 |
@@ -209,15 +212,44 @@ Neither Discord guild admin nor GitHub org admin:
   `guilds.members.read`, which returns the signed-in user's own roles. No bot
   in the server. `/admin` takes role ids rather than names because resolving
   a name would require one, and it shows you your own role ids to copy from.
-- GitHub promotion is designed but not built. It would build a prefilled
-  issue-form URL against the existing templates rather than opening issues
-  via the API, so it needs no token. `GITHUB_TOKEN` is unused; `GITHUB_REPO`
-  is read only to build the issue link on a report that already has an issue
-  number.
-- Issue state does not sync back yet. There is no cron and no `scheduled`
-  handler, and nothing in this codebase calls the GitHub API. The issue
-  numbers on existing reports came from the one-off import in
-  `scripts/import-issues.ts`.
+- No GitHub token, and no write access to the extensions repo. The sync reads
+  issues as public data and brings state *in*; it never pushes state out.
+  Promotion opens a prefilled issue form for a moderator to submit rather than
+  calling the API, so `issues: write` is needed nowhere. The one thing this
+  costs is that marking a report fixed here cannot close the issue there —
+  /review lists those so somebody with access can close them by hand.
+- No Cloudflare cron. The Astro adapter owns the Worker entry and exports only
+  a `fetch` handler, so a `scheduled` one would mean hand-writing that entry.
+  A GitHub Actions schedule in this repo does the same job with nothing to
+  break, and works on a repo we do not control.
 
 The app never stores access tokens. Only the resolved flags land in the
 session.
+
+## Keeping up with GitHub
+
+Reports carry the number of the issue they correspond to, and the two are kept
+in step in both directions that are available without write access upstream.
+
+Two triggers, because they fail differently. `.github/workflows/sync-issues.yml`
+reads every upstream issue every half hour and posts the set to `/github/sync`;
+it is late but self-correcting. A GitHub webhook on `/github/webhook` is
+instant, but a delivery that fails and goes unnoticed is wrong forever. Both go
+through the same code, and both are configured from /admin, which generates the
+shared secret for each — nothing is asked for at deploy time.
+
+The rule that matters is in `transitionFor` (`src/lib/github.ts`): the sync acts
+on a *change* in the upstream state, never on the two states disagreeing. Since
+this app cannot close a GitHub issue, "report fixed here, issue still open
+there" is the normal resting state after every moderator fix — so a sync that
+corrected disagreements would revert every one of them, on every pass, silently.
+Comparing what we saw last time against what we see now is what allows a reopen
+to be honoured without that. `github_issues` is the table holding that memory;
+it is a record rather than a cursor, so losing it costs one round of reopens
+rather than stopping the sync.
+
+Issues opened on GitHub rather than here are matched against the source
+catalogue. An exact name match with a clear problem is filed automatically;
+anything less certain goes to `/review`, which moderators can reach as well as
+admins. The matching heuristics are shared with `scripts/import-issues.ts`, so
+the live sync and the seed agree about what an issue means.

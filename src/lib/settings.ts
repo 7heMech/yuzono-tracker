@@ -20,6 +20,8 @@ export const SETTING_KEYS = [
   'webhook_url',
   'webhook_on_fixed',
   'webhook_vote_threshold',
+  'github_sync_secret',
+  'github_webhook_secret',
 ] as const;
 
 export type SettingKey = (typeof SETTING_KEYS)[number];
@@ -35,6 +37,13 @@ const DEFAULTS: Record<SettingKey, () => string> = {
   webhook_url: () => String(env.DISCORD_WEBHOOK_URL ?? ''),
   webhook_on_fixed: () => '1',
   webhook_vote_threshold: () => '0',
+  // No environment seed for either. Unlike the Discord webhook URL there is
+  // nowhere to copy these from — they are shared secrets this app invents, so
+  // /admin generates them and shows each once. Empty means the matching route
+  // is off, which is what makes a fresh install refuse both sync entry points
+  // until an admin turns them on.
+  github_sync_secret: () => '',
+  github_webhook_secret: () => '',
 };
 
 export type Config = Record<SettingKey, string>;

@@ -1,4 +1,5 @@
 ---
+import { env } from 'cloudflare:workers';
 import Base from '../layouts/Base.astro';
 import { desc, eq, isNotNull, or } from 'drizzle-orm';
 import { db } from '../lib/db/client';
@@ -8,6 +9,7 @@ import { LEVEL_LABELS, combine } from '../lib/levels';
 import { idList, readConfig, writeSettings } from '../lib/settings';
 import { isOwner, isResponse, logAction, requireStaff, setManualLevel } from '../lib/staff';
 import { testWebhook } from '../lib/webhook';
+import { pendingReviewCount } from '../lib/github-sync';
 import { relativeAge } from '../lib/format';
 
 export const prerender = false;
@@ -26,6 +28,8 @@ const { user, level } = gate;
 
 let error: string | null = null;
 let done: string | null = null;
+/** Shown once, immediately after generating. Never read back from the database. */
+let generated: string | null = null;
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
@@ -75,6 +79,34 @@ if (Astro.request.method === 'POST') {
       const res = await testWebhook(cfg.webhook_url, origin, user.username);
       done = res.ok ? 'Test message sent — check the channel.' : null;
       error = res.ok ? null : `Discord rejected it (${res.status}). ${res.body.slice(0, 200)}`;
+    }
+  } else if (intent === 'github-generate' || intent === 'github-clear') {
+    /* Generated here rather than typed in. Unlike the Discord webhook URL there
+       is nowhere to copy these from — they are shared secrets this app invents,
+       and asking an admin to think one up produces worse ones than 32 random
+       bytes. The value is shown once, in the flash below: this handler renders
+       rather than redirecting, so it survives exactly one page load and is not
+       recoverable afterwards, which is the property that lets the rest of the
+       page keep showing only the last six characters. */
+    const which = String(form.get('which') ?? '');
+    const key = which === 'webhook' ? 'github_webhook_secret' : 'github_sync_secret';
+    if (intent === 'github-clear') {
+      await writeSettings({ [key]: '' }, user.id);
+      await logAction(user, 'settings.github', null, `${which} cleared`);
+      done = which === 'webhook'
+        ? 'Webhook secret removed. The webhook endpoint now refuses everything until you generate a new one.'
+        : 'Sync secret removed. The scheduled workflow now refuses to run until you generate a new one.';
+    } else {
+      const fresh = [...crypto.getRandomValues(new Uint8Array(32))]
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      await writeSettings({ [key]: fresh }, user.id);
+      // The secret itself never reaches the audit log.
+      await logAction(user, 'settings.github', null, `${which} generated`);
+      generated = fresh;
+      done = which === 'webhook'
+        ? 'New webhook secret. Copy it now — it is not shown again.'
+        : 'New sync secret. Copy it now — it is not shown again.';
     }
   } else if (intent === 'block') {
     // The revocation path that did not exist. Guild membership is resolved at
@@ -144,7 +176,7 @@ if (Astro.request.method === 'POST') {
 
 // Four independent reads, so they go out together rather than one after the
 // other — this page was costing four serial D1 round trips to render.
-const [cfg, staff, blocked, log] = await Promise.all([
+const [cfg, staff, blocked, log, pendingReview] = await Promise.all([
   readConfig(),
   db()
     .select({
@@ -162,9 +194,14 @@ const [cfg, staff, blocked, log] = await Promise.all([
     .from(users)
     .where(eq(users.banned, true)),
   db().select().from(audit).orderBy(desc(audit.createdAt)).limit(15),
+  pendingReviewCount(),
 ]);
 const webhookSet = !!cfg.webhook_url;
 const webhookTail = webhookSet ? cfg.webhook_url.slice(-6) : '';
+const syncSet = !!cfg.github_sync_secret;
+const ghHookSet = !!cfg.github_webhook_secret;
+const repo = String(env.GITHUB_REPO ?? 'yuzono/anime-extensions');
+const tail = (v: string) => v.slice(-6);
 ---
 
 <Base title="Dashboard">
@@ -180,6 +217,7 @@ const webhookTail = webhookSet ? cfg.webhook_url.slice(-6) : '';
 
   {done && <p class="flash" role="status">{done}</p>}
   {error && <p class="error" role="alert">{error}</p>}
+  {generated && <p class="secret num" role="status">{generated}</p>}
 
   <section class="panel">
     <h2>Staff</h2>
@@ -347,6 +385,93 @@ const webhookTail = webhookSet ? cfg.webhook_url.slice(-6) : '';
       <input type="hidden" name="intent" value="webhook-test" />
       <button class="btn" type="submit" disabled={!webhookSet}>Send a test message</button>
     </form>
+  </section>
+
+  <section class="panel">
+    <h2>GitHub sync</h2>
+    <p class="panel-sub">
+      Keeps a report's status in step with its issue in{' '}
+      <code>{repo}</code>. Nothing here needs a GitHub token and nothing here
+      can write to that repo — issues are read as public data, and a fix is
+      brought in, never pushed out. Closing an issue upstream is still a job for
+      somebody with write access there.
+    </p>
+
+    <div class="gh-part">
+      <h3>Scheduled sync</h3>
+      <p class="field-hint wide">
+        Needs nobody's permission. In this tracker's own repository, add a
+        secret <code>TRACKER_SYNC_SECRET</code> holding the value below and a
+        variable <code>TRACKER_URL</code> set to <code>{Astro.url.origin}</code>,
+        then the Sync GitHub issues workflow runs every half hour. Run it once by
+        hand with <b>backfill</b> ticked first, or every fix already closed
+        upstream is announced to Discord at once.
+      </p>
+      <div class="gh-actions">
+        <form method="POST">
+          <input type="hidden" name="intent" value="github-generate" />
+          <input type="hidden" name="which" value="sync" />
+          <button class={syncSet ? 'btn' : 'btn btn-primary'} type="submit">
+            {syncSet ? 'Replace the sync secret' : 'Generate a sync secret'}
+          </button>
+        </form>
+        {syncSet && (
+          <form method="POST">
+            <input type="hidden" name="intent" value="github-clear" />
+            <input type="hidden" name="which" value="sync" />
+            <button class="btn danger" type="submit">Remove it</button>
+          </form>
+        )}
+        <p class="gh-state">
+          {syncSet
+            ? `Set, ending …${tail(cfg.github_sync_secret)}.`
+            : 'Not set, so the scheduled sync is refused.'}
+        </p>
+      </div>
+    </div>
+
+    <div class="gh-part">
+      <h3>Instant webhook</h3>
+      <p class="field-hint wide">
+        Optional, and needs an admin of <code>{repo}</code> to add it once — a
+        much smaller favour than write access, since a webhook grants this site
+        nothing and only sends notifications outward. Settings → Webhooks → Add
+        webhook, with payload URL <code>{Astro.url.origin}/github/webhook</code>,
+        the secret below, <b>only the Issues event</b>, and content type{' '}
+        <b>application/json</b>. The content type matters: this site rejects a
+        cross-site form post before it reaches any code, so the form-encoded
+        option fails with nothing useful to show you.
+      </p>
+      <div class="gh-actions">
+        <form method="POST">
+          <input type="hidden" name="intent" value="github-generate" />
+          <input type="hidden" name="which" value="webhook" />
+          <button class={ghHookSet ? 'btn' : 'btn btn-primary'} type="submit">
+            {ghHookSet ? 'Replace the webhook secret' : 'Generate a webhook secret'}
+          </button>
+        </form>
+        {ghHookSet && (
+          <form method="POST">
+            <input type="hidden" name="intent" value="github-clear" />
+            <input type="hidden" name="which" value="webhook" />
+            <button class="btn danger" type="submit">Remove it</button>
+          </form>
+        )}
+        <p class="gh-state">
+          {ghHookSet
+            ? `Set, ending …${tail(cfg.github_webhook_secret)}.`
+            : 'Not set, so the webhook endpoint answers nothing.'}
+        </p>
+      </div>
+    </div>
+
+    <p class="gh-queue">
+      <a href="/review">Issues to review</a> —{' '}
+      {pendingReview === 0
+        ? 'nothing waiting.'
+        : `${pendingReview} ${pendingReview === 1 ? 'issue' : 'issues'} the sync could not match to a report.`}{' '}
+      Moderators can open that page too.
+    </p>
   </section>
 
   <section class="panel">
@@ -528,6 +653,42 @@ const webhookTail = webhookSet ? cfg.webhook_url.slice(-6) : '';
     color: var(--text-tertiary);
     overflow-wrap: anywhere;
   }
+
+  /* Shown once after generating, so it has to be selectable and unambiguous —
+     hence monospace and wrapping rather than a truncated single line. */
+  .secret {
+    margin-block-start: var(--space-3);
+    padding: var(--space-3);
+    border: 1px dashed var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-raised);
+    font-size: var(--text-sm);
+    overflow-wrap: anywhere;
+    user-select: all;
+  }
+
+  .gh-part { margin-block-start: var(--space-5); }
+  .gh-part:first-of-type { margin-block-start: 0; }
+  .gh-part h3 { font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+  .gh-part .field-hint { max-inline-size: 68ch; margin-block-start: var(--space-1); }
+  .gh-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-block-start: var(--space-3);
+  }
+  .gh-state { font-size: var(--text-sm); color: var(--text-tertiary); }
+  .gh-queue { margin-block-start: var(--space-5); font-size: var(--text-sm); color: var(--text-tertiary); }
+  /* The only route to the queue from this page, and `a` inherits by default —
+     without this it was a sentence that happened to be clickable. */
+  .gh-queue a {
+    color: var(--signal-ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .danger:hover { border-color: var(--dead); color: var(--dead); }
+  .gh-part code, .gh-queue code, .panel-sub code { font-family: var(--font-data); color: var(--text-secondary); }
 
   .log { display: grid; gap: var(--space-1); font-size: var(--text-sm); }
   .log li { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: baseline; }

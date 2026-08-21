@@ -1,0 +1,30 @@
+# Tests and typecheck on every push and pull request.
+#
+# The repo had no CI before the GitHub sync landed, which mattered more than it
+# sounds: deployment is a Cloudflare repo connection, so a push to main builds
+# and ships without anything having run `bun test` or `astro check` first.
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+      - run: bun install --frozen-lockfile
+      - run: bun test
+      # Typecheck last: it is the slower of the two, so a type error surfaces
+      # after the faster signal has already had its chance to fail.
+      - run: bun run check

@@ -1,0 +1,292 @@
+---
+import { env } from 'cloudflare:workers';
+import Base from '../layouts/Base.astro';
+import { classifyIssue } from '../lib/github';
+import {
+  adoptIssue,
+  dismissIssue,
+  linkIssue,
+  mismatches,
+  needsReview,
+  snapshotOf,
+} from '../lib/github-sync';
+import { isResponse, logAction, requireStaff } from '../lib/staff';
+import { getSource } from '../lib/sources';
+import { LEVEL_LABELS } from '../lib/levels';
+import { relativeAge } from '../lib/format';
+import { STATUS_LABELS } from '../lib/format';
+
+export const prerender = false;
+
+/**
+ * The moderator queue for GitHub issues.
+ *
+ * Its own route rather than a section of /admin, for the reason /admin states
+ * about itself: moderators act on reports, admins act on configuration and
+ * people. Reviewing an issue is acting on a report, so this is mod work — while
+ * the sync secrets stay on the admin page, where a moderator has no business
+ * being. Keeping them apart also keeps each page's single top-level gate, which
+ * is how every route in this app is authorised.
+ *
+ * Everything here is a consequence of having no write access upstream. We
+ * cannot close a GitHub issue, so "we say fixed, they still say open" is a
+ * permanent condition to be worked through by hand rather than a bug — hence
+ * the second list, which is expected to have things in it.
+ */
+const gate = await requireStaff(Astro, 'mod');
+if (isResponse(gate)) return gate;
+const { user, level } = gate;
+
+const repo = String(env.GITHUB_REPO ?? 'yuzono/anime-extensions');
+
+let error: string | null = null;
+let done: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  // Intent names are deliberately distinct from the ones /admin dispatches on,
+  // so a form aimed at the wrong route does nothing rather than something.
+  const intent = String(form.get('intent') ?? '');
+  const number = Number(form.get('number') ?? 0);
+
+  if (!Number.isInteger(number) || number <= 0) {
+    error = 'That is not an issue number.';
+  } else if (intent === 'issue-adopt') {
+    const res = await adoptIssue(number, user);
+    if (res.ok) done = `Filed report #${res.reportId} for issue #${number}.`;
+    else error = res.error;
+  } else if (intent === 'issue-link') {
+    const reportId = Number(form.get('report_id') ?? 0);
+    if (!Number.isInteger(reportId) || reportId <= 0) {
+      error = 'Enter the number of the report to link it to.';
+    } else {
+      const res = await linkIssue(number, reportId, user);
+      if (res.ok) done = `Issue #${number} now points at report #${reportId}.`;
+      else error = res.error;
+    }
+  } else if (intent === 'issue-dismiss') {
+    await dismissIssue(number, user);
+    done = `Issue #${number} taken off the list. It will not come back.`;
+  }
+
+  if (done) await logAction(user, 'review.action', String(number), intent);
+}
+
+const [queue, stale] = await Promise.all([needsReview(), mismatches()]);
+
+// Classified at render time rather than stored: the heuristics change more often
+// than the issues do, so a stored verdict would go stale silently.
+const rows = queue.map((row) => {
+  const c = classifyIssue(snapshotOf(row));
+  return { row, c, source: c.sourceId ? getSource(c.sourceId) : undefined };
+});
+---
+
+<Base title="Review">
+  <header class="head">
+    <div>
+      <h1>GitHub issues to review</h1>
+      <p class="sub">
+        Signed in as <b>{user.username}</b> — {LEVEL_LABELS[level]}. These are
+        issues on GitHub the sync could not match to a report on its own, and
+        reports whose issue is still open upstream.
+      </p>
+    </div>
+  </header>
+
+  {done && <p class="flash" role="status">{done}</p>}
+  {error && <p class="error" role="alert">{error}</p>}
+
+  <section class="panel">
+    <h2>Not matched to a report</h2>
+    <p class="panel-sub">
+      Someone opened these on GitHub rather than here, and the source name in
+      the title was not close enough to a catalogue entry for the sync to act
+      without asking. Adopting one files the report it should have had; linking
+      attaches it to a report that already covers the same breakage.
+    </p>
+
+    {
+      rows.length === 0 ? (
+        <p class="empty-line">Nothing waiting. Every issue is either linked to a report or dismissed.</p>
+      ) : (
+        <ul class="issues">
+          {rows.map(({ row, c, source }) => (
+            <li>
+              <div class="issue-head">
+                <a class="issue-no num" href={`https://github.com/${repo}/issues/${row.number}`} rel="noopener noreferrer">
+                  #{row.number}
+                </a>
+                <span class="issue-title">{row.title}</span>
+              </div>
+              <p class="issue-why">
+                {c.why}{' '}
+                {row.state === 'closed'
+                  ? 'It is already closed on GitHub, so adopting it files a report that is already fixed.'
+                  : 'It is open on GitHub.'}
+              </p>
+              <dl class="issue-facts">
+                <div><dt>Source</dt><dd>{source ? source.name : 'not identified'}</dd></div>
+                <div><dt>Reads as</dt><dd>{c.title}</dd></div>
+                <div><dt>Seen</dt><dd>{relativeAge(row.seenAt)} ago</dd></div>
+              </dl>
+              <div class="issue-actions">
+                {c.sourceId && (
+                  <form method="POST">
+                    <input type="hidden" name="intent" value="issue-adopt" />
+                    <input type="hidden" name="number" value={row.number} />
+                    <button class="btn" type="submit">File a report for {source?.name}</button>
+                  </form>
+                )}
+                <form method="POST" class="link-form">
+                  <input type="hidden" name="intent" value="issue-link" />
+                  <input type="hidden" name="number" value={row.number} />
+                  <label class="link-label" for={`report-${row.number}`}>Link to report</label>
+                  <input
+                    class="input num link-input"
+                    id={`report-${row.number}`}
+                    name="report_id"
+                    inputmode="numeric"
+                    placeholder="e.g. 214"
+                    autocomplete="off"
+                  />
+                  <button class="btn" type="submit">Link</button>
+                </form>
+                <form method="POST">
+                  <input type="hidden" name="intent" value="issue-dismiss" />
+                  <input type="hidden" name="number" value={row.number} />
+                  <button class="btn danger" type="submit">Not worth a report</button>
+                </form>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </section>
+
+  <section class="panel">
+    <h2>Still open on GitHub</h2>
+    <p class="panel-sub">
+      We have marked these done, but their issue upstream is still open. This
+      board cannot close a GitHub issue — it holds no token and needs none — so
+      somebody with write access has to close them by hand. Expect this list to
+      have things in it; it is a job list, not a fault.
+    </p>
+    {
+      stale.length === 0 ? (
+        <p class="empty-line">Nothing out of step.</p>
+      ) : (
+        <ul class="issues">
+          {stale.map((m) => (
+            <li>
+              <div class="issue-head">
+                <a class="issue-no num" href={`https://github.com/${repo}/issues/${m.number}`} rel="noopener noreferrer">
+                  #{m.number}
+                </a>
+                <span class="issue-title">{m.title}</span>
+              </div>
+              <p class="issue-why">
+                Report <a href={`/report/${m.reportId}`}>#{m.reportId}</a> here says{' '}
+                {STATUS_LABELS[m.status].toLowerCase()}.
+              </p>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </section>
+</Base>
+
+<style>
+  .head { padding-block-end: var(--space-4); border-block-end: 1px solid var(--border-subtle); }
+  h1 { font-size: var(--text-xl); letter-spacing: var(--track-tight); }
+  .sub { max-inline-size: 64ch; margin-block-start: var(--space-1); color: var(--text-tertiary); font-size: var(--text-sm); }
+
+  .flash, .error {
+    margin-block-start: var(--space-4);
+    padding: var(--space-3);
+    border: 1px solid var(--border-default);
+    border-inline-start-width: 2px;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+  }
+  .flash { border-inline-start-color: var(--live); background: var(--live-fill); }
+  .error { border-color: var(--dead); background: var(--dead-fill); }
+
+  .panel { padding-block: var(--space-6); border-block-end: 1px solid var(--border-subtle); }
+  .panel h2 { font-size: var(--text-md); margin-block-end: var(--space-4); }
+  .panel-sub {
+    max-inline-size: 68ch;
+    margin-block: calc(-1 * var(--space-3)) var(--space-4);
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+  }
+  .empty-line { font-size: var(--text-sm); color: var(--text-muted); }
+
+  .issues { display: grid; gap: var(--space-3); }
+  .issues li {
+    padding: var(--space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface-raised);
+  }
+
+  .issue-head { display: flex; gap: var(--space-2); align-items: baseline; flex-wrap: wrap; }
+  .issue-no { font-size: var(--text-sm); color: var(--text-muted); flex-shrink: 0; }
+  .issue-title { font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+  .issue-why {
+    margin-block-start: var(--space-2);
+    max-inline-size: 68ch;
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+  }
+
+  /* A short fact list rather than tags: "Source — AniDB" is readable on its own,
+     where a coloured chip would need the reader to learn what the colour meant. */
+  .issue-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-5);
+    margin-block-start: var(--space-3);
+    font-size: var(--text-sm);
+  }
+  .issue-facts div { display: flex; gap: var(--space-2); min-inline-size: 0; }
+  .issue-facts dt { color: var(--text-muted); }
+  .issue-facts dd { color: var(--text-secondary); overflow-wrap: anywhere; }
+
+  .issue-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: var(--space-2);
+    margin-block-start: var(--space-4);
+  }
+  .issue-actions form { display: flex; align-items: end; gap: var(--space-2); }
+  .link-form { flex-wrap: wrap; }
+  .link-label { font-size: var(--text-sm); color: var(--text-tertiary); align-self: center; }
+  .link-input { inline-size: 7rem; }
+  .danger { color: var(--dead); }
+  .danger:hover { border-color: var(--dead); color: var(--dead); }
+
+  /* `a` is reset to inherit globally, so every link needs saying explicitly —
+     and these two matter: the issue number is how a moderator checks the issue
+     before deciding, and the report link is how they check what it would
+     duplicate. Both were indistinguishable from body text without this. */
+  .issue-no,
+  .issue-why a {
+    text-decoration: underline;
+    text-decoration-color: var(--border-strong);
+    text-underline-offset: 2px;
+  }
+  .issue-no:hover, .issue-why a:hover { color: var(--text-secondary); }
+
+  /* Inside 390px the action row has to stack, or the link field and its two
+     neighbouring buttons overflow the card. */
+  @media (max-width: 640px) {
+    .issue-actions { display: grid; }
+    .issue-actions form { flex-wrap: wrap; }
+    .link-input { flex: 1 1 6rem; }
+  }
+</style>

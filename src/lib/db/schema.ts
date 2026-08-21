@@ -182,6 +182,15 @@ export const reports = sqliteTable(
      * about were exactly the ones that never got told.
      */
     fixAnnouncedAt: integer('fix_announced_at'),
+
+    /**
+     * When a moderator sent this to GitHub. A third claim column alongside the
+     * two above, and for the same reason: promotion opens an issue upstream,
+     * which is not undoable, so the click has to be claimed before the redirect
+     * rather than trusted not to happen twice. A double-tap on a phone would
+     * otherwise file two issues for one report.
+     */
+    promotedAt: integer('promoted_at'),
   },
   (t) => [
     /**
@@ -241,7 +250,16 @@ export const reports = sqliteTable(
     index('reports_by_source').on(t.sourceId),
     index('reports_by_reporter').on(t.reporterId),
     index('reports_by_age').on(t.status, t.createdAt),
-    index('reports_by_issue').on(t.githubIssue),
+    /**
+     * Unique, not merely indexed. Inbound sync resolves an issue to a report
+     * through this column, so two reports claiming one issue number would make
+     * "which report does issue 412 mean" unanswerable — and the sync would
+     * update whichever row the planner happened to return first. Partial
+     * because the overwhelming majority of reports have no issue at all.
+     */
+    uniqueIndex('reports_by_issue')
+      .on(t.githubIssue)
+      .where(sql`github_issue IS NOT NULL`),
   ],
 );
 
@@ -324,3 +342,55 @@ export const audit = sqliteTable(
   },
   (t) => [index('audit_recent').on(t.createdAt)],
 );
+
+/**
+ * What the GitHub sync last saw, one row per upstream issue.
+ *
+ * This is the memory that lets a full-state pass behave like a stream of
+ * events. Comparing the *previously observed* upstream state against the
+ * current one is what distinguishes "someone reopened this" from "this was
+ * never closed" — and that distinction is load-bearing, because this install
+ * has no write access upstream, so a report fixed here leaves its issue open
+ * there indefinitely. Without the comparison, a sync that acted on
+ * disagreement would revert every moderator decision on every pass.
+ *
+ * It is a record, not a cursor. Losing the table degrades the next pass to
+ * first-sight behaviour — closures still apply, one round of reopens is missed
+ * — rather than stalling the sync, which is why nothing here needs backing up.
+ */
+export const githubIssues = sqliteTable(
+  'github_issues',
+  {
+    /** The upstream issue number, which is stable and unique per repo. */
+    number: integer('number').primaryKey(),
+    title: text('title').notNull(),
+    state: text('state', { enum: ['open', 'closed'] }).notNull(),
+    /** GitHub's own closed-reason. Preferred over labels, which get renamed. */
+    stateReason: text('state_reason'),
+    /** The issue's own updated_at, for ordering rather than for triggering. */
+    updatedAt: integer('updated_at'),
+    /**
+     * The issue's labels, JSON. Kept so /review can re-derive a kind and cause
+     * for an issue a moderator adopts later, without going back to the GitHub
+     * API from inside a page render.
+     */
+    labels: text('labels'),
+    /** 👍 count, so an adoption seeds votes the way the backlog import did. */
+    reactions: integer('reactions').notNull().default(0),
+    /** Null while unmatched; that is exactly what /review lists. */
+    reportId: integer('report_id').references(() => reports.id, { onDelete: 'set null' }),
+    seenAt: integer('seen_at').notNull().default(sql`(unixepoch())`),
+    /**
+     * Set when a moderator decides an issue needs no report. Deliberately a
+     * flag rather than a delete: removing the row would make the next pass
+     * treat the issue as never-seen and put it straight back in the queue.
+     */
+    dismissedAt: integer('dismissed_at'),
+  },
+  (t) => [
+    /** The /review queue: unmatched, not yet dismissed. */
+    index('github_issues_unmatched').on(t.reportId, t.dismissedAt),
+  ],
+);
+
+export type GithubIssue = typeof githubIssues.$inferSelect;

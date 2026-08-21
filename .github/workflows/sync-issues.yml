@@ -1,0 +1,51 @@
+# Keeps the tracker's report statuses in step with the upstream issue tracker.
+#
+# This lives here rather than as a Cloudflare cron for two reasons. The Astro
+# adapter owns the Worker entry point and exports only a `fetch` handler, so
+# adding a `scheduled` one means hand-writing that entry — and there is no CI
+# here to catch a deploy broken that way. And the upstream repo is one we do not
+# control, so a workflow in our own repo is the only trigger we can add without
+# asking anyone for anything.
+#
+# It needs one secret, TRACKER_SYNC_SECRET, generated on the tracker's /admin
+# page. There is deliberately no GitHub token with write access anywhere in this
+# design; the upstream issues are public and are only ever read.
+name: Sync GitHub issues
+
+on:
+  schedule:
+    # Every 30 minutes. The webhook, where configured, is what makes changes
+    # land instantly; this is the backstop that repairs a missed delivery.
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: 'Suppress Discord fix announcements (use for the first run)'
+        type: boolean
+        default: false
+
+# Two overlapping passes would do the same work twice and post the same
+# announcements twice. Idempotence makes that harmless rather than wrong, but
+# there is no reason to pay for it.
+concurrency:
+  group: sync-issues
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+      - run: bun install --frozen-lockfile
+      - name: Push issue state to the tracker
+        env:
+          TRACKER_URL: ${{ vars.TRACKER_URL }}
+          TRACKER_SYNC_SECRET: ${{ secrets.TRACKER_SYNC_SECRET }}
+          # The workflow's own token: scoped to this repo, read-only upstream,
+          # present only to lift the anonymous API rate limit.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun scripts/sync-issues.ts ${{ inputs.backfill && '--backfill' || '' }}

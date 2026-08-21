@@ -11,8 +11,23 @@
  *   bun scripts/import-issues.ts issues_full.json > seeds/seed.sql
  */
 
+/**
+ * The title, label and language heuristics live in src/lib/github.ts, which the
+ * live sync uses too. They were defined here first, but a second copy in the
+ * Worker would drift from this one — and a regenerated seed that deduped
+ * differently from the running site would not error, it would just be wrong.
+ */
+import {
+  causeOf,
+  headOf,
+  kindOf,
+  langOf,
+  matchSource,
+  norm,
+  problemOf,
+  stageOf,
+} from '../src/lib/github';
 import { problemKeyFor } from '../src/lib/problems';
-import { SOURCES } from '../src/lib/sources';
 
 type Issue = {
   number: number;
@@ -28,96 +43,6 @@ type Issue = {
 const file = process.argv[2];
 if (!file) throw new Error('usage: bun scripts/import-issues.ts <issues.json>');
 const issues: Issue[] = await Bun.file(file).json();
-
-/* --- source matching ------------------------------------------------------ */
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-const index = new Map<string, string>();
-for (const s of SOURCES) {
-  const k = norm(s.name);
-  if (!index.has(k)) index.set(k, s.id);
-}
-
-/** Titles follow `Name [LANG]: problem`, so the head is before `[` or `:`. */
-function headOf(title: string) {
-  const cut = title.search(/[[:(]/);
-  return (cut === -1 ? title : title.slice(0, cut)).trim();
-}
-
-function matchSource(title: string) {
-  const head = norm(headOf(title));
-  if (!head) return undefined;
-  if (index.has(head)) return index.get(head);
-  // Sources get suffixes and TLDs in titles ("Miruro.tv", "AnimeWorld India").
-  for (const [k, id] of index) {
-    if (k.length >= 4 && (head.startsWith(k) || k.startsWith(head))) return id;
-  }
-  return undefined;
-}
-
-/* --- language ------------------------------------------------------------- */
-const LANG_TAG: Record<string, string> = {
-  en: 'en', es: 'es', pt: 'pt-BR', 'pt-br': 'pt-BR', fr: 'fr', ar: 'ar',
-  id: 'id', it: 'it', ita: 'it', de: 'de', ru: 'ru', vi: 'vi', zh: 'zh',
-  tr: 'tr', pl: 'pl', hi: 'hi', ko: 'ko', ja: 'ja', sr: 'sr', uk: 'uk',
-  multi: 'all', all: 'all',
-};
-
-function langOf(title: string, sourceId?: string) {
-  const tag = title.match(/\[([A-Za-z-]{2,6})\]/)?.[1]?.toLowerCase();
-  if (tag && LANG_TAG[tag]) return LANG_TAG[tag];
-  if (sourceId) return SOURCES.find((s) => s.id === sourceId)?.lang ?? 'all';
-  return 'all';
-}
-
-/* --- kind / cause / stage ------------------------------------------------- */
-function kindOf(l: string[]) {
-  if (l.includes('Source request')) return 'request';
-  if (l.includes('Source is down')) return 'dead';
-  if (l.includes('Domain changed')) return 'domain';
-  if (l.includes('Feature request')) return 'feature';
-  if (l.includes('Meta request')) return 'meta';
-  return 'bug';
-}
-
-/**
- * Labels are authoritative; the problem text is the fallback. Note this reads
- * the *problem*, never the full title — source names poison the match
- * ("Streamingcommunity: Error 404 (Search)" contains "stream").
- */
-function causeOf(l: string[], problemText: string) {
-  if (l.includes('Redesign')) return 'redesign';
-  if (l.includes('Cloudflare protected')) return 'cloudflare';
-  if (l.includes('Geo-blocked')) return 'geo';
-  if (l.includes('Domain changed')) return 'domain';
-  if (l.includes('Source is down')) return 'down';
-  const t = problemText.toLowerCase();
-  if (/video|playback|black screen|ffmpeg|server|player|not loading|no stream/.test(t)) return 'extractor';
-  if (/domain|url change|moved|new (site|url)/.test(t)) return 'domain';
-  if (/redesign|switched to|2\.0|new version|site chang/.test(t)) return 'redesign';
-  if (/cloudflare|\bcf\b|captcha|challenge/.test(t)) return 'cloudflare';
-  if (/geo|region|country|blocked in/.test(t)) return 'geo';
-  if (/40[0-9]|5[0-9][0-9]|not found|down|dead|offline|unavailable/.test(t)) return 'down';
-  return 'other';
-}
-
-/** Reads the problem text only, for the same reason as causeOf. */
-function stageOf(problemText: string, cause: string) {
-  const t = problemText.toLowerCase();
-  if (/search|latest|popular|\btab\b|browse|filter|library/.test(t)) return 'browse';
-  if (/episode|chapter|eplist|season/.test(t)) return 'episodes';
-  if (/video|black screen|ffmpeg|server|download|stream|player|playback|subtitle/.test(t)) return 'video';
-  // A redesign or a moved domain breaks at the first hop.
-  if (cause === 'redesign' || cause === 'domain' || cause === 'down') return 'browse';
-  if (cause === 'extractor') return 'video';
-  return null;
-}
-
-/** Strip the `Name [LANG]:` prefix so the title column holds the problem. */
-function problemOf(title: string) {
-  const m = title.match(/^[^[:(]{1,48}(?:\[[^\]]+\])?\s*[:\-–]\s*(.+)$/);
-  const rest = (m?.[1] ?? title).trim();
-  return (rest.charAt(0).toUpperCase() + rest.slice(1)).slice(0, 160);
-}
 
 const esc = (v: string) => `'${v.replace(/'/g, "''")}'`;
 const nul = (v: string | null | undefined) => (v == null ? 'NULL' : esc(v));

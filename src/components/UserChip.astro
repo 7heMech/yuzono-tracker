@@ -19,9 +19,23 @@ import { safeReturnTo } from '../lib/redirect';
  */
 const user = await currentUser(Astro);
 const avatar = user ? avatarUrl(user, 48) : null;
-// Only admins get a link: a moderator's powers live on the report they are
-// moderating, not on a settings page.
-const staff = user ? atLeast(user.level, 'admin') : false;
+/* Staff get one link, and which one depends on what they can do with it.
+   This used to be admins only, on the reasoning that "a moderator's powers live
+   on the report they are moderating, not on a settings page" — true until the
+   GitHub sync gave moderators a queue of their own at /review. They need a way
+   to find it, and it is not a settings page.
+
+   Deliberately one control and not two for admins: the comment below about the
+   header having to stay tappable inside 390px is the constraint, and /admin
+   links on to /review itself. Also deliberately no pending count here — this
+   island renders for every signed-in visitor on every page, so a number here
+   would be a database read on all of them to serve something only staff see.
+
+   `user.level` is the level captured at login, which is the right thing for
+   deciding what to *show*; both destinations re-authorise on arrival. */
+const staff = user ? atLeast(user.level, 'mod') : false;
+const staffHref = user && atLeast(user.level, 'admin') ? '/admin' : '/review';
+const staffLabel = staffHref === '/admin' ? 'Dashboard' : 'Review';
 const here = (() => {
   const ref = Astro.request.headers.get('referer');
   if (ref) {
@@ -56,7 +70,7 @@ const signInHref = `/auth/discord?next=${encodeURIComponent(here)}`;
   user ? (
     <div class="who">
       {staff && (
-        <a class="btn btn-ghost staff-link" href="/admin">Dashboard</a>
+        <a class="btn btn-ghost staff-link" href={staffHref}>{staffLabel}</a>
       )}
       {/* The identity doubles as the way in to /me, and it says so in words
           rather than relying on the "click your own avatar" convention: until

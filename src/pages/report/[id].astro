@@ -2,7 +2,7 @@
 import { env } from 'cloudflare:workers';
 import Base from '../../layouts/Base.astro';
 import VoteButton from '../../components/VoteButton.astro';
-import { and, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from '../../lib/db/client';
 import { reports, votes } from '../../lib/db/schema';
 import { currentUser } from '../../lib/auth';
@@ -10,6 +10,7 @@ import { atLeast } from '../../lib/levels';
 import { isResponse, levelOf, logAction, requireStaff } from '../../lib/staff';
 import { announceFixed } from '../../lib/webhook';
 import { notifyWatchers } from '../../lib/notify';
+import { promoteUrl } from '../../lib/github';
 import { getSource, langLabel, sourcePath } from '../../lib/sources';
 import {
   CAUSE_LABELS,
@@ -21,6 +22,10 @@ import {
 import { STATUSES } from '../../lib/db/schema';
 
 export const prerender = false;
+
+/* Read in two places — the POST branch above the page body, and the issue
+   link below it — so it is a function rather than a const declared after both. */
+const repoName = () => String(env.GITHUB_REPO ?? 'yuzono/anime-extensions');
 
 const id = Number(Astro.params.id);
 /* A non-numeric id is a broken pasted link, so it gets the page that explains
@@ -74,6 +79,42 @@ if (Astro.request.method === 'POST') {
       else await Promise.all(after);
     }
     return Astro.redirect(`/report/${id}?saved=status`, 303);
+  }
+
+  /* Promotion. A prefilled issue form rather than the API, because this install
+     holds no GitHub token — see lib/github.ts. The claim below is the point of
+     `promoted_at`: opening an issue upstream cannot be undone, so a double-tap
+     has to be refused by the database rather than by hoping it does not happen.
+     Same shape as the announcement claims in lib/webhook.ts. */
+  if (form.get('promote') === '1') {
+    const [claimed] = await db()
+      .update(reports)
+      .set({ promotedAt: sql`(unixepoch())`, updatedAt: sql`(unixepoch())` })
+      .where(and(eq(reports.id, id), isNull(reports.promotedAt), isNull(reports.githubIssue)))
+      .returning();
+    if (!claimed) return Astro.redirect(`/report/${id}?saved=promote-already`, 303);
+
+    /* Confirmed, not in_progress: sending it upstream says a moderator believes
+       it, which is what `confirmed` means. Claiming work has started would be a
+       stronger statement than anyone has made. */
+    await db()
+      .update(reports)
+      .set({ status: 'confirmed', statusChangedAt: sql`(unixepoch())` })
+      .where(and(eq(reports.id, id), sql`${reports.status} <> 'confirmed'`));
+    await logAction(gate.user, 'report.promote', String(id), null);
+
+    /* The kind already declared on notifications, unused until now. Watchers
+       hear that their report went upstream, which is the whole point of the
+       loop: a Discord broadcast cannot tell someone it was *theirs*. */
+    const promoted = notifyWatchers(id, 'promoted', null, gate.user.id);
+    const cf = Astro.locals.cfContext;
+    if (cf) cf.waitUntil(promoted);
+    else await promoted;
+
+    /* Straight to the prefilled form. The issue number comes back on its own:
+       the next sync pass finds the backlink this URL plants in the body and
+       links it, so nobody pastes a number back by hand. */
+    return Astro.redirect(promoteUrl(claimed, repoName(), Astro.url.origin), 303);
   }
 
   if (nsfwWanted === '0' || nsfwWanted === '1') {
@@ -132,7 +173,7 @@ const isRequest = !!report.proposedName;
 
 // The repo is configuration, not a constant — a fork points GITHUB_REPO at its
 // own issues rather than sending its visitors to this one.
-const repo = String(env.GITHUB_REPO ?? 'yuzono/anime-extensions');
+const repo = repoName();
 
 /* This route shipped no cache headers at all, which is what made prefetching it
    from the board so expensive — 60 links on the homepage, every one of them a
@@ -153,7 +194,9 @@ Astro.response.headers.set(
           ? 'Marked 18+. It now shows only when 18+ is on.'
           : saved === 'nsfw-off'
             ? 'No longer marked 18+.'
-            : 'Status updated.'}
+            : saved === 'promote-already'
+              ? 'This one has already been sent to GitHub.'
+              : 'Status updated.'}
       </p>
     )
   }
@@ -252,6 +295,22 @@ Astro.response.headers.set(
           <p class="mod-hint">
             Marking it fixed announces it to Discord if a webhook is set, once.
           </p>
+
+          {!report.githubIssue && (
+            <div class="mod-extra">
+              <p class="mod-label">GitHub</p>
+              <div class="mod-row">
+                <button class="btn" type="submit" name="promote" value="1">
+                  Open a GitHub issue
+                </button>
+              </div>
+              <p class="mod-hint">
+                Takes you to the issue form with the details filled in. Submit it
+                there and this report links itself to the issue within half an
+                hour — you don't need to come back and paste the number.
+              </p>
+            </div>
+          )}
 
           {isRequest && (
             <div class="mod-extra">

@@ -8,8 +8,6 @@ interface Env {
   DISCORD_CLIENT_SECRET: string;
   /** Bootstraps the dashboard: the one authority /admin cannot grant. */
   OWNER_DISCORD_ID?: string;
-  /** Optional: lifts the GitHub issue-state poll from 60 to 5000 req/h. */
-  GITHUB_TOKEN?: string;
   /** Optional seed for the webhook that /admin then owns. */
   DISCORD_WEBHOOK_URL?: string;
 }
@@ -18,7 +16,6 @@ declare namespace Cloudflare {
   interface Env {
     DISCORD_CLIENT_SECRET: string;
     OWNER_DISCORD_ID?: string;
-    GITHUB_TOKEN?: string;
     DISCORD_WEBHOOK_URL?: string;
   }
 }
