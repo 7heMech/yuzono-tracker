@@ -77,9 +77,18 @@ export const POST: APIRoute = async (ctx) => {
      GitHub rather than on the board reaches /review at once instead of waiting
      for the reconcile — the transition table returns "no change" for a newly
      opened issue, so this populates the queue without touching any status.
-     Label and title edits stay ignored: they are noisy, and `state_reason`
-     already carries everything the mapping reads. */
-  const ACTED_ON = ['opened', 'closed', 'reopened'];
+
+     `labeled` and `unlabeled` are here because a label is the only 18+ signal
+     for an issue whose source is not in the catalogue, and dropping the event
+     meant adding the label upstream did nothing at all until the next daily
+     pass — which is precisely the complaint that got them added. The pass they
+     trigger stores the new label set and lets reconcileNsfw act on it; it does
+     not re-classify anything else, so a label added to an issue that already
+     matched a catalogue source correctly changes nothing.
+
+     Title edits stay ignored: they are noisy, they never move a status, and
+     re-deriving a title would fight the moderator who fixed it here. */
+  const ACTED_ON = ['opened', 'closed', 'reopened', 'labeled', 'unlabeled'];
   if (!ACTED_ON.includes(String(payload.action))) {
     return new Response('ignored', { status: 202 });
   }

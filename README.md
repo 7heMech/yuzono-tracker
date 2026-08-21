@@ -255,3 +255,41 @@ catalogue. An exact name match with a clear problem is filed automatically;
 anything less certain goes to `/review`, which moderators can reach as well as
 admins. The matching heuristics are shared with `scripts/import-issues.ts`, so
 the live sync and the seed agree about what an issue means.
+
+### Who owns the 18+ flag
+
+The catalogue, for any report against a source that exists in it. `nsfwFor` in
+`src/lib/github.ts` is the one place that decides, and every writer goes through
+it: filing on `/new`, adopting an issue, and the reconcile. A GitHub `18+` label
+is consulted **only** when there is no catalogue entry to ask — a request for a
+site that is not in the repo yet, or an adopted issue whose source could not be
+matched. On those rows the label may only ever switch the flag on, so a label
+removal upstream cannot quietly undo a moderator who marked something by hand.
+
+This was wrong for a long time. The original import read the label
+unconditionally, so 46 of the 174 catalogue-backed rows disagreed with the
+catalogue and 45 reports about adult sources sat on the default board. Nothing
+in the running system could correct them, because a sync pass only ever wrote
+`status` to a linked report. `reconcileNsfw` in `src/lib/github-sync.ts` now
+re-derives the flag set-wise on every pass, which also means a source whose flag
+changes upstream propagates on the next sync rather than never.
+
+The rows that predate all this are repaired by migration
+`0008_realign_nsfw_with_catalogue`, so the normal route applies it:
+
+```sh
+bun run db:remote
+```
+
+That migration carries a snapshot of the catalogue's 108 adult source ids, which
+is what a migration is for — it records a one-time correction, and `reconcileNsfw`
+rather than the migration is what keeps things correct afterwards. Same shape as
+the `CASE` in `0005`, which froze a copy of `problemKeyFor`. Rows with no
+`source_id` are untouched by it.
+
+Worth knowing what the flag means, because it is coarser than it reads. Upstream
+sets it on 108 of 310 sources, including Miruro.tv, KissKH, Anikage and
+Animenosub, which are not adult sites but do carry some adult content. The
+extension repos are preparing a three-state SAFE / MIXED / NSFW classification
+in which those land in MIXED, but neither the library nor the apps support it
+yet, so a boolean is all there is to read. `nsfwFor` is the seam for it.

@@ -24,10 +24,12 @@ import {
   langOf,
   matchSource,
   norm,
+  nsfwFor,
   problemOf,
   stageOf,
 } from '../src/lib/github';
 import { problemKeyFor } from '../src/lib/problems';
+import { getSource } from '../src/lib/sources';
 
 type Issue = {
   number: number;
@@ -80,7 +82,12 @@ for (const iss of issues) {
   // A regenerated seed that disagreed with the backfilled production rows would
   // not error; it would just dedupe differently.
   const problemKey = problemKeyFor(kind, stage, cause, !!sourceId);
-  const nsfw = iss.labels.includes('18+');
+  // The catalogue decides for a matched source; the label only speaks when
+  // there is nothing to match. This line used to read
+  // `iss.labels.includes('18+')` unconditionally, which is how 46 rows ended up
+  // disagreeing with the catalogue — hanime.tv's issue carried no label, so a
+  // report about an adult source sat on the default board. See nsfwFor.
+  const nsfw = nsfwFor(getSource(sourceId), iss.labels);
 
   let status: string;
   if (iss.state === 'closed') status = 'fixed';

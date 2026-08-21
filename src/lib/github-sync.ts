@@ -1,10 +1,11 @@
-import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from './db/client';
 import { githubIssues, reports, users } from './db/schema';
 import { announceFixed } from './webhook';
 import { notifyWatchers } from './notify';
 import { logAction } from './staff';
 import { readConfig, type Config } from './settings';
+import { SOURCES } from './sources';
 import {
   classifyIssue,
   promoteTitle,
@@ -69,6 +70,8 @@ export interface SyncResult {
   linked: number;
   review: number;
   announced: number;
+  /** Rows whose 18+ flag was corrected this pass. See reconcileNsfw. */
+  reflagged: number;
 }
 
 export async function syncIssues(
@@ -88,7 +91,15 @@ export async function syncIssues(
       .where(and(eq(reports.status, 'fixed'), isNull(reports.fixAnnouncedAt)));
   }
 
-  const result: SyncResult = { seen: 0, changed: 0, adopted: 0, linked: 0, review: 0, announced: 0 };
+  const result: SyncResult = {
+    seen: 0,
+    changed: 0,
+    adopted: 0,
+    linked: 0,
+    review: 0,
+    announced: 0,
+    reflagged: 0,
+  };
 
   /* Read once per pass, not once per issue. A reconcile carries every upstream
      issue, so anything queried inside the loop below is paid ~470 times — and
@@ -179,8 +190,107 @@ export async function syncIssues(
       });
   }
 
+  result.reflagged = await reconcileNsfw(SYNC_ACTOR);
   result.announced = await drainAnnouncements(opts.origin, cfg);
   return result;
+}
+
+/* --- the 18+ flag --------------------------------------------------------- */
+
+/**
+ * Re-derives `reports.nsfw` for every row that has an authority to derive it
+ * from, and returns how many rows moved.
+ *
+ * Why this exists at all. `applyStatus` is the only thing a pass used to write
+ * to a linked report, so every catalogue-derived column was frozen at the
+ * moment the report was created and nothing could ever correct it. Two
+ * consequences, both of which were live: the 468 rows from the original import
+ * carried a flag taken from a GitHub label rather than the catalogue, so 46 of
+ * the 174 catalogue-backed rows disagreed with the catalogue and 45 adult
+ * sources sat on the default board; and adding an `18+` label upstream, or
+ * upstream flipping a source's flag in the extension index, changed nothing
+ * here no matter how many passes ran.
+ *
+ * Deliberately set-based rather than per-issue. The loop above is paid roughly
+ * 470 times a pass, and doing this there would mean a read per issue to learn
+ * a `source_id` this can get in bulk. These are four statements whose cost does
+ * not grow with the number of issues, and because they are driven by the
+ * catalogue rather than by the issues in the payload, they also repair rows
+ * whose issue was not in this pass at all.
+ *
+ * The rule differs by whether there is a catalogue entry, because the authority
+ * differs — see nsfwFor in lib/github.ts:
+ *
+ *   - A row with a `source_id` in the catalogue: the catalogue decides, both
+ *     ways. There is nothing to preserve, because no human input goes into that
+ *     value; the moderator control on /report is gated to catalogue-less rows
+ *     for exactly this reason.
+ *   - A row with no catalogue entry — a source request, or an adopted issue
+ *     whose source could not be matched: the GitHub label may only ever turn
+ *     the flag *on*. Asymmetric on purpose. The alternative is a label removal
+ *     silently undoing a moderator who marked something 18+ by hand, and
+ *     between over- and under-marking an adult source, over-marking is the
+ *     mistake to prefer. A moderator can still turn it off, and that decision
+ *     survives every later pass.
+ */
+export async function reconcileNsfw(actor: Actor): Promise<number> {
+  const adult = SOURCES.filter((s) => s.nsfw).map((s) => s.id);
+  const tame = SOURCES.filter((s) => !s.nsfw).map((s) => s.id);
+  const d = db();
+
+  // `inArray` with ~200 ids is one bound parameter each, well inside SQLite's
+  // default limit of 32766, so these stay single statements.
+  const [on, off] = await Promise.all([
+    adult.length
+      ? d
+          .update(reports)
+          .set({ nsfw: true, updatedAt: sql`(unixepoch())` })
+          .where(and(inArray(reports.sourceId, adult), eq(reports.nsfw, false)))
+          .returning({ id: reports.id })
+      : Promise.resolve([]),
+    tame.length
+      ? d
+          .update(reports)
+          .set({ nsfw: false, updatedAt: sql`(unixepoch())` })
+          .where(and(inArray(reports.sourceId, tame), eq(reports.nsfw, true)))
+          .returning({ id: reports.id })
+      : Promise.resolve([]),
+  ]);
+
+  /* Catalogue-less rows, from the label we already stored. `labels` is a JSON
+     array in a text column, so the test is a substring against the quoted
+     value — `"18+"` cannot appear inside any other label GitHub allows, since
+     the quotes are the JSON delimiters. Only ever sets the flag; see above. */
+  const labelled = await d
+    .update(reports)
+    .set({ nsfw: true, updatedAt: sql`(unixepoch())` })
+    .where(
+      and(
+        isNull(reports.sourceId),
+        eq(reports.nsfw, false),
+        sql`EXISTS (
+          SELECT 1 FROM github_issues gi
+          WHERE gi.report_id = ${reports.id} AND gi.labels LIKE '%"18+"%'
+        )`,
+      ),
+    )
+    .returning({ id: reports.id });
+
+  const moved = on.length + off.length + labelled.length;
+
+  /* Audited, because a report quietly moving on or off the default board is
+     exactly the kind of change someone later asks about — and a count is
+     enough, since the ids are recoverable from the catalogue. Silent when
+     nothing moved, which is every pass after the first. */
+  if (moved > 0) {
+    await logAction(
+      actor,
+      'sync.nsfw',
+      null,
+      `${on.length} marked 18+, ${off.length} cleared, ${labelled.length} from labels`,
+    );
+  }
+  return moved;
 }
 
 /* --- resolving ------------------------------------------------------------ */

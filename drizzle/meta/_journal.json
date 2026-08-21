@@ -57,6 +57,13 @@
       "when": 1787313099228,
       "tag": "0007_github_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1787313099229,
+      "tag": "0008_realign_nsfw_with_catalogue",
+      "breakpoints": true
     }
   ]
 }

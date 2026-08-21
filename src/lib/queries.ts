@@ -38,7 +38,8 @@ const STALLED_AFTER = 7_776_000;
  * `.select()` with no argument pulls all 26, `body` — the entire report text —
  * included, for rows that never show it, and the ORDER BY sorter then carries
  * that payload through a temp B-tree. These eleven are exactly what
- * ReportRow.astro touches, `reportHeadline` (title, stage, cause) included.
+ * ReportRow.astro touches, `reportHeadline` (title, stage, cause) and `nsfw`
+ * included.
  *
  * ReportRow's prop stays typed `Report`, so the queries below cast. The cast
  * is only honest while this list is a superset of what the component reads —
@@ -47,6 +48,10 @@ const STALLED_AFTER = 7_776_000;
 const ROW_COLUMNS = {
   id: reports.id,
   sourceId: reports.sourceId,
+  // Selected so a row can say it is 18+, not just be filtered by it. The board
+  // is already scoped by the toggle, but a row reached from /me, from a source
+  // page or from a pasted link is not, and it used to give no indication at all.
+  nsfw: reports.nsfw,
   proposedName: reports.proposedName,
   lang: reports.lang,
   stage: reports.stage,

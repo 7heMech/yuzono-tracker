@@ -167,9 +167,20 @@ const saved = Astro.url.searchParams.get('saved');
 const headline = reportHeadline(report);
 
 /* A source request is the only report whose 18+ flag lives on the row: for
-   everything else it is copied from the catalogue at filing time, so the
-   catalogue is the place to change it. */
+   everything else the catalogue owns it, which is now enforced rather than
+   merely intended — reconcileNsfw in lib/github-sync.ts re-derives it from the
+   catalogue on every sync pass, so an edit here to a catalogue-backed row would
+   genuinely be overwritten. The moderator control below is gated to
+   catalogue-less rows for that reason. */
 const isRequest = !!report.proposedName;
+
+/* Whether to warn a visitor, and on whose authority. The catalogue answers for
+   a source that exists; a request has only what the person filing it ticked,
+   which a moderator can correct. Shown to everyone, not just moderators: report
+   links get pasted into Discord and outlive the report, and until now the page
+   they land on said nothing at all — report 126 was about hanime.tv and read
+   like any other. */
+const adult = source ? source.nsfw : report.nsfw;
 
 // The repo is configuration, not a constant — a fork points GITHUB_REPO at its
 // own issues rather than sending its visitors to this one.
@@ -206,6 +217,20 @@ Astro.response.headers.set(
         {joined
           ? `Someone had already reported this. You've been added to it, so it now speaks for ${report.votes} people.`
           : "Filed. You're the first to report this one."}
+      </p>
+    )
+  }
+
+  {
+    adult && (
+      <p class="adult">
+        {source
+          ? 'This source is marked 18+ in the extension catalogue.'
+          : 'Whoever asked for this site marked it 18+.'}{' '}
+        <span class="adult-why">
+          Reports on 18+ sources are hidden from the boards unless a visitor asks
+          for them.
+        </span>
       </p>
     )
   }
@@ -345,6 +370,20 @@ Astro.response.headers.set(
 </Base>
 
 <style>
+  /* Same shape as the notice on a source page, so the two surfaces agree about
+     what an 18+ warning looks like. A quiet box with a coloured edge and plain
+     words in it, not a badge to decode. */
+  .adult {
+    padding: var(--space-2) var(--space-3);
+    margin-block-end: var(--space-5);
+    border: 1px solid var(--border-default);
+    border-inline-start: 2px solid var(--dead);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+  .adult-why { color: var(--text-tertiary); }
+
   .flash {
     padding: var(--space-3);
     margin-block-end: var(--space-6);

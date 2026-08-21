@@ -301,6 +301,38 @@ export interface Classified {
   why: string;
 }
 
+/**
+ * Whether a report is 18+, given the source it matched and the issue's labels.
+ *
+ * The catalogue owns the answer for a known source, exactly as filing through
+ * /new does: the flag comes from the upstream extension index, which is the
+ * same signal the apps themselves use to hide a source, and a GitHub label is
+ * neither maintained nor authoritative next to it. The label is trusted only
+ * when there is no catalogue entry to ask — a request for a site that does not
+ * exist yet, or an adopted issue whose source could not be matched.
+ *
+ * A note on what the flag actually means, because it is coarser than it looks.
+ * Upstream sets it on 108 of 310 sources, including Miruro.tv, KissKH, Anikage
+ * and Animenosub, which are not adult sites but do carry some adult content.
+ * The extension repos are preparing a three-state SAFE / MIXED / NSFW
+ * classification in which those land in MIXED, but neither the library nor the
+ * apps support it yet, so a boolean is all there is to read. When that lands,
+ * this function is the seam: it is the one place that decides, and the column
+ * behind it can widen without touching any caller.
+ *
+ * Exported and shared rather than inlined because two callers have to agree —
+ * `classifyIssue` below, and the one-off importer in scripts/import-issues.ts.
+ * They disagreed for months: the importer trusted the label unconditionally, so
+ * 46 of 174 catalogue-backed rows were stored with the wrong flag and 45 adult
+ * sources sat on the default board.
+ */
+export function nsfwFor(
+  source: { nsfw: boolean } | undefined | null,
+  labels: string[],
+): boolean {
+  return source ? source.nsfw : labels.includes('18+');
+}
+
 export function classifyIssue(issue: IssueSnapshot): Classified {
   const kind = kindOf(issue.labels);
   const m = kind === 'request' ? { how: 'none' as MatchHow } : matchSourceHow(issue.title);
@@ -333,9 +365,7 @@ export function classifyIssue(issue: IssueSnapshot): Classified {
     proposedName: sourceId ? null : headOf(issue.title).slice(0, 80) || 'Unknown',
     kind,
     lang,
-    // The catalogue owns the 18+ flag for a known source, exactly as filing
-    // does; the label is only trusted when there is no catalogue entry.
-    nsfw: source ? source.nsfw : issue.labels.includes('18+'),
+    nsfw: nsfwFor(source, issue.labels),
     stage,
     cause,
     problem,

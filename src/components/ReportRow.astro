@@ -45,6 +45,13 @@ const why = !rebuilt && r.cause && r.cause !== 'other' ? CAUSE_LABELS[r.cause] :
 // video failure, so the cause alone carries it.
 const redundant = r.cause === 'extractor' && r.stage === 'video';
 const whatBroke = !rebuilt && r.stage && !redundant ? STAGE_FAILURE[r.stage] : null;
+
+/* The catalogue answers for a source that exists, the row only for a request —
+   the same rule the sync and the report page use, so all three agree. Worth
+   saying on the row because a row is not always reached through the board's
+   toggle: /me, a source page and a pasted link all show rows unfiltered, and
+   until now none of them gave any indication. */
+const adult = source ? source.nsfw : r.nsfw;
 ---
 
 <li class="row">
@@ -72,6 +79,7 @@ const whatBroke = !rebuilt && r.stage && !redundant ? STAGE_FAILURE[r.stage] : n
           <span>{relativeAge(r.createdAt)} ago</span>
         )
       }
+      {adult && <span class="adult">18+</span>}
       {r.githubIssue && <span class="gh">#{r.githubIssue}</span>}
     </span>
   </a>
@@ -103,7 +111,14 @@ const whatBroke = !rebuilt && r.stage && !redundant ? STAGE_FAILURE[r.stage] : n
     color: var(--text-secondary);
     font-size: var(--text-xs);
   }
-  /* The only coloured metadata, and it says what it means in words. */
+  /* Two words on the row are coloured, and both say what they mean without one.
+     18+ is the other; it borrows the same red the dead-source notice uses. */
+  .adult {
+    color: var(--dead);
+    font-weight: var(--weight-medium);
+    font-size: var(--text-xs);
+  }
+  /* Says what it means in words. */
   .stalled { color: var(--stalled); font-weight: var(--weight-medium); }
   .gh { font-family: var(--font-data); font-size: var(--text-xs); color: var(--text-muted); }
 

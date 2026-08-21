@@ -4,6 +4,7 @@ import {
   closedStatusFor,
   isMismatch,
   matchSourceHow,
+  nsfwFor,
   promoteTitle,
   promoteUrl,
   reportIdFromBody,
@@ -198,6 +199,34 @@ describe('classifyIssue', () => {
     expect(c.nsfw).toBe(true);
   });
 
+  test('a matched source overrides the label in both directions', () => {
+    // The half that was actually broken in production. scripts/import-issues.ts
+    // read the label unconditionally, so hanime.tv — whose issue carried no
+    // `18+` label — was stored as safe and its report sat on the default board.
+    // 46 of 174 catalogue-backed rows disagreed with the catalogue this way.
+    const adultNoLabel = classifyIssue(issue({ title: 'hanime.tv [EN]: site is down', labels: [] }));
+    expect(adultNoLabel.sourceId).not.toBeNull();
+    expect(adultNoLabel.nsfw).toBe(true);
+
+    // And the converse: a label on a source the catalogue calls safe does not
+    // hide it. The label is not a second opinion, it is ignored outright.
+    const tameWithLabel = classifyIssue(
+      issue({ title: 'French Anime [FR]: video will not play', labels: ['18+'] }),
+    );
+    expect(tameWithLabel.sourceId).not.toBeNull();
+    expect(tameWithLabel.nsfw).toBe(false);
+  });
+
+  test('with no catalogue entry the label is all there is', () => {
+    // A request for a site that does not exist yet, or an issue whose source
+    // could not be matched. Here the label is the only signal, so it is trusted.
+    const c = classifyIssue(
+      issue({ title: 'Nonexistent Site [EN]: broken', labels: ['18+'] }),
+    );
+    expect(c.sourceId).toBeNull();
+    expect(c.nsfw).toBe(true);
+  });
+
   test('labels drive the kind', () => {
     expect(classifyIssue(issue({ labels: ['Source request'] })).kind).toBe('request');
     expect(classifyIssue(issue({ labels: ['Domain changed'] })).kind).toBe('domain');
@@ -249,5 +278,41 @@ describe('promotion', () => {
     expect(reportIdFromBody('Tracked at https://t.example/report/77')).toBe(77);
     expect(reportIdFromBody('no link here')).toBeNull();
     expect(reportIdFromBody(null)).toBeNull();
+  });
+});
+
+describe('nsfwFor', () => {
+  /**
+   * The rule three callers answer to: `classifyIssue` above, the one-off
+   * importer in scripts/import-issues.ts, and `reconcileNsfw` in
+   * lib/github-sync.ts. They disagreed for months — the importer trusted the
+   * label even when it had matched a source — which is the whole reason this is
+   * a named, exported function rather than an expression in one of them.
+   */
+  test('a catalogue entry decides, whatever the labels say', () => {
+    expect(nsfwFor({ nsfw: true }, [])).toBe(true);
+    expect(nsfwFor({ nsfw: true }, ['18+'])).toBe(true);
+    expect(nsfwFor({ nsfw: false }, ['18+'])).toBe(false);
+    expect(nsfwFor({ nsfw: false }, [])).toBe(false);
+  });
+
+  test('with no entry, the label speaks', () => {
+    // Both spellings of absent: a request has no source at all, and an
+    // unmatched issue resolves the lookup to undefined.
+    for (const missing of [undefined, null]) {
+      expect(nsfwFor(missing, ['18+'])).toBe(true);
+      expect(nsfwFor(missing, [])).toBe(false);
+      expect(nsfwFor(missing, ['Source request', '18+'])).toBe(true);
+    }
+  });
+
+  test('only the exact label counts', () => {
+    // Guards the `labels LIKE '%"18+"%'` test reconcileNsfw runs against the
+    // stored JSON array: a label that merely contains the digits must not read
+    // as the flag.
+    expect(nsfwFor(null, ['18'])).toBe(false);
+    expect(nsfwFor(null, ['NSFW'])).toBe(false);
+    expect(nsfwFor(null, ['not-18+'])).toBe(false);
+    expect(nsfwFor(null, ['18+ '])).toBe(false);
   });
 });
