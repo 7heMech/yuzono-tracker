@@ -30,9 +30,9 @@ export default defineConfig({
      * makes each hash follow its file.
      *
      * src/scripts/theme.js resolves the theme before first paint and wires the
-     * toggle; src/scripts/session-hint.js corrects the header's sign-in button
-     * on prerendered pages. Both have to be in the head and neither needs a
-     * bundle.
+     * toggle; src/scripts/session-hint.js sets the signed-in hint on <html>
+     * before first paint, which the header's CSS reads to pick the right
+     * label. Both have to be in the head and neither needs a bundle.
      */
     {
       name: 'yuzono:inline-scripts',

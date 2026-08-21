@@ -27,9 +27,20 @@ const tabs = [
  * buys nothing but a wasted island fetch that renders the signed-out state.
  * The reverse is the interesting case — on the prerendered `/sources/` and
  * `/source/<slug>/` pages there is no request to read at build time, so those
- * pages always ship the static Sign in button and a signed-in visitor sees it
- * until they open a server-rendered page. That is the deliberate trade: 310
- * pages of cache-friendly HTML for the majority who are not signed in.
+ * pages always ship the guest markup. The link therefore carries both labels
+ * ("Sign in" and "Your reports") and points at /me either way, and CSS picks
+ * the label off a `data-signed-in` attribute that src/scripts/session-hint.js
+ * sets on <html> before first paint. The corner is correct in the first frame
+ * on every page — no post-paint swap, which visitors read as a flicker — and
+ * with JavaScript off the guest label simply stays, still routing correctly
+ * through /me. That is the deliberate trade: 310 pages of cache-friendly HTML
+ * for the majority who are not signed in.
+ *
+ * The island's fallback gets the same treatment: it used to be the Sign in
+ * button, which meant a signed-in visitor on a server-rendered page saw
+ * "Sign in" for as long as the island fetch took — the same flicker one layer
+ * down. The fallback below is the signed-in shape without the identity, so
+ * the upgrade adds an avatar instead of replacing a lie.
  */
 const maybeSignedIn = Astro.cookies.get('signed_in')?.value === '1';
 
@@ -78,24 +89,25 @@ const DISCORD_MARK =
       {
         maybeSignedIn ? (
           <UserChip server:defer>
-            <a class="btn btn-discord" slot="fallback" href="/auth/discord">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d={DISCORD_MARK} />
-              </svg>
-              <span class="login-text">Sign in</span>
+            <a class="me-hint" slot="fallback" href="/me" aria-label="Your reports">
+              <span class="avatar-blank" aria-hidden="true"></span>
+              <span class="me-hint-text">Your reports</span>
             </a>
           </UserChip>
         ) : (
           /* No cookie to read — either the visitor is genuinely signed out, or
              this is one of the 310 prerendered pages, which are built with no
              request at all. The two cases are indistinguishable here, so both
-             get the sign-in button and src/scripts/session-hint.js corrects
-             the second one in the browser, where the cookie is readable. */
-          <a class="btn btn-discord" href="/auth/discord" data-signin-hint>
+             get this link, and session-hint.js plus the CSS below decide which
+             label it wears before the first paint. /me is the destination for
+             both: signed-out it bounces to Discord sign-in, signed-in it is
+             the reports page. */
+          <a class="btn btn-discord signin-link" href="/me">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d={DISCORD_MARK} />
             </svg>
-            <span class="login-text">Sign in</span>
+            <span class="guest-text">Sign in</span>
+            <span class="authed-text">Your reports</span>
           </a>
         )
       }
@@ -104,10 +116,57 @@ const DISCORD_MARK =
 </header>
 
 <style>
-  /* Set by src/scripts/session-hint.js on a prerendered page when the
-     `signed_in` cookie says the visitor has a session. The Discord mark is
-     wrong once the link no longer goes to Discord. */
-  [data-signin-hint][data-signed-in] svg { display: none; }
+  /* Both labels ship in the one link; which one shows is decided by the root
+     attribute session-hint.js sets before first paint. Nothing here is ever
+     swapped after paint, so a signed-in visitor never sees "Sign in" flash on
+     navigation. The Discord mark is wrong once the link stops going to
+     Discord, so it goes with the guest label. */
+  .signin-link .authed-text { display: none; }
+  :global(:root[data-signed-in]) .signin-link svg,
+  :global(:root[data-signed-in]) .signin-link .guest-text { display: none; }
+  :global(:root[data-signed-in]) .signin-link .authed-text { display: inline; }
+  /* Override .btn-discord in the same layer it is defined in: `src/styles/base.css`
+     lives in @layer components, so this has to as well. Unlayered should win
+     per the spec, but Chromium's layered-sheet handling in dev keeps the later
+     unlayered rule from outranking the earlier layered one, so styling it here
+     in `utilities` (which is ordered after components) makes the win explicit
+     and keeps the signed-in label de-emphasised — blurple is for theCTA. */
+  @layer utilities {
+    :global(:root[data-signed-in]) .signin-link {
+      background: var(--surface-raised);
+      border-color: var(--border-default);
+      color: var(--text-secondary);
+    }
+    :global(:root[data-signed-in]) .signin-link:hover {
+      filter: none;
+      background: var(--surface-hover);
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+  }
+
+  /* The user island's fallback: the signed-in shape without the identity, so
+     the island's arrival adds an avatar rather than replacing a "Sign in"
+     button that was never true. Styled to match UserChip's .me so the upgrade
+     does not shift anything but the avatar itself. */
+  .me-hint {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-inline: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+  .avatar-blank {
+    inline-size: 22px;
+    block-size: 22px;
+    border-radius: var(--radius-full);
+    background: var(--surface-active);
+  }
+  @media (max-width: 700px) {
+    .me-hint-text { display: none; }
+    .me-hint { padding-inline: var(--space-1); }
+  }
 
   .bar {
     position: sticky;
