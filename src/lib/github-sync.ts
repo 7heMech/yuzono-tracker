@@ -137,9 +137,9 @@ export async function syncIssues(
 
     /* Written last, so a crash before this point leaves the same transition
        waiting to be re-read next pass rather than swallowing it — but skipped
-       when nothing about the issue has changed at all. A reconcile carries every
-       issue every half hour, so writing all ~470 rows each time would spend
-       around 22,000 D1 writes a day recording that nothing happened. */
+       when nothing about the issue has changed at all. A reconcile carries all
+       ~470 issues at once, so writing every row each pass would spend hundreds
+       of D1 writes to record that nothing happened. */
     const unchanged =
       prior &&
       prior.state === issue.state &&

@@ -232,11 +232,15 @@ Reports carry the number of the issue they correspond to, and the two are kept
 in step in both directions that are available without write access upstream.
 
 Two triggers, because they fail differently. `.github/workflows/sync-issues.yml`
-reads every upstream issue every half hour and posts the set to `/github/sync`;
-it is late but self-correcting. A GitHub webhook on `/github/webhook` is
-instant, but a delivery that fails and goes unnoticed is wrong forever. Both go
-through the same code, and both are configured from /admin, which generates the
-shared secret for each — nothing is asked for at deploy time.
+reads every upstream issue once a day and posts the set to `/github/sync`. The
+webhook on `/github/webhook` is what makes a change land immediately; the daily
+pass is the repair, because a delivery that fails and goes unnoticed is
+otherwise wrong forever — as is anything that changed before the hook existed.
+Both go through the same code, and both are configured from /admin, which
+generates the shared secret for each, so nothing is asked for at deploy time.
+
+If the webhook is never added the daily pass becomes the only mechanism, and
+wants to be far more frequent than daily.
 
 The rule that matters is in `transitionFor` (`src/lib/github.ts`): the sync acts
 on a *change* in the upstream state, never on the two states disagreeing. Since

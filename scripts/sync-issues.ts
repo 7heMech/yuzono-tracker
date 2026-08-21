@@ -28,8 +28,8 @@ const SECRET = process.env.TRACKER_SYNC_SECRET ?? '';
 
 /* A missing secret means "not set up yet", which is a different thing from
    broken. On the schedule that has to exit cleanly, or a repo that has merged
-   this but not yet generated a secret on /admin mails its owner a failure every
-   half hour until they do. A run somebody actually started still errors, since
+   this but not yet generated a secret on /admin mails its owner a failure on
+   every run until they do. A run somebody actually started still errors, since
    there the silence would be the confusing outcome. */
 if (!dryRun && !SECRET) {
   if (process.env.GITHUB_EVENT_NAME === 'schedule') {

@@ -23,12 +23,6 @@ export const prerender = false;
  */
 export const POST: APIRoute = async (ctx) => {
   const event = ctx.request.headers.get('x-github-event');
-
-  // Answer the test delivery before touching anything, so "Recent Deliveries"
-  // shows green the moment the hook is added and the person setting it up gets
-  // an immediate yes rather than a mystery.
-  if (event === 'ping') return new Response('pong', { status: 200 });
-
   const header = ctx.request.headers.get('x-hub-signature-256');
   if (!signatureHex(header)) return new Response('not found', { status: 404 });
 
@@ -39,6 +33,15 @@ export const POST: APIRoute = async (ctx) => {
   if (!(await verifySignature(secret, raw, header))) {
     return new Response('bad signature', { status: 401 });
   }
+
+  /* The test delivery, answered only once the signature above has checked out.
+     GitHub signs the ping like anything else, so verifying it first is what
+     makes a green "Recent Deliveries" row mean the secret is right — answering
+     before the check would have made it mean only that the URL resolves, and a
+     mistyped secret would look fine until the first real close silently 401'd.
+     Verified is the more useful signal, and it is the one the setup notes on
+     /admin tell you to look for. */
+  if (event === 'ping') return new Response('pong', { status: 200 });
 
   if (event !== 'issues') return new Response('ignored', { status: 202 });
 
@@ -70,9 +73,14 @@ export const POST: APIRoute = async (ctx) => {
     return new Response('wrong repo', { status: 202 });
   }
 
-  // Only state changes matter. Label edits are noisy and state_reason already
-  // carries everything the mapping needs, so they are deliberately ignored.
-  if (payload.action !== 'closed' && payload.action !== 'reopened') {
+  /* Closed and reopened drive the status; opened is here so an issue filed on
+     GitHub rather than on the board reaches /review at once instead of waiting
+     for the reconcile — the transition table returns "no change" for a newly
+     opened issue, so this populates the queue without touching any status.
+     Label and title edits stay ignored: they are noisy, and `state_reason`
+     already carries everything the mapping reads. */
+  const ACTED_ON = ['opened', 'closed', 'reopened'];
+  if (!ACTED_ON.includes(String(payload.action))) {
     return new Response('ignored', { status: 202 });
   }
 

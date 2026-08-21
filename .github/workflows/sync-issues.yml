@@ -14,9 +14,16 @@ name: Sync GitHub issues
 
 on:
   schedule:
-    # Every 30 minutes. The webhook, where configured, is what makes changes
-    # land instantly; this is the backstop that repairs a missed delivery.
-    - cron: '*/30 * * * *'
+    # Once a day, at a quiet hour. This is a repair pass, not the mechanism: the
+    # webhook is what makes a close land instantly, and what this catches is the
+    # delivery that failed while the site was deploying, the stretch when the
+    # secret was wrong, and anything that changed before the hook existed.
+    #
+    # Daily rather than half-hourly because that is 5 GitHub API calls instead
+    # of 240, and a fix that already shipped can wait a day to be noticed. If
+    # the webhook is never added, this becomes the only mechanism and wants to
+    # go back to something frequent.
+    - cron: '17 4 * * *'
   workflow_dispatch:
     inputs:
       backfill:
