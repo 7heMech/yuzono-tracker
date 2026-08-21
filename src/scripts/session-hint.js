@@ -29,6 +29,17 @@
  * layout, for the same reason as src/scripts/theme.js: the CSP hashes injected
  * scripts and not author inline ones.
  */
-if (/(?:^|;\s*)signed_in=1(?:;|$)/.test(document.cookie)) {
-  document.documentElement.dataset.signedIn = '';
+function syncSignedIn() {
+  if (/(?:^|;\s*)signed_in=1(?:;|$)/.test(document.cookie)) {
+    document.documentElement.dataset.signedIn = '';
+  } else {
+    delete document.documentElement.dataset.signedIn;
+  }
 }
+syncSignedIn();
+// View Transitions swaps the document without a full reload. The new document's
+// <html> comes from the fetched HTML (which for prerendered pages has no
+// data-signed-in), so the hint has to be re-applied on each navigation.
+// Cheap regex test, no DOM mutation if already correct.
+document.addEventListener('astro:page-load', syncSignedIn);
+document.addEventListener('astro:after-swap', syncSignedIn);

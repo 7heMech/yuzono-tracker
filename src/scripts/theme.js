@@ -54,6 +54,17 @@ apply(
 );
 
 document.addEventListener('DOMContentLoaded', () => apply(root.dataset.theme));
+// View Transitions keeps the document alive across navigations and swaps the
+// body/head rather than doing a full reload. DOMContentLoaded only fires once,
+// so the button label and data-theme have to be re-applied on each swap.
+document.addEventListener('astro:page-load', () => apply(root.dataset.theme));
+document.addEventListener('astro:after-swap', () => {
+  // `astro:page-load` fires after hydration; `astro:after-swap` fires earlier,
+  // before paint of the new document. Re-applying here prevents a flash where
+  // the new header's theme icons are briefly both visible.
+  const current = root.dataset.theme;
+  if (current) apply(current);
+});
 
 // Delegated from the document rather than bound to the button, because this
 // script runs in the head and the button is further down the page.
