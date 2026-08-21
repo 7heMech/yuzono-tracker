@@ -112,7 +112,7 @@ Astro.response.headers.set(
     authFailed && (
       <p class="error" role="alert">
         Signing in with Discord didn't complete, so you're still signed out.
-        Nothing was lost — <a href={retryHref}>try again</a>.
+        Nothing was lost. <a href={retryHref}>Try again</a>.
       </p>
     )
   }
@@ -120,7 +120,7 @@ Astro.response.headers.set(
   <section class="finder-block">
     <SourceFinder client:load />
     <p class="finder-hint">
-      Or <a href="/new">report a problem</a> — under a minute, once you know
+      Or <a href="/new">report a problem</a>. Under a minute, once you know
       your app and extension versions.
     </p>
   </section>

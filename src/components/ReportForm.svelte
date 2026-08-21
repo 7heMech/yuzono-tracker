@@ -255,7 +255,7 @@
       <p class="stale-title">Update the extension first</p>
       <p>
         You're on <b class="num">{extVer}</b> and <b class="num">{latest}</b> is out.
-        Most breakage is already fixed in the current version — update, try again,
+        Most breakage is already fixed in the current version. Update, try again,
         and only report if it's still broken.
       </p>
       <p class="stale-how">

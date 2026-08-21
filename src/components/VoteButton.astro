@@ -32,8 +32,8 @@ const { reportId, votes, mine = false } = Astro.props;
  */
 const word = mine ? 'Counted' : 'Me too';
 const said = mine
-  ? `Counted. ${votes} ${votes === 1 ? 'person is' : 'people are'} affected — press to take your report back.`
-  : `Me too — this is broken for me. ${votes} ${votes === 1 ? 'person is' : 'people are'} affected.`;
+  ? `Counted. ${votes} ${votes === 1 ? 'person is' : 'people are'} affected. Press to take your report back.`
+  : `Me too. This is broken for me. ${votes} ${votes === 1 ? 'person is' : 'people are'} affected.`;
 ---
 
 <form method="POST" action="/vote" class="vote">

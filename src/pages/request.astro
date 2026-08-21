@@ -61,7 +61,7 @@ if (Astro.request.method === 'POST') {
   } else if (!link) {
     error = url.trim()
       ? "That doesn't look like a web address. Paste the full link, e.g. https://example.com"
-      : 'Add the address — a request without a link cannot be built from.';
+      : 'Add the address. A request without a link cannot be built from.';
   } else if (!lang) {
     error = 'Pick the language the site is in.';
   } else if (!langs.some((l) => l.code === lang)) {
@@ -149,7 +149,7 @@ if (Astro.request.method === 'GET') {
   {
     !user && (
       <p class="note">
-        You'll be asked to sign in with Discord when you send — what you typed is kept.
+        You'll be asked to sign in with Discord when you send. What you typed is kept.
       </p>
     )
   }
@@ -157,7 +157,7 @@ if (Astro.request.method === 'GET') {
   <form method="POST" class="flow">
     {
       resumed && !error && (
-        <p class="note" role="status">Welcome back — your request is still here. Send it.</p>
+        <p class="note" role="status">Welcome back. Your request is still here. Send it.</p>
       )
     }
     {error && <p class="error" role="alert">{error}</p>}
@@ -205,7 +205,7 @@ if (Astro.request.method === 'GET') {
         }
       </select>
       <p class="field-hint">
-        The language the site is in — it's the main filter on the requests board.
+        The language the site is in. It's the main filter on the requests board.
       </p>
     </div>
 

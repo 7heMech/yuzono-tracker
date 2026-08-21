@@ -50,7 +50,7 @@ const title = reason ? titles[reason] : 'You can post';
   {
     reason === 'age' && (
       <>
-        <h1>You can read everything — posting needs one more step</h1>
+        <h1>You can read everything. Posting needs one more step</h1>
         <p>
           Your Discord account is {ageDays} {ageDays === 1 ? 'day' : 'days'} old.
           Posting and voting open up at {minDays} days. This keeps throwaway
@@ -72,9 +72,9 @@ const title = reason ? titles[reason] : 'You can post';
   {
     reason === 'guild' && (
       <>
-        <h1>You can read everything — posting needs one more step</h1>
+        <h1>You can read everything. Posting needs one more step</h1>
         <p>
-          You need to be in the Yuzōnō Discord to post or vote — that's the whole
+          You need to be in the Yuzōnō Discord to post or vote. That's the whole
           gate, and it exists so vote counts mean something.
         </p>
         <p>
@@ -93,7 +93,7 @@ const title = reason ? titles[reason] : 'You can post';
   {
     reason === 'sign-in' && (
       <>
-        <h1>You can read everything — posting needs one more step</h1>
+        <h1>You can read everything. Posting needs one more step</h1>
         <p>
           Posting and voting need a Discord sign-in, so that vote counts mean
           something. Reading never does.
@@ -111,7 +111,7 @@ const title = reason ? titles[reason] : 'You can post';
       <>
         <h1>You can post</h1>
         <p>
-          Nothing is blocking you — whatever stopped you before has cleared. Head
+          Nothing is blocking you. Whatever stopped you before has cleared. Head
           back and file the report.
         </p>
         <p class="actions">

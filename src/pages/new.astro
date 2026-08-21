@@ -102,11 +102,11 @@ if (Astro.request.method === 'POST') {
   } else if (appChoice === APP_OTHER && appName.length < 2) {
     error = 'Type the name of the app you use.';
   } else if (!appName || !appVersion || !extVersion) {
-    error = 'Fill in your app and version — a report without them can rarely be acted on.';
+    error = 'Fill in your app and version. A report without them can rarely be acted on.';
   } else if (isOutdated(extVersion, source.extVersion)) {
     error =
       `You're on ${source.name} v${extVersion} and v${source.extVersion} is out. ` +
-      `Update the extension first (Browse → Extensions → Update) — most breakage is ` +
+      `Update the extension first (Browse → Extensions → Update). Most breakage is ` +
       `already fixed in the current version. If it still fails after updating, report it then.`;
   } else if (problem && problemNeedsUrl(problem)) {
     newUrl = normaliseUrl(rawNewUrl);
@@ -116,7 +116,7 @@ if (Astro.request.method === 'POST') {
         : 'Add the new address so a maintainer knows where the site moved to.';
     }
   } else if (problem && problemNeedsDetail(problem) && detail.length < 10) {
-    error = "Describe what happens — 'something else' needs a sentence to be actionable.";
+    error = "Describe what happens. 'Something else' needs a sentence to be actionable.";
   }
 
   // Whatever went wrong, reopen the card the person was typing into — the two
@@ -255,7 +255,7 @@ const langLabels = Object.fromEntries(
   {
     !user && (
       <p class="note">
-        You'll be asked to sign in with Discord when you tap — your draft is kept.
+        You'll be asked to sign in with Discord when you tap. Your draft is kept.
       </p>
     )
   }
@@ -264,7 +264,7 @@ const langLabels = Object.fromEntries(
     {
       resumed && !error && (
         <p class="note" role="status">
-          Welcome back — your draft is still here. Tap the problem again to send it.
+          Welcome back. Your draft is still here. Tap the problem again to send it.
         </p>
       )
     }

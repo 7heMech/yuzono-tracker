@@ -4,8 +4,6 @@ A community board for [yuzono/anime-extensions](https://github.com/yuzono/anime-
 which sources are broken, and which ones people want most, ranked by how many
 people are actually affected rather than by who shouted loudest.
 
-Unofficial and community-run. Not affiliated with the extension maintainers.
-
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/7heMech/yuzono-tracker)
 
 ## Why

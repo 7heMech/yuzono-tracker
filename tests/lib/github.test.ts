@@ -223,7 +223,7 @@ describe('promotion', () => {
   };
 
   test('the title follows the shape the existing backlog uses', () => {
-    expect(promoteTitle(report)).toBe("AniDB [EN]: Can't browse — the site is down");
+    expect(promoteTitle(report)).toBe("AniDB [EN]: Can't browse, the site is down");
   });
 
   test('a multi-language report carries no language tag', () => {

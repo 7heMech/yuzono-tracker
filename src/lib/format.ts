@@ -80,7 +80,7 @@ export function reportHeadline(r: {
 }): string {
   if (!/^Error \d+/.test(r.title)) return r.title;
 
-  // An extractor failure *is* a video failure, so "No video — no video loads"
+  // An extractor failure *is* a video failure, so "No video, no video loads"
   // would say one thing twice. That pair collapses to the wording /new uses
   // for the identical problem, which is also what ReportRow's `redundant`
   // check exists to avoid on the row.
@@ -88,7 +88,7 @@ export function reportHeadline(r: {
 
   const symptom = r.stage ? STAGE_FAILURE[r.stage] : null;
   const clause = r.cause ? CAUSE_CLAUSE[r.cause] : null;
-  if (symptom && clause) return `${symptom} — ${clause}`;
+  if (symptom && clause) return `${symptom}, ${clause}`;
   if (symptom) return symptom;
   // No stage recorded — the cause is the whole sentence, so it starts one.
   if (clause) return clause[0].toUpperCase() + clause.slice(1);

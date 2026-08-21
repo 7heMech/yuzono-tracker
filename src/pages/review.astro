@@ -87,7 +87,7 @@ const rows = queue.map((row) => {
     <div>
       <h1>GitHub issues to review</h1>
       <p class="sub">
-        Signed in as <b>{user.username}</b> — {LEVEL_LABELS[level]}. These are
+        Signed in as <b>{user.username}</b>, {LEVEL_LABELS[level]}. These are
         issues on GitHub the sync could not match to a report on its own, and
         reports whose issue is still open upstream.
       </p>
@@ -169,7 +169,7 @@ const rows = queue.map((row) => {
     <h2>Still open on GitHub</h2>
     <p class="panel-sub">
       We have marked these done, but their issue upstream is still open. This
-      board cannot close a GitHub issue — it holds no token and needs none — so
+      board cannot close a GitHub issue. It holds no token and needs none, so
       somebody with write access has to close them by hand. Expect this list to
       have things in it; it is a job list, not a fault.
     </p>

@@ -78,17 +78,17 @@ describe('reportHeadline', () => {
   test('an imported "Error <number>" title is rewritten in plain language', () => {
     expect(
       reportHeadline({ title: 'Error 404 (Search)', stage: 'browse', cause: 'down' }),
-    ).toBe("Can't browse — the site is down");
+    ).toBe("Can't browse, the site is down");
     expect(
       reportHeadline({ title: 'Error 503', stage: 'browse', cause: 'cloudflare' }),
-    ).toBe("Can't browse — Cloudflare is blocking it");
+    ).toBe("Can't browse, Cloudflare is blocking it");
     expect(
       reportHeadline({ title: 'Error 404 (Episodes)', stage: 'episodes', cause: 'redesign' }),
-    ).toBe('No episodes — the site was redesigned');
+    ).toBe('No episodes, the site was redesigned');
   });
 
   test('a video failure caused by the extractor does not say it twice', () => {
-    // "No video — no video loads" is one thing said twice, so that pair
+    // "No video, no video loads" is one thing said twice, so that pair
     // collapses to the wording /new uses for the identical problem.
     expect(
       reportHeadline({ title: 'Error 503 & Error 444 (Videos)', stage: 'video', cause: 'extractor' }),
@@ -96,7 +96,7 @@ describe('reportHeadline', () => {
   });
 
   test("`other` contributes nothing, because it says nothing", () => {
-    // "Can't browse — it's something else" is worse than "Can't browse".
+    // "Can't browse, it's something else" is worse than "Can't browse".
     expect(reportHeadline({ title: 'Error 500', stage: 'browse', cause: 'other' })).toBe(
       "Can't browse",
     );
@@ -105,7 +105,7 @@ describe('reportHeadline', () => {
 
   test('a null stage lets the cause be the whole sentence, capitalised', () => {
     // With no stage there is no symptom to lead with, so the clause starts the
-    // sentence and has to be capitalised — it was written to follow a dash.
+    // sentence and has to be capitalised — it was written to follow a comma.
     expect(reportHeadline({ title: 'Error 403', stage: null, cause: 'cloudflare' })).toBe(
       'Cloudflare is blocking it',
     );

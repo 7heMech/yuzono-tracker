@@ -152,7 +152,7 @@
       oninput={begin}
       onfocus={begin}
       onkeydown={onKey}
-      placeholder="Type a source name — AnimePahe, Cuevana…"
+      placeholder="Type a source name: AnimePahe, Cuevana…"
       role="combobox"
       aria-expanded={panel}
       aria-controls="finder-results"
@@ -187,7 +187,7 @@
         {/each}
       {:else}
         <li class="none" role="presentation">
-          <p>No source called “{q}” in this repo.</p>
+          <p>No source called "{q}" in this repo.</p>
           <a class="btn btn-primary" href={`/request?name=${encodeURIComponent(q)}`}>
             Request it instead
           </a>

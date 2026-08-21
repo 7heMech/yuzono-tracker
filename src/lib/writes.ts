@@ -31,7 +31,7 @@ export const FILING_WINDOW_SECONDS = 3600;
 
 /** Said on the form rather than raised as an error — being early is not a fault. */
 export const FILING_COOLDOWN_MESSAGE =
-  "You've filed several reports in the last hour — give it a bit before the next one.";
+  "You've filed several reports in the last hour. Give it a bit before the next one.";
 
 export async function overFilingLimit(reporterId: string): Promise<boolean> {
   const [row] = await db()

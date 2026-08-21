@@ -186,7 +186,7 @@ Astro.response.headers.set(
 );
 ---
 
-<Base title={`${source?.name ?? report.proposedName ?? 'Report'} — ${headline}`} narrow>
+<Base title={`${source?.name ?? report.proposedName ?? 'Report'}: ${headline}`} narrow>
   {
     saved && (
       <p class="flash" role="status">
@@ -204,7 +204,7 @@ Astro.response.headers.set(
     (joined || filed) && (
       <p class="flash" role="status">
         {joined
-          ? `Someone had already reported this — you've been added to it, so it now speaks for ${report.votes} people.`
+          ? `Someone had already reported this. You've been added to it, so it now speaks for ${report.votes} people.`
           : "Filed. You're the first to report this one."}
       </p>
     )
@@ -306,7 +306,7 @@ Astro.response.headers.set(
               </div>
               <p class="mod-hint">
                 Takes you to the issue form with the details filled in. Submit it
-                there and this report finds the issue and links itself — you don't
+                there and this report finds the issue and links itself. You don't
                 need to come back and paste the number in.
               </p>
             </div>

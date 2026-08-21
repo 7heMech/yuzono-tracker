@@ -77,7 +77,7 @@ if (Astro.request.method === 'POST') {
       error = 'Save a webhook URL first.';
     } else {
       const res = await testWebhook(cfg.webhook_url, origin, user.username);
-      done = res.ok ? 'Test message sent — check the channel.' : null;
+      done = res.ok ? 'Test message sent. Check the channel.' : null;
       error = res.ok ? null : `Discord rejected it (${res.status}). ${res.body.slice(0, 200)}`;
     }
   } else if (intent === 'github-generate' || intent === 'github-clear') {
@@ -105,8 +105,8 @@ if (Astro.request.method === 'POST') {
       await logAction(user, 'settings.github', null, `${which} generated`);
       generated = fresh;
       done = which === 'webhook'
-        ? 'New webhook secret. Copy it now — it is not shown again.'
-        : 'New sync secret. Copy it now — it is not shown again.';
+        ? 'New webhook secret. Copy it now. It is not shown again.'
+        : 'New sync secret. Copy it now. It is not shown again.';
     }
   } else if (intent === 'block') {
     // The revocation path that did not exist. Guild membership is resolved at
@@ -120,7 +120,7 @@ if (Astro.request.method === 'POST') {
     if (!/^\d{17,20}$/.test(target)) {
       error = 'That is not a Discord user id. Enable Developer Mode in Discord, then right-click a name → Copy User ID.';
     } else if (isOwner(target)) {
-      error = 'The owner cannot be blocked from here — that is the point of the environment variable.';
+      error = 'The owner cannot be blocked from here. That is the point of the environment variable.';
     } else if (target === user.id) {
       error = "You can't block yourself.";
     } else {
@@ -151,7 +151,7 @@ if (Astro.request.method === 'POST') {
     } else if (target === user.id && level !== 'owner') {
       error = "You can't change your own level. Ask the owner, or edit OWNER_DISCORD_ID.";
     } else if (isOwner(target) && newLevel !== 'admin') {
-      error = 'The owner cannot be demoted from here — that is the point of the environment variable.';
+      error = 'The owner cannot be demoted from here. That is the point of the environment variable.';
     } else {
       // Grant to someone who has never signed in: the row is created now, so
       // their rights are waiting for them rather than needing a second visit
@@ -209,7 +209,7 @@ const tail = (v: string) => v.slice(-6);
     <div>
       <h1>Dashboard</h1>
       <p class="sub">
-        You're signed in as <b>{user.username}</b> — {LEVEL_LABELS[level]}.
+        You're signed in as <b>{user.username}</b>, {LEVEL_LABELS[level]}.
         {level === 'owner' && ' Ownership comes from the environment, so nothing on this page can take it away from you.'}
       </p>
     </div>
@@ -229,7 +229,7 @@ const tail = (v: string) => v.slice(-6);
 
     {
       staff.length === 0 ? (
-        <p class="empty-line">No staff yet — you are the only one who can act.</p>
+        <p class="empty-line">No staff yet. You are the only one who can act.</p>
       ) : (
         <ul class="staff">
           {staff.map((s) => {
@@ -303,7 +303,7 @@ const tail = (v: string) => v.slice(-6);
   <section class="panel">
     <h2>Discord roles that grant staff</h2>
     <p class="panel-sub">
-      Role <b>ids</b>, comma-separated — names can't be resolved without a bot in
+      Role <b>ids</b>, comma-separated. Names can't be resolved without a bot in
       the guild, and this board deliberately has none. Your own roles are listed
       below to copy from; for a role you don't hold, send <code>\@RoleName</code>{' '}
       in any channel and Discord will render its raw id.
@@ -351,7 +351,7 @@ const tail = (v: string) => v.slice(-6);
           id="webhook_url"
           name="webhook_url"
           type="password"
-          placeholder={webhookSet ? `saved, ending …${webhookTail} — paste a new one to replace` : 'https://discord.com/api/webhooks/…'}
+          placeholder={webhookSet ? `saved, ending …${webhookTail}. Paste a new one to replace` : 'https://discord.com/api/webhooks/…'}
           autocomplete="off"
         />
         <p class="field-hint">
@@ -392,7 +392,7 @@ const tail = (v: string) => v.slice(-6);
     <p class="panel-sub">
       Keeps a report's status in step with its issue in{' '}
       <code>{repo}</code>. Nothing here needs a GitHub token and nothing here
-      can write to that repo — issues are read as public data, and a fix is
+      can write to that repo. Issues are read as public data, and a fix is
       brought in, never pushed out. Closing an issue upstream is still a job for
       somebody with write access there.
     </p>
@@ -433,7 +433,7 @@ const tail = (v: string) => v.slice(-6);
     <div class="gh-part">
       <h3>Instant webhook</h3>
       <p class="field-hint wide">
-        Optional, and needs an admin of <code>{repo}</code> to add it once — a
+        Optional, and needs an admin of <code>{repo}</code> to add it once. That is a
         much smaller favour than write access, since a webhook grants this site
         nothing and only sends notifications outward. Settings → Webhooks → Add
         webhook, with payload URL <code>{Astro.url.origin}/github/webhook</code>,
@@ -466,7 +466,7 @@ const tail = (v: string) => v.slice(-6);
     </div>
 
     <p class="gh-queue">
-      <a href="/review">Issues to review</a> —{' '}
+      <a href="/review">Issues to review</a>:{' '}
       {pendingReview === 0
         ? 'nothing waiting.'
         : `${pendingReview} ${pendingReview === 1 ? 'issue' : 'issues'} the sync could not match to a report.`}{' '}
@@ -503,7 +503,7 @@ const tail = (v: string) => v.slice(-6);
     <p class="panel-sub">
       A block is checked on every post and every vote, so it applies on the
       offender's next click rather than their next sign-in. It leaves what they
-      already filed in place — removing a report is the moderator's job on the
+      already filed in place. Removing a report is the moderator's job on the
       report itself, and conflating the two would delete evidence.
     </p>
     {
