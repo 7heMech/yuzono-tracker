@@ -194,6 +194,29 @@
     border-radius: var(--radius-sm);
   }
 
+  /* --- header user chip (also used by Header fallback) ------------------- */
+  .who { display: flex; align-items: center; gap: var(--space-1); }
+  .me {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-inline: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+  .me:hover { color: var(--text-primary); }
+  .avatar { border-radius: var(--radius-full); }
+  .avatar-blank {
+    inline-size: 22px;
+    block-size: 22px;
+    border-radius: var(--radius-full);
+    background: var(--surface-active);
+  }
+  @media (max-width: 700px) {
+    .name { display: none; }
+    .me { padding-inline: var(--space-1); }
+  }
+
 
   /* --- list rows -------------------------------------------------------- */
   .rows { border: 1px solid var(--border-default); border-radius: var(--radius-lg); overflow: hidden; }

@@ -92,26 +92,8 @@ const signInHref = `/auth/discord?next=${encodeURIComponent(here)}`;
 }
 
 <style>
-  .who { display: flex; align-items: center; gap: var(--space-1); }
-  .me {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding-inline: var(--space-2);
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-  }
-  .me:hover { color: var(--text-primary); }
-  .avatar { border-radius: var(--radius-full); }
-  .avatar-blank {
-    inline-size: 22px;
-    block-size: 22px;
-    background: var(--surface-active);
-  }
-  /* On a phone the words are the first thing worth dropping: the avatar keeps
-     the link tappable on its own, and Sign out must stay reachable beside it. */
-  @media (max-width: 700px) {
-    .name { display: none; }
-    .me { padding-inline: var(--space-1); }
-  }
+  /* Styles moved to src/styles/base.css so view transitions between
+     prerendered (sources) and server pages share the same CSS bundle.
+     Keeping the block empty preserves the component's CID for any
+     remaining scoped selectors, but the visual rules live globally. */
 </style>
