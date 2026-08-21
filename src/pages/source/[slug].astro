@@ -8,8 +8,22 @@ import { SOURCES, langDir, langLabel } from '../../lib/sources';
 // live report data arriving in the server island below.
 export const prerender = true;
 
+/**
+ * The param is the slug, so the file is `[slug].astro`.
+ *
+ * It used to be `[id]` carrying `s.id`, which made every one of these 310 URLs
+ * a snowflake — `/source/9168084761765988435/`. That defeated the reason the
+ * pages exist: the person who lands here arrived from a search for "animepahe
+ * not working", and `/source/animepahe/` answered 404. Slugs are derived in
+ * src/lib/sources.ts and are unique across the catalogue; `sourcePath()` is
+ * the only place the URL shape is decided.
+ *
+ * The numeric id has not gone away — reports are keyed on it in the database,
+ * so it is still what SourceStatus below is handed, and old numeric links are
+ * redirected here by `[...ref].ts`.
+ */
 export function getStaticPaths() {
-  return SOURCES.map((s) => ({ params: { id: s.id }, props: { source: s } }));
+  return SOURCES.map((s) => ({ params: { slug: s.slug }, props: { source: s } }));
 }
 
 const { source } = Astro.props;
@@ -24,7 +38,10 @@ const host = (() => {
 
 <Base title={source.name} description={`Is ${source.name} broken? Current status and open reports.`}>
   <nav class="crumb" aria-label="Breadcrumb">
-    <a href="/sources">Sources</a>
+    {/* Trailing slash: /sources/ is prerendered and so builds to a directory.
+        Without it every visitor pays a 307 before the page arrives. An HTML
+        comment here would have shipped on all 310 pages; this one is stripped. */}
+    <a href="/sources/">Sources</a>
     <span aria-hidden="true">/</span>
     <span>{source.name}</span>
   </nav>

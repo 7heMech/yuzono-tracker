@@ -1,0 +1,73 @@
+---
+import Base from '../layouts/Base.astro';
+import SourceFinder from '../components/SourceFinder.svelte';
+
+/**
+ * The page for a link that no longer resolves — and there are a lot of those,
+ * because report links get pasted into Discord and outlive the report they
+ * point at. So this is a way onwards rather than an apology: the source finder
+ * is the thing almost everyone who lands here actually wanted.
+ *
+ * Deliberately on-demand. `/report/[id]` reaches this page with
+ * `Astro.rewrite('/404')`, and Astro refuses a rewrite from an on-demand route
+ * to a prerendered one (ForbiddenRewrite), so prerendering this would turn a
+ * missing report into a 500.
+ */
+export const prerender = false;
+
+/**
+ * A rewrite resets the status to 200 (`applyRewriteToState` in Astro's
+ * rewrites handler does `state.status = 200`), so without this a missing
+ * report would answer "200 OK" with a not-found page — which is exactly what
+ * tells a crawler to keep the dead link. Setting it here rather than at each
+ * call site means every route that rewrites to `/404` gets it right. On a
+ * plain route miss Astro already defaults to 404 and this is a no-op.
+ */
+Astro.response.status = 404;
+---
+
+<Base title="Page not found" narrow>
+  <h1>That link doesn't go anywhere any more</h1>
+  <p>
+    Report links get pasted into Discord and stay there long after the report
+    itself is gone — merged into another one, or dropped when the source was
+    removed from the catalogue. Nothing has broken on your end.
+  </p>
+
+  <section class="finder-block">
+    <SourceFinder client:load />
+    <p class="finder-hint">
+      Type the source you were looking for and go straight to it.
+    </p>
+  </section>
+
+  <p class="actions">
+    <a class="btn btn-primary btn-lg" href="/">Broken sources</a>
+    <a class="btn btn-lg" href="/requests">Requested sources</a>
+    <a class="btn btn-lg" href="/new">Report a problem</a>
+  </p>
+</Base>
+
+<style>
+  h1 { font-size: var(--text-xl); margin-block-end: var(--space-3); }
+  p { color: var(--text-secondary); }
+
+  .finder-block {
+    padding-block: var(--space-6) var(--space-2);
+  }
+  /* The island renders its own label and input; it only needs a sane measure
+     so the dropdown does not stretch the width of a desktop page. */
+  .finder-block :global(.finder) { max-inline-size: 30rem; }
+  .finder-hint {
+    margin-block-start: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+  }
+
+  .actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-block-start: var(--space-6);
+  }
+</style>

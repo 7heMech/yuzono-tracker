@@ -1,6 +1,7 @@
 ---
 import ReportRow from './ReportRow.astro';
-import { reportsForSource } from '../lib/queries';
+import { myVotes, reportsForSource } from '../lib/queries';
+import { currentUser } from '../lib/auth';
 import { OPEN_STATUSES } from '../lib/db/schema';
 
 interface Props {
@@ -12,6 +13,14 @@ const { sourceId } = Astro.props;
 // this fragment renders on demand with live data. SvelteKit has no equivalent —
 // showing a live count there would force the whole page to be dynamic.
 const all = await reportsForSource(sourceId);
+
+/* Being an island is exactly what lets this read the session, and it has to:
+   without `mine` every row on a source page rendered un-backed, so tapping the
+   vote button on a report you had already backed silently removed your vote
+   instead of doing nothing. The board pages have always passed this through;
+   this one simply never asked. */
+const user = await currentUser(Astro);
+const backed = user ? await myVotes(user.id, all.map((r) => r.id)) : new Set<number>();
 const open = all.filter((r) => (OPEN_STATUSES as readonly string[]).includes(r.status));
 const closed = all.filter((r) => !(OPEN_STATUSES as readonly string[]).includes(r.status));
 ---
@@ -33,7 +42,7 @@ const closed = all.filter((r) => !(OPEN_STATUSES as readonly string[]).includes(
       <h2 class="label">Open problems</h2>
       <ol class="rows">
         {open.map((r) => (
-          <ReportRow report={r} />
+          <ReportRow report={r} mine={backed.has(r.id)} />
         ))}
       </ol>
       <a class="btn add" href={`/new?source=${sourceId}`}>
@@ -49,7 +58,7 @@ const closed = all.filter((r) => !(OPEN_STATUSES as readonly string[]).includes(
       <h2 class="label">Previously fixed</h2>
       <ol class="rows dim">
         {closed.slice(0, 8).map((r) => (
-          <ReportRow report={r} />
+          <ReportRow report={r} mine={backed.has(r.id)} />
         ))}
       </ol>
     </section>

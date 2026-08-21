@@ -9,35 +9,55 @@ const { reportId, votes, mine = false } = Astro.props;
 // A plain form post, so it works with JavaScript off. The endpoint redirects to
 // Discord sign-in when there's no session, which means the obvious action never
 // dead-ends — it just asks you to sign in and comes back.
+
+/**
+ * The word is the control.
+ *
+ * This used to be an 11px triangle over a bare number, with the meaning parked
+ * in a `title` — which a phone never shows, so on the surface most of this
+ * audience actually uses, the primary action on every row was an unlabelled
+ * glyph and a digit. That is the same needs-a-legend failure as the colour
+ * rails and vote bars this board already had removed. So the count now says
+ * what it counts, and the button says what tapping it does:
+ *
+ *   not yours -> "Me too"   the invitation, and what the tap means
+ *   yours     -> "Counted"  the state, and still tappable to take it back
+ *
+ * The whole sentence goes in `aria-label` rather than a visually hidden span.
+ * The old markup put the count in `.vote-n` *and* in an `sr-only` span, so a
+ * screen reader read the number twice; a label on the button is announced
+ * instead of its contents, so there is exactly one reading and it is a
+ * sentence. `title` repeats it for a mouse, but nothing depends on `title` any
+ * more.
+ */
+const word = mine ? 'Counted' : 'Me too';
+const said = mine
+  ? `Counted. ${votes} ${votes === 1 ? 'person is' : 'people are'} affected — press to take your report back.`
+  : `Me too — this is broken for me. ${votes} ${votes === 1 ? 'person is' : 'people are'} affected.`;
 ---
 
 <form method="POST" action="/vote" class="vote">
   <input type="hidden" name="report" value={reportId} />
-  <button
-    class="vote-btn"
-    type="submit"
-    aria-pressed={mine}
-    title={mine ? "You're counted on this" : 'Me too — this is broken for me'}>
-    <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
-      <path d="M6 2.2 10.6 8H1.4z" fill="currentColor" />
-    </svg>
+  <button class="vote-btn" type="submit" aria-pressed={mine} aria-label={said} title={said}>
     <span class="vote-n">{votes}</span>
-    <span class="sr-only">
-      {mine ? 'You already said this affects you. ' : 'Me too — '}
-      {votes} {votes === 1 ? 'person' : 'people'} affected
-    </span>
+    <span class="vote-word">{word}</span>
   </button>
 </form>
 
 <style>
   .vote { flex: none; }
+  /* Two short lines rather than one wide one: the row is 34px of content and
+     the board is read on a 390px screen, where a horizontal "6 affected" would
+     eat a third of the row from the title. Stacked, the control is the same
+     height as the triangle-over-number it replaces. */
   .vote-btn {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 1px;
-    inline-size: 44px;
+    min-inline-size: 58px;
     padding-block: var(--space-1);
+    padding-inline: var(--space-2);
     border: 1px solid var(--border-default);
     border-radius: var(--radius-md);
     background: var(--surface-inset);
@@ -59,6 +79,13 @@ const { reportId, votes, mine = false } = Astro.props;
     line-height: var(--leading-none);
     letter-spacing: var(--track-tight);
     color: var(--text-primary);
+  }
+  .vote-word {
+    font-size: var(--text-xs);
+    line-height: var(--leading-none);
+    /* "Me too" must never break across two lines: half a word under a number
+       reads as breakage, and it would grow the row. */
+    white-space: nowrap;
   }
   /* Already counted: filled, unmistakable, still clickable to undo. */
   .vote-btn[aria-pressed='true'] {

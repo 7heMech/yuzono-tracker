@@ -4,11 +4,12 @@ import ReportForm from '../components/ReportForm.svelte';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../lib/db/client';
 import { OPEN_STATUSES, reports } from '../lib/db/schema';
-import { currentUser } from '../lib/auth';
+import { canWriteNow, currentUser } from '../lib/auth';
 import { ensureVote } from '../lib/vote';
 import { getSource, langLabel, SOURCES } from '../lib/sources';
 import { normaliseUrl, problemByKey, problemNeedsDetail, problemNeedsUrl, PROBLEMS } from '../lib/problems';
 import { APP_OTHER, isOutdated } from '../lib/version';
+import { FILING_COOLDOWN_MESSAGE, overFilingLimit } from '../lib/writes';
 
 export const prerender = false;
 
@@ -38,6 +39,18 @@ type Draft = {
   extVersion: string;
 };
 
+/**
+ * What this POST actually submitted, kept for the render.
+ *
+ * Every validation branch below falls through to the page instead of
+ * redirecting, and the props used to be read only from the session draft —
+ * which exists solely on the anonymous path. So a signed-in person who got any
+ * error at all was handed a blank form: source unpicked, both version numbers
+ * gone, their description gone. Five of the six branches are reachable that
+ * way, which made the commonest outcome of a mistake "type it all again".
+ */
+let posted: Draft | null = null;
+
 /* ---------------------------------------------------------------------------
    POST. Order matters: cheap structural checks, then the staleness gate, then
    the problem-specific field. A stale extension is rejected before anything
@@ -54,23 +67,33 @@ if (Astro.request.method === 'POST') {
   const appVersion = String(form.get('appVersion') ?? '').trim().slice(0, 32);
   const extVersion = String(form.get('extVersion') ?? '').trim().slice(0, 32);
   const detail = String(form.get('problemDetail') ?? '').trim().slice(0, 2000);
+  // Capped like every other field, because it is stashed in the session on the
+  // anonymous path before anything has validated it.
+  const rawNewUrl = String(form.get('newUrl') ?? '').slice(0, 200);
   const source = getSource(sourceId);
+
+  const submitted: Draft = {
+    sourceId,
+    problem: problem?.key ?? '',
+    newUrl: rawNewUrl,
+    detail,
+    appName,
+    appVersion,
+    extVersion,
+  };
 
   if (!user) {
     // Stash server-side so the draft survives the OAuth round trip whatever
     // its length, and never lands in a URL or a log.
-    Astro.session?.set('pending_report', {
-      sourceId,
-      problem: problem?.key ?? '',
-      newUrl: String(form.get('newUrl') ?? ''),
-      detail,
-      appName,
-      appVersion,
-      extVersion,
-    } satisfies Draft);
+    Astro.session?.set('pending_report', submitted);
     return Astro.redirect('/auth/discord?next=/new', 302);
   }
-  if (!user.canWrite) return Astro.redirect('/cant-post', 302);
+  // Re-derived on every write rather than read off the session: see canWriteNow
+  // in lib/auth. `user.canWrite` was decided at login and never revisited, so a
+  // banned account kept filing until it happened to sign in again.
+  if (!(await canWriteNow(user))) return Astro.redirect('/cant-post', 302);
+
+  posted = submitted;
 
   let newUrl: string | null = null;
 
@@ -86,16 +109,20 @@ if (Astro.request.method === 'POST') {
       `Update the extension first (Browse → Extensions → Update) — most breakage is ` +
       `already fixed in the current version. If it still fails after updating, report it then.`;
   } else if (problem && problemNeedsUrl(problem)) {
-    const raw = String(form.get('newUrl') ?? '');
-    newUrl = normaliseUrl(raw);
+    newUrl = normaliseUrl(rawNewUrl);
     if (!newUrl) {
-      error = raw.trim()
+      error = rawNewUrl.trim()
         ? "That doesn't look like a web address. Paste the full link, e.g. https://example.com"
         : 'Add the new address so a maintainer knows where the site moved to.';
-      openCard = problem.key;
     }
   } else if (problem && problemNeedsDetail(problem) && detail.length < 10) {
     error = "Describe what happens — 'something else' needs a sentence to be actionable.";
+  }
+
+  // Whatever went wrong, reopen the card the person was typing into — the two
+  // cards that carry a field are closed by default, so a collapsed one hides
+  // the address or the description they just wrote.
+  if (error && problem && (problemNeedsUrl(problem) || problemNeedsDetail(problem))) {
     openCard = problem.key;
   }
 
@@ -104,6 +131,15 @@ if (Astro.request.method === 'POST') {
     Astro.session?.set('setup', { appName, appVersion });
 
     const d = db();
+    /* The dedupe key is the *problem*, not the kind. Five of the seven problems
+       are kind 'bug', so matching on kind alone meant that reporting "No
+       episodes listed" on a source with an open "Blocked before it loads" sent
+       you to *their* report, told you that you had been added to it, and never
+       recorded your problem at all — while the unique index made filing the
+       second one impossible. These three columns are exactly the columns of
+       reports_open_per_source_problem, and they have to stay that way: the
+       insert below relies on this select having found anything it would
+       collide with. */
     const [existing] = await d
       .select({ id: reports.id, newUrl: reports.newUrl })
       .from(reports)
@@ -111,6 +147,7 @@ if (Astro.request.method === 'POST') {
         and(
           eq(reports.sourceId, sourceId),
           eq(reports.kind, problem.kind),
+          eq(reports.problem, problem.key),
           inArray(reports.status, [...OPEN_STATUSES]),
         ),
       );
@@ -128,6 +165,16 @@ if (Astro.request.method === 'POST') {
       return Astro.redirect(`/report/${existing.id}?joined=1`, 303);
     }
 
+    /* Checked here rather than at the top of the POST, because joining an
+       existing report is a vote and votes are already bounded by the vote row.
+       Only an insert is worth rationing. */
+    if (await overFilingLimit(user.id)) {
+      error = FILING_COOLDOWN_MESSAGE;
+    }
+  }
+
+  if (source && problem && !error) {
+    const d = db();
     const [created] = await d
       .insert(reports)
       .values({
@@ -137,6 +184,7 @@ if (Astro.request.method === 'POST') {
         nsfw: source.nsfw,
         stage: problem.stage,
         cause: problem.cause,
+        problem: problem.key,
         title: newUrl ? `Moved to ${new URL(newUrl).host}` : problem.label,
         body: detail || null,
         newUrl,
@@ -144,7 +192,9 @@ if (Astro.request.method === 'POST') {
         extVersion,
         appName,
         appVersion,
-        votes: 1,
+        // No `votes: 1` seed. ensureVote below inserts the vote row and moves
+        // the counter in one batch, so seeding it here counted the reporter
+        // twice — every new report opened claiming two people and one voter.
       })
       .returning({ id: reports.id });
 
@@ -166,8 +216,24 @@ const setup = (await Astro.session?.get('setup')) as
   | { appName: string; appVersion: string }
   | undefined;
 
-const preselect = draft?.sourceId || Astro.url.searchParams.get('source') || '';
-const preselected = getSource(preselect);
+/**
+ * One place decides what the form shows, in priority order: what this POST just
+ * submitted (an error fell through to the render), then a draft restored from
+ * the sign-in detour, then the remembered setup, then the query string, then
+ * nothing. Reading only from `draft` was the bug: `draft` exists solely on the
+ * anonymous path, so a signed-in person who hit any validation error got a
+ * blank form back and retyped everything.
+ */
+const shown = {
+  sourceId: posted?.sourceId || draft?.sourceId || Astro.url.searchParams.get('source') || '',
+  detail: posted?.detail ?? draft?.detail ?? '',
+  newUrl: posted?.newUrl ?? draft?.newUrl ?? '',
+  appName: posted?.appName || draft?.appName || setup?.appName || '',
+  appVersion: posted?.appVersion || draft?.appVersion || setup?.appVersion || '',
+  extVersion: posted?.extVersion || draft?.extVersion || '',
+};
+
+const preselected = getSource(shown.sourceId);
 
 const formRows = SOURCES.map((s) => ({
   id: s.id,
@@ -180,7 +246,6 @@ const formRows = SOURCES.map((s) => ({
 const langLabels = Object.fromEntries(
   [...new Set(SOURCES.map((s) => s.lang))].map((c) => [c, langLabel(c)]),
 );
-const draftDetail = draft?.detail ?? '';
 ---
 
 <Base title="Report a problem" narrow>
@@ -211,14 +276,19 @@ const draftDetail = draft?.detail ?? '';
       langLabels={langLabels}
       selectedId={preselected?.id ?? ''}
       selectedName={preselected?.name ?? ''}
-      appName={draft?.appName || setup?.appName || ''}
-      appVersion={draft?.appVersion || setup?.appVersion || ''}
-      extVersion={draft?.extVersion || ''}
+      appName={shown.appName}
+      appVersion={shown.appVersion}
+      extVersion={shown.extVersion}
       client:load
     />
 
     <section class="step">
       <h2 class="step-h"><span class="step-n">3</span> What's wrong?</h2>
+      {/* Revealed by ReportForm once it knows no source is picked, so it stays
+          hidden with JavaScript off — where the buttons still work and the
+          server does the refusing. Said in words rather than by dimming
+          something and leaving the reason to be guessed. */}
+      <p class="needs-source" role="status">Pick your source first.</p>
       <ul class="problems">
         {
           PROBLEMS.map((p) => {
@@ -255,7 +325,7 @@ const draftDetail = draft?.detail ?? '';
                           inputmode="url"
                           autocomplete="off"
                           spellcheck="false"
-                          value={draft?.newUrl ?? ''}
+                          value={shown.newUrl}
                           placeholder="new-address.com"
                         />
                         <button class="btn btn-primary" type="submit" name="problem" value={p.key}>
@@ -275,7 +345,7 @@ const draftDetail = draft?.detail ?? '';
                         name="problemDetail"
                         rows="3"
                         placeholder="e.g. Episode 5 plays episode 3 instead, or subtitles are out of sync"
-                        >{draftDetail}</textarea
+                        >{shown.detail}</textarea
                       >
                       <div class="row-2 end">
                         <p class="field-hint">One or two sentences is plenty.</p>
@@ -302,6 +372,18 @@ const draftDetail = draft?.detail ?? '';
 </Base>
 
 <style>
+  /* Only shown when ReportForm has actually determined that no source is
+     picked — never on a JavaScript-free render, where the buttons are live. */
+  .needs-source {
+    display: none;
+    margin-block-end: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+  form[data-needs-source] .needs-source { display: block; }
+  form[data-needs-source] .problem { opacity: 0.55; }
+  form[data-needs-source] button.problem { cursor: not-allowed; }
+
   h1 { font-size: var(--text-xl); }
   .lede { color: var(--text-tertiary); margin-block: var(--space-1) var(--space-6); }
   .note {

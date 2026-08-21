@@ -1,0 +1,1 @@
+CREATE INDEX `reports_board_open` ON `reports` (`nsfw`,"votes" desc,`created_at`,`kind`) WHERE status IN ('open', 'confirmed', 'in_progress');

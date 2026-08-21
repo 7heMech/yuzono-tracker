@@ -1,0 +1,56 @@
+# Security headers for STATIC ASSET responses.
+#
+# On Workers this file configures headers for assets only: the 310 prerendered
+# source pages, /sources.json, /_astro/*. It does not apply to anything the
+# Worker renders on demand. The same set is therefore duplicated in
+# src/middleware.ts, which covers the on-demand half — including /report/<id>,
+# where the moderator controls live and where framing actually matters. **If you
+# add a header here, add it there too**, or half the site will have it.
+#
+# The script-src/style-src half of the CSP is generated per page by Astro (see
+# `security.csp` in astro.config.mjs), because it needs the SHA-256 hash of
+# every script and style it rendered; a hash written by hand here would go stale
+# the first time one changed, breaking production and nothing else.
+#
+# The Cloudflare adapter prepends its own immutable Cache-Control rule for
+# /_astro/* to this file at build time rather than overwriting it, so nothing
+# here needs to mention that path.
+
+/*
+  # frame-ancestors is ignored inside a <meta> element, so it has to be here.
+  # This is not theoretical: /report/<id> carries the moderator buttons that
+  # change a report's status, and `checkOrigin` cannot defend them because a
+  # framed form's origin *is* this site. X-Frame-Options is the same rule for
+  # anything that predates CSP.
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Frame-Options: DENY
+
+  # Two years, subdomains included, and preload-eligible. The site is
+  # HTTPS-only already; this stops the first request of a session being the
+  # one that can be intercepted.
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+
+  # Leaks the origin to other sites and nothing more. It matters here because a
+  # full URL would carry /report/<id> and /source/<slug> — what someone is
+  # reading — to every outbound link, and this board links out to the sites it
+  # tracks by design.
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # No MIME sniffing. The source catalogue is served as JSON from this origin
+  # and read by fetch; nothing should ever be reinterpreted as a script.
+  X-Content-Type-Options: nosniff
+
+  # Nothing here needs a camera, a microphone, a location, or a payment sheet,
+  # so nothing here may ask for one.
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=()
+
+  # Severs the window reference an opened tab keeps to this one. Every outbound
+  # link already carries rel="noopener", but that is per-link and this is not.
+  Cross-Origin-Opener-Policy: same-origin
+
+# The source catalogue is a build artefact with no hash in its name, so it
+# cannot be immutable — but it only changes when `bun run sync:sources` does,
+# and the finder fetches it on first focus. An hour at the edge with a day of
+# stale-while-revalidate means the first keystroke is never waiting on origin.
+/sources.json
+  Cache-Control: public, max-age=300, s-maxage=3600, stale-while-revalidate=86400

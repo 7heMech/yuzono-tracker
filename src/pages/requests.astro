@@ -2,7 +2,16 @@
 import Base from '../layouts/Base.astro';
 import FilterBar from '../components/FilterBar.astro';
 import ReportRow from '../components/ReportRow.astro';
-import { board, boardCounts, type Sort } from '../lib/queries';
+import { currentUser } from '../lib/auth';
+import {
+  board,
+  boardCounts,
+  edgeCachedRender,
+  FRESH_PARAM,
+  myVotes,
+  PAGE_SIZE,
+  type Sort,
+} from '../lib/queries';
 
 export const prerender = false;
 
@@ -11,12 +20,57 @@ const lang = q.get('lang') ?? '';
 const nsfw = q.get('nsfw') === '1';
 const sort = (q.get('sort') ?? 'demand') as Sort;
 
-const [{ rows }, counts] = await Promise.all([
-  board({ family: 'wanted', lang, nsfw, sort }),
-  boardCounts(),
+/* 1-based first row of this page, so ?from=61 matches the "Showing 61–120" the
+   pager prints. */
+const from = Math.max(1, Number.parseInt(q.get('from') ?? '', 10) || 1);
+
+const user = await currentUser(Astro);
+
+/* --- edge cache: anonymous renders only -----------------------------------
+   Every row carries `mine`, so a signed-in render is that person's vote state
+   and must never be stored where the next visitor can be handed it. Signed in
+   means rendered fresh, every time. */
+const cacheable = !user;
+if (cacheable && !q.has(FRESH_PARAM)) {
+  const cached = await edgeCachedRender(Astro);
+  if (cached) return cached;
+}
+
+const [{ rows, total, offset }, counts] = await Promise.all([
+  board({ family: 'wanted', lang, nsfw, sort, offset: from - 1 }),
+  boardCounts(nsfw),
 ]);
 
-Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+/** A pager link that keeps every active filter and drops the cache marker. */
+function pageHref(startRow: number) {
+  const u = new URL(Astro.url);
+  u.searchParams.delete(FRESH_PARAM);
+  if (startRow <= 1) u.searchParams.delete('from');
+  else u.searchParams.set('from', String(startRow));
+  return u.pathname + u.search;
+}
+
+/* A `from` past the end of the list is a stale bookmark or a typed number, so
+   the first page is what was meant. Redirecting keeps the pager's arithmetic
+   honest: it never has to describe a page that holds nothing. */
+if (rows.length === 0 && offset > 0) return Astro.redirect(pageHref(1), 302);
+
+// Without this every row rendered aria-pressed="false", and because /vote
+// toggles, tapping a request you had already backed removed your vote.
+const mine = user ? await myVotes(user.id, rows.map((r) => r.id)) : new Set<number>();
+
+const shownFrom = offset + 1;
+const shownTo = offset + rows.length;
+const nextCount = Math.min(PAGE_SIZE, total - shownTo);
+
+Astro.response.headers.set(
+  'Cache-Control',
+  cacheable
+    ? 'public, max-age=0, s-maxage=60, stale-while-revalidate=300'
+    : // Per-viewer vote state. Saying so is cheaper than trusting that no
+      // shared cache sits in front of this.
+      'private, no-store',
+);
 ---
 
 <Base title="Requested sources">
@@ -42,9 +96,34 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, sta
     ) : (
       <ol class="rows">
         {rows.map((r) => (
-          <ReportRow report={r} />
+          <ReportRow report={r} mine={mine.has(r.id)} />
         ))}
       </ol>
+    )
+  }
+
+  {/* Plain words and plain numbers, and two ordinary links — this works with
+      JavaScript off, and a filter change resets to row 1 on purpose, because
+      FilterBar's GET form does not carry `from`. */}
+  {
+    (shownTo < total || offset > 0) && (
+      <nav class="pager" aria-label="More requests">
+        <p class="pager-count">
+          Showing {shownFrom}–{shownTo} of {total} open requests
+        </p>
+        <div class="pager-links">
+          {offset > 0 && (
+            <a class="btn" rel="prev" href={pageHref(Math.max(1, offset + 1 - PAGE_SIZE))}>
+              Previous {Math.min(PAGE_SIZE, offset)}
+            </a>
+          )}
+          {nextCount > 0 && (
+            <a class="btn" rel="next" href={pageHref(shownTo + 1)}>
+              Next {nextCount}
+            </a>
+          )}
+        </div>
+      </nav>
     )
   }
 </Base>
@@ -60,5 +139,30 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, sta
     margin-block-start: var(--space-1);
     font-size: var(--text-sm);
     color: var(--text-tertiary);
+  }
+
+  /* --- pager --- */
+  .pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    padding-block-start: var(--space-5);
+  }
+  .pager-count {
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+  }
+  .pager-links {
+    display: flex;
+    gap: var(--space-2);
+  }
+  @media (max-width: 640px) {
+    /* The count on its own line, then the links side by side across the full
+       width: at 390px a right-aligned "Next 60" is a thumb-stretch. */
+    .pager { flex-direction: column; align-items: stretch; }
+    .pager-links .btn { flex: 1; }
   }
 </style>

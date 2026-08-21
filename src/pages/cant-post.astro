@@ -1,34 +1,124 @@
 ---
 import Base from '../layouts/Base.astro';
-import { currentUser } from '../lib/auth';
+import { currentUser, writeBlockReason } from '../lib/auth';
 import { readSetting } from '../lib/settings';
 
 export const prerender = false;
 const user = await currentUser(Astro);
-const minDays = Number((await readSetting('min_account_age_days')) || 30);
+
+// One authority for the answer and for the explanation: whatever
+// writeBlockReason says here is the same decision canWriteNow makes on /new,
+// /request and /vote. This page used to work out its own reason by comparing
+// the age itself, which is how it ended up printing a 30-day rule that no
+// write path actually enforced.
+const reason = await writeBlockReason(user);
+
+// Only for the one message that needs it, and read live rather than
+// remembered from sign-in, so the number shown is the threshold in force now.
+const minDays = reason === 'age' ? Number((await readSetting('min_account_age_days')) || 30) : 0;
 const ageDays = user ? Math.floor((Date.now() / 1000 - user.accountCreatedAt) / 86_400) : 0;
-const tooNew = user ? ageDays < minDays : false;
+
+const titles = {
+  'sign-in': "Can't post yet",
+  guild: "Can't post yet",
+  age: "Can't post yet",
+  banned: 'Posting is blocked',
+};
+const title = reason ? titles[reason] : 'You can post';
 ---
 
-<Base title="Can't post yet" narrow>
-  <h1>You can read everything — posting needs one more step</h1>
+<Base title={title} narrow>
   {
-    tooNew ? (
-      <p>
-        Your Discord account is {ageDays} days old. Posting and voting open up at {minDays} days. This keeps throwaway accounts from stuffing the vote counts,
-        which is the only thing making this board useful.
-      </p>
-    ) : (
-      <p>
-        You need to be in the Yuzōnō Discord to post or vote — that's the whole
-        gate, and it exists so vote counts mean something.
-      </p>
+    reason === 'banned' && (
+      <>
+        <h1>This account can't post or vote</h1>
+        <p>
+          Posting and voting have been switched off for your account. Everything
+          on the board is still yours to read. If that looks like a mistake, the
+          fastest way to sort it out is to say so in the Discord.
+        </p>
+        <p class="actions">
+          <a class="btn btn-lg" href="https://discord.gg/85MZhUX688">Ask in the Discord</a>
+          <a class="btn btn-primary btn-lg" href="/">Back to the board</a>
+        </p>
+      </>
     )
   }
-  <p class="actions">
-    <a class="btn btn-primary btn-lg" href="https://discord.gg/85MZhUX688">Join the Discord</a>
-    <a class="btn btn-lg" href="/">Back to the board</a>
-  </p>
+
+  {
+    reason === 'age' && (
+      <>
+        <h1>You can read everything — posting needs one more step</h1>
+        <p>
+          Your Discord account is {ageDays} {ageDays === 1 ? 'day' : 'days'} old.
+          Posting and voting open up at {minDays} days. This keeps throwaway
+          accounts from stuffing the vote counts, which is the only thing making
+          this board useful.
+        </p>
+        <p>
+          Nothing to do in the meantime, and nothing to click when the day
+          comes: the check runs every time you post, so it starts working on its
+          own.
+        </p>
+        <p class="actions">
+          <a class="btn btn-primary btn-lg" href="/">Back to the board</a>
+        </p>
+      </>
+    )
+  }
+
+  {
+    reason === 'guild' && (
+      <>
+        <h1>You can read everything — posting needs one more step</h1>
+        <p>
+          You need to be in the Yuzōnō Discord to post or vote — that's the whole
+          gate, and it exists so vote counts mean something.
+        </p>
+        <p>
+          Joined already? Sign in again and this page will let you through.
+          Membership can only be read while you are signing in, so it is the one
+          thing here that a fresh sign-in has to pick up.
+        </p>
+        <p class="actions">
+          <a class="btn btn-primary btn-lg" href="https://discord.gg/85MZhUX688">Join the Discord</a>
+          <a class="btn btn-lg" href="/auth/discord">Sign in again</a>
+        </p>
+      </>
+    )
+  }
+
+  {
+    reason === 'sign-in' && (
+      <>
+        <h1>You can read everything — posting needs one more step</h1>
+        <p>
+          Posting and voting need a Discord sign-in, so that vote counts mean
+          something. Reading never does.
+        </p>
+        <p class="actions">
+          <a class="btn btn-primary btn-lg" href="/auth/discord">Sign in with Discord</a>
+          <a class="btn btn-lg" href="/">Back to the board</a>
+        </p>
+      </>
+    )
+  }
+
+  {
+    !reason && (
+      <>
+        <h1>You can post</h1>
+        <p>
+          Nothing is blocking you — whatever stopped you before has cleared. Head
+          back and file the report.
+        </p>
+        <p class="actions">
+          <a class="btn btn-primary btn-lg" href="/new">File a report</a>
+          <a class="btn btn-lg" href="/">Back to the board</a>
+        </p>
+      </>
+    )
+  }
 </Base>
 
 <style>

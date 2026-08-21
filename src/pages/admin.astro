@@ -1,6 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
-import { desc, isNotNull, or } from 'drizzle-orm';
+import { desc, eq, isNotNull, or } from 'drizzle-orm';
 import { db } from '../lib/db/client';
 import { audit, STAFF_LEVELS, users, type StaffLevel } from '../lib/db/schema';
 import { snowflakeCreatedAt } from '../lib/auth';
@@ -76,6 +76,38 @@ if (Astro.request.method === 'POST') {
       done = res.ok ? 'Test message sent — check the channel.' : null;
       error = res.ok ? null : `Discord rejected it (${res.status}). ${res.body.slice(0, 200)}`;
     }
+  } else if (intent === 'block') {
+    // The revocation path that did not exist. Guild membership is resolved at
+    // login and cannot be re-read without a Discord token this app deliberately
+    // never stores, so "remove them from the Discord" does not stop an account
+    // that is already signed in. This flag is read on every write instead, so
+    // it takes effect on the offender's next request rather than their next
+    // login.
+    const target = String(form.get('discord_id') ?? '').trim();
+    const blocked = form.get('blocked') === '1';
+    if (!/^\d{17,20}$/.test(target)) {
+      error = 'That is not a Discord user id. Enable Developer Mode in Discord, then right-click a name → Copy User ID.';
+    } else if (isOwner(target)) {
+      error = 'The owner cannot be blocked from here — that is the point of the environment variable.';
+    } else if (target === user.id) {
+      error = "You can't block yourself.";
+    } else {
+      // Same reasoning as a staff grant: create the row now so the block is
+      // waiting for an account that has not signed in here yet.
+      await db()
+        .insert(users)
+        .values({
+          discordId: target,
+          username: 'not signed in yet',
+          accountCreatedAt: Math.floor(snowflakeCreatedAt(target)),
+          banned: blocked,
+        })
+        .onConflictDoUpdate({ target: users.discordId, set: { banned: blocked } });
+      await logAction(user, blocked ? 'user.block' : 'user.unblock', target, null);
+      done = blocked
+        ? `${target} can no longer post or vote. Their existing reports and votes are untouched.`
+        : `${target} can post and vote again.`;
+    }
   } else if (intent === 'staff-set') {
     const target = String(form.get('discord_id') ?? '').trim();
     const wanted = String(form.get('level') ?? '');
@@ -110,20 +142,27 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-const cfg = await readConfig();
-const staff = await db()
-  .select({
-    discordId: users.discordId,
-    username: users.username,
-    avatarHash: users.avatarHash,
-    discordLevel: users.discordLevel,
-    manualLevel: users.manualLevel,
-    lastLogin: users.lastLogin,
-  })
-  .from(users)
-  .where(or(isNotNull(users.discordLevel), isNotNull(users.manualLevel)));
-
-const log = await db().select().from(audit).orderBy(desc(audit.createdAt)).limit(15);
+// Four independent reads, so they go out together rather than one after the
+// other — this page was costing four serial D1 round trips to render.
+const [cfg, staff, blocked, log] = await Promise.all([
+  readConfig(),
+  db()
+    .select({
+      discordId: users.discordId,
+      username: users.username,
+      avatarHash: users.avatarHash,
+      discordLevel: users.discordLevel,
+      manualLevel: users.manualLevel,
+      lastLogin: users.lastLogin,
+    })
+    .from(users)
+    .where(or(isNotNull(users.discordLevel), isNotNull(users.manualLevel))),
+  db()
+    .select({ discordId: users.discordId, username: users.username })
+    .from(users)
+    .where(eq(users.banned, true)),
+  db().select().from(audit).orderBy(desc(audit.createdAt)).limit(15),
+]);
 const webhookSet = !!cfg.webhook_url;
 const webhookTail = webhookSet ? cfg.webhook_url.slice(-6) : '';
 ---
@@ -145,8 +184,9 @@ const webhookTail = webhookSet ? cfg.webhook_url.slice(-6) : '';
   <section class="panel">
     <h2>Staff</h2>
     <p class="panel-sub">
-      Moderators change a report's status and promote it to GitHub. Admins can
-      also edit this page. A grant made here survives any Discord role change.
+      Moderators change a report's status and edit the 18+ flag on a request.
+      Admins can also edit this page and block accounts. A grant made here
+      survives any Discord role change.
     </p>
 
     {
@@ -329,6 +369,63 @@ const webhookTail = webhookSet ? cfg.webhook_url.slice(-6) : '';
       </div>
       <div class="wide">
         <button class="btn btn-primary" type="submit">Save</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Blocked accounts</h2>
+    <p class="panel-sub">
+      A block is checked on every post and every vote, so it applies on the
+      offender's next click rather than their next sign-in. It leaves what they
+      already filed in place — removing a report is the moderator's job on the
+      report itself, and conflating the two would delete evidence.
+    </p>
+    {
+      blocked.length === 0 ? (
+        <p class="empty-line">Nobody is blocked.</p>
+      ) : (
+        <ul class="staff">
+          {blocked.map((b) => (
+            <li>
+              <div class="staff-who">
+                <span class="staff-name">{b.username}</span>
+                <span class="staff-id num">{b.discordId}</span>
+              </div>
+              <div class="staff-meta">
+                <span class="tag">Blocked</span>
+              </div>
+              <form method="POST" class="staff-actions">
+                <input type="hidden" name="intent" value="block" />
+                <input type="hidden" name="discord_id" value={b.discordId} />
+                <button class="btn btn-ghost" type="submit" name="blocked" value="0">
+                  Unblock
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+    <form method="POST" class="add">
+      <input type="hidden" name="intent" value="block" />
+      <input type="hidden" name="blocked" value="1" />
+      <div class="field">
+        <label class="label" for="block_discord_id">Block by Discord user id</label>
+        <input
+          class="input"
+          id="block_discord_id"
+          name="discord_id"
+          inputmode="numeric"
+          placeholder="e.g. 216154654256398347"
+          autocomplete="off"
+        />
+        <p class="field-hint">
+          Developer Mode in Discord → right-click a name → Copy User ID.
+        </p>
+      </div>
+      <div class="add-actions">
+        <button class="btn danger" type="submit">Block</button>
       </div>
     </form>
   </section>

@@ -1,5 +1,4 @@
 ---
-import ThemeToggle from './ThemeToggle.svelte';
 import UserChip from './UserChip.astro';
 
 // Five destinations do not earn a 260px sidebar. A compact bar keeps the
@@ -8,8 +7,37 @@ const path = Astro.url.pathname;
 const tabs = [
   { href: '/', label: 'Broken', match: (p: string) => p === '/' },
   { href: '/requests', label: 'Requests', match: (p: string) => p.startsWith('/requests') },
-  { href: '/sources', label: 'Sources', match: (p: string) => p.startsWith('/source') },
+  // Trailing slash on purpose: /sources/ is prerendered, so it is emitted as a
+  // directory and `/sources` costs every visitor a 307 before the page.
+  { href: '/sources/', label: 'Sources', match: (p: string) => p.startsWith('/source') },
 ];
+
+/**
+ * Whether to mount the user island at all.
+ *
+ * `UserChip` is a server island, and for an anonymous visitor its output is
+ * byte-identical to the fallback rendered in its place — so every anonymous
+ * view was paying a second Worker invocation to produce markup that was
+ * already on the page. `signed_in` is a plain, non-HttpOnly cookie set beside
+ * the session cookie purely so this decision can be made without reading the
+ * session (which a prerendered page cannot do at all).
+ *
+ * It is a hint, never an authorisation signal, and nothing here trusts it: the
+ * island still reads the real session, so a forged or stale `signed_in=1`
+ * buys nothing but a wasted island fetch that renders the signed-out state.
+ * The reverse is the interesting case — on the prerendered `/sources/` and
+ * `/source/<slug>/` pages there is no request to read at build time, so those
+ * pages always ship the static Sign in button and a signed-in visitor sees it
+ * until they open a server-rendered page. That is the deliberate trade: 310
+ * pages of cache-friendly HTML for the majority who are not signed in.
+ */
+const maybeSignedIn = Astro.cookies.get('signed_in')?.value === '1';
+
+// The sign-in button appears twice below — once as the island's fallback and
+// once as the whole control for a visitor with no cookie. The wordmark path is
+// hoisted so only the `<a>` is written twice, not 600 bytes of `d`.
+const DISCORD_MARK =
+  'M19.3 5.3A16.6 16.6 0 0 0 15.2 4l-.3.6a12.4 12.4 0 0 1 3.7 1.2 12.9 12.9 0 0 0-11-.5l.3-.7A16.5 16.5 0 0 0 4.7 5.3C2.2 9 1.5 12.6 1.9 16.2a16.4 16.4 0 0 0 5 2.5l.6-1a10.7 10.7 0 0 1-1.8-.9l.4-.3a11.7 11.7 0 0 0 10 0l.4.3a10.8 10.8 0 0 1-1.8.9l.6 1a16.3 16.3 0 0 0 5-2.5c.5-4.2-.6-7.8-2.9-10.9ZM8.7 14c-1 0-1.7-.9-1.7-2s.8-2 1.7-2 1.8.9 1.7 2c0 1.1-.8 2-1.7 2Zm6.6 0c-1 0-1.7-.9-1.7-2s.8-2 1.7-2 1.8.9 1.7 2c0 1.1-.8 2-1.7 2Z';
 ---
 
 <header class="bar">
@@ -30,20 +58,57 @@ const tabs = [
     </nav>
 
     <div class="controls">
-      <ThemeToggle client:load />
-      <UserChip server:defer>
-        <a class="btn btn-discord" slot="fallback" href="/auth/discord">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M19.3 5.3A16.6 16.6 0 0 0 15.2 4l-.3.6a12.4 12.4 0 0 1 3.7 1.2 12.9 12.9 0 0 0-11-.5l.3-.7A16.5 16.5 0 0 0 4.7 5.3C2.2 9 1.5 12.6 1.9 16.2a16.4 16.4 0 0 0 5 2.5l.6-1a10.7 10.7 0 0 1-1.8-.9l.4-.3a11.7 11.7 0 0 0 10 0l.4.3a10.8 10.8 0 0 1-1.8.9l.6 1a16.3 16.3 0 0 0 5-2.5c.5-4.2-.6-7.8-2.9-10.9ZM8.7 14c-1 0-1.7-.9-1.7-2s.8-2 1.7-2 1.8.9 1.7 2c0 1.1-.8 2-1.7 2Zm6.6 0c-1 0-1.7-.9-1.7-2s.8-2 1.7-2 1.8.9 1.7 2c0 1.1-.8 2-1.7 2Z" />
-          </svg>
-          <span class="login-text">Sign in</span>
-        </a>
-      </UserChip>
+      {/* Rendered server-side, both icons in the markup, so the button exists
+          with JavaScript off and needs no hydration to appear. Which icon
+          shows is decided by CSS off `data-theme` — the attribute the head
+          script has already set before paint — and the click behaviour is
+          delegated from the document in src/scripts/theme.js, which is also
+          what keeps the label in step. That pair replaced a Svelte island
+          whose runtime was 15.3 KB gzipped on 310 otherwise static pages, for
+          one button. */}
+      <button id="theme-toggle" class="btn btn-ghost btn-icon theme-btn" type="button" aria-label="Switch theme">
+        <svg class="i-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="12" cy="12" r="4.5" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" />
+        </svg>
+        <svg class="i-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+        </svg>
+      </button>
+
+      {
+        maybeSignedIn ? (
+          <UserChip server:defer>
+            <a class="btn btn-discord" slot="fallback" href="/auth/discord">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d={DISCORD_MARK} />
+              </svg>
+              <span class="login-text">Sign in</span>
+            </a>
+          </UserChip>
+        ) : (
+          /* No cookie to read — either the visitor is genuinely signed out, or
+             this is one of the 310 prerendered pages, which are built with no
+             request at all. The two cases are indistinguishable here, so both
+             get the sign-in button and src/scripts/session-hint.js corrects
+             the second one in the browser, where the cookie is readable. */
+          <a class="btn btn-discord" href="/auth/discord" data-signin-hint>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d={DISCORD_MARK} />
+            </svg>
+            <span class="login-text">Sign in</span>
+          </a>
+        )
+      }
     </div>
   </div>
 </header>
 
 <style>
+  /* Set by src/scripts/session-hint.js on a prerendered page when the
+     `signed_in` cookie says the visitor has a session. The Discord mark is
+     wrong once the link no longer goes to Discord. */
+  [data-signin-hint][data-signed-in] svg { display: none; }
+
   .bar {
     position: sticky;
     inset-block-start: 0;
@@ -79,6 +144,22 @@ const tabs = [
     .inner { flex-wrap: nowrap; padding-block: 0; block-size: 52px; }
     .tabs { order: 1; flex-basis: auto; }
     .controls { order: 2; }
+  }
+
+  /* The icon says what the click *does*, not what the theme currently is, so
+     the button needs no label to decode: in dark you see a sun to switch to.
+     Driven by the root attribute rather than by script, so the right icon is
+     there on the first paint. */
+  :global(:root[data-theme='dark']) .i-moon,
+  :global(:root[data-theme='light']) .i-sun {
+    display: none;
+  }
+  /* No `data-theme` means the head script never ran, which means there is no
+     JavaScript here to flip anything. Hide the control rather than show a dead
+     button with both icons in it. The attribute is set in <head> before first
+     paint, so this never flashes for anyone else. */
+  :global(:root:not([data-theme])) .theme-btn {
+    display: none;
   }
 
   .mark {

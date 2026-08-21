@@ -1,5 +1,5 @@
 ---
-import { languageFacets } from '../lib/sources';
+import { languageFacets, SOURCES } from '../lib/sources';
 import { CAUSE_LABELS } from '../lib/format';
 
 interface Props {
@@ -12,6 +12,11 @@ interface Props {
 
 const { family, lang = '', cause = '', nsfw, sort } = Astro.props;
 const langs = languageFacets();
+
+// Counted, not typed. This was hardcoded as "108 of 310 sources are marked
+// 18+", which was true and would have gone quietly wrong the next time
+// `bun run sync:sources` pulled a new catalogue.
+const adult = SOURCES.filter((s) => s.nsfw).length;
 
 // 41 languages is past Hick's-law territory for chips, so language is a select
 // while the handful of causes stay as one-tap chips.
@@ -53,14 +58,22 @@ const sorts = [
 
     <span class="spacer"></span>
 
+    {/* The count is on the chip rather than in a `title`, which a phone never
+        shows — and it is the count that makes the control make sense, since
+        "18+" alone does not say that a third of the catalogue is hidden behind
+        it. Same shape as the language options, which also carry their counts. */}
     <button
       class="chip nsfw"
       type="submit"
       name="nsfw"
       value={nsfw ? '' : '1'}
       aria-pressed={nsfw}
-      title="108 of 310 sources are marked 18+">
-      18+
+      aria-label={
+        nsfw
+          ? `Hide the ${adult} sources marked 18+`
+          : `Include the ${adult} sources marked 18+, of ${SOURCES.length}`
+      }>
+      18+ ({adult})
     </button>
   </div>
 
@@ -139,6 +152,8 @@ const sorts = [
   .segmented .chip {
     border-color: transparent;
   }
+  /* "18+ (108)" is one label, not two lines. */
+  .nsfw { white-space: nowrap; }
   .causes .label {
     margin-inline-end: var(--space-1);
     flex: none;

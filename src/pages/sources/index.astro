@@ -1,33 +1,115 @@
 ---
 import Base from '../../layouts/Base.astro';
 import SourceSearch from '../../components/SourceSearch.svelte';
-import { SOURCES, langLabel } from '../../lib/sources';
+import { SOURCES, langLabel, sourcePath } from '../../lib/sources';
 
-// Fully prerendered: the catalogue only changes when the extension index does,
-// so this page is static HTML on the edge and costs no compute per visit.
+/**
+ * Prerendered, because the catalogue only changes when the extension index
+ * does. The 310 rows below are built once per deploy and Workers Assets serves
+ * the HTML: no D1 query, no rendering work, and the Worker is not invoked.
+ *
+ * An earlier version of this comment said the page "costs no compute per visit"
+ * and that was not true when it was written — the header mounted UserChip as a
+ * server island, and an island is a second request that does reach the Worker,
+ * on every anonymous view. What makes the claim true now is in Header.astro:
+ * the island is mounted only when a `signed_in` cookie says it is worth it, and
+ * on a prerendered page there is no request to read that cookie from at build
+ * time, so this page ships the static Sign in button and mounts nothing. The
+ * visible cost is that a signed-in visitor sees the Sign in button here until
+ * they open a server-rendered page. That trade is deliberate and documented
+ * there; do not "fix" it by making this route on-demand.
+ */
 export const prerender = true;
 
+/**
+ * The grid is server-rendered rather than built by the island.
+ *
+ * It used to be the other way round: this page handed all 310 rows to
+ * SourceSearch as hydration props and the island drew the list. That meant the
+ * catalogue was in the HTML twice over — once as escaped JSON in the props
+ * attribute, once as the rendered list — 8.4 KB gzipped of the second copy, 44%
+ * of this page's transfer, for a list that was already there. It also meant a
+ * visitor with no JavaScript, and a crawler that does not run it, saw an empty
+ * page where 310 internal links to the source pages should be.
+ *
+ * Now the list is HTML and the island only filters it. Measured over the list
+ * and props together, that is 13,186 bytes gzipped down to 5,042 — while going
+ * from 202 links in the markup to all 310, because the island only ever
+ * server-rendered the rows its default filter let through. See
+ * SourceSearch.svelte for how it filters, and for what it needs from the markup
+ * below.
+ */
 const rows = SOURCES.map((s) => ({
-  id: s.id,
+  path: sourcePath(s),
   name: s.name,
   lang: s.lang,
+  label: langLabel(s.lang),
   nsfw: s.nsfw,
   extName: s.extName,
 }));
 
-const langLabels = Object.fromEntries([...new Set(SOURCES.map((s) => s.lang))].map((c) => [c, langLabel(c)]));
+const languages = new Set(SOURCES.map((s) => s.lang)).size;
+
+/**
+ * How many rows are visible with the 18+ toggle off — the state the markup is
+ * rendered in. The island needs it so that "202 of 310 sources" is already
+ * correct in the static HTML and does not visibly correct itself a moment
+ * later. Two integers, not the catalogue.
+ */
+const visible = rows.filter((r) => !r.nsfw).length;
 ---
 
 <Base title="Sources">
   <header class="head">
     <h1>Sources</h1>
     <p class="sub">
-      Every source in the repo — {SOURCES.length} across {Object.keys(langLabels).length} languages.
+      Every source in the repo — {SOURCES.length} across {languages} languages.
       Open one to see whether it's known broken.
     </p>
   </header>
 
-  <SourceSearch sources={rows} langLabels={langLabels} client:load />
+  <SourceSearch total={SOURCES.length} visible={visible} client:load />
+
+  {/*
+    A JSX comment, not an HTML one: this is the page whose transfer size the
+    change is about, and an HTML comment would ship every word of it.
+
+    `id` is the contract with SourceSearch — it finds this list with
+    getElementById and the input points at it with aria-controls. Renaming it
+    breaks the filter silently, so rename it in both files or not at all.
+
+    Each row carries only what filtering needs that is not already legible in
+    the markup: `data-nsfw` as a flag, and `data-ext` on the 47 sources whose
+    extension is named differently from the source. The name itself is read back
+    out of `.cell-name`, because putting it in an attribute as well would be the
+    duplication this change exists to remove.
+
+    18+ rows ship `hidden`, matching the toggle's default. Rendering them
+    visible and letting the island hide them on hydration would flash 108 names
+    and then jump the layout; `hidden` also keeps them out of the accessibility
+    tree and out of the tab order until the toggle is pressed. The cost is that
+    a visitor with JavaScript off cannot reveal them — they still get the 202
+    that are visible by default, where before they got none of the 310.
+  */}
+  <ul class="grid" id="source-grid">
+    {
+      rows.map((s) => (
+        <li
+          hidden={s.nsfw}
+          data-nsfw={s.nsfw ? '' : undefined}
+          data-ext={s.extName === s.name ? undefined : s.extName}
+        >
+          <a class="cell" href={s.path}>
+            <span class="cell-name">{s.name}</span>
+            <span class="cell-meta">
+              <span class="lang" title={s.label}>{s.lang}</span>
+              {s.nsfw && <span class="flag">18+</span>}
+            </span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
 </Base>
 
 <style>
@@ -38,5 +120,45 @@ const langLabels = Object.fromEntries([...new Set(SOURCES.map((s) => s.lang))].m
     margin-block-start: var(--space-1);
     font-size: var(--text-sm);
     color: var(--text-tertiary);
+  }
+
+  /* --- the grid: moved here from SourceSearch.svelte with the markup --- */
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 1px;
+    background: var(--border-subtle);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  /* Spelled out rather than left to the UA rule: the 1px gaps here are drawn by
+     the container's background showing through, so a filtered row that kept any
+     box at all would leave a hairline behind it. */
+  .grid > li[hidden] { display: none; }
+  .cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    block-size: 100%;
+    background: var(--surface-raised);
+    transition: background var(--dur-fast) var(--ease-standard);
+  }
+  .cell:hover { background: var(--surface-hover); }
+  .cell-name {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cell-meta { display: flex; align-items: center; gap: var(--space-1); flex: none; }
+  .flag {
+    font-family: var(--font-data);
+    font-size: var(--text-xs);
+    color: var(--dead);
   }
 </style>

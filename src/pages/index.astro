@@ -3,11 +3,21 @@ import Base from '../layouts/Base.astro';
 import FilterBar from '../components/FilterBar.astro';
 import ReportRow from '../components/ReportRow.astro';
 import SourceFinder from '../components/SourceFinder.svelte';
-import { board, boardCounts, type Sort } from '../lib/queries';
-import { SOURCES, langLabel } from '../lib/sources';
+import { currentUser } from '../lib/auth';
+import {
+  board,
+  boardCounts,
+  edgeCachedRender,
+  FRESH_PARAM,
+  myVotes,
+  PAGE_SIZE,
+  type Sort,
+} from '../lib/queries';
 
 // Reads D1, so this route is on-demand. The per-source pages are the ones that
-// prerender; this board is cached at the edge instead.
+// prerender; this board is written into the Cloudflare cache by hand for
+// anonymous visitors — see edgeCachedRender, and note that the s-maxage header
+// at the bottom of this block does nothing by itself on Workers.
 export const prerender = false;
 
 const q = Astro.url.searchParams;
@@ -15,18 +25,62 @@ const lang = q.get('lang') ?? '';
 const cause = q.get('cause') ?? '';
 const nsfw = q.get('nsfw') === '1';
 const sort = (q.get('sort') ?? 'demand') as Sort;
+const authFailed = q.get('auth') === 'failed';
 
-const [{ rows }, counts] = await Promise.all([
-  board({ family: 'broken', lang, cause, nsfw, sort }),
-  boardCounts(),
+/* `from` is the 1-based row this page starts at, so the URL reads the way the
+   pager below says it: "Showing 61–120" is ?from=61. A junk value is page one
+   rather than an error — nobody types this by hand on purpose. */
+const from = Math.max(1, Number.parseInt(q.get('from') ?? '', 10) || 1);
+
+const user = await currentUser(Astro);
+
+/* --- edge cache: anonymous renders only -----------------------------------
+   This gate is the whole safety property. Every row carries `mine`, so a
+   signed-in render is that person's vote state; storing one would hand their
+   votes to whoever asked next. Anyone signed in therefore renders fresh and is
+   never even offered a cached copy, and so does anyone arriving on
+   ?auth=failed, whose notice is about this visit only. */
+const cacheable = !user && !authFailed;
+if (cacheable && !q.has(FRESH_PARAM)) {
+  const cached = await edgeCachedRender(Astro);
+  if (cached) return cached;
+}
+
+const [{ rows, total, offset }, counts] = await Promise.all([
+  board({ family: 'broken', lang, cause, nsfw, sort, offset: from - 1 }),
+  boardCounts(nsfw),
 ]);
 
-// Anonymous browsing is the overwhelming majority of traffic and touches no
-// user state, so it can sit in the edge cache for a minute.
-const finderRows = SOURCES.map((s) => ({ id: s.id, name: s.name, lang: s.lang, nsfw: s.nsfw, extName: s.extName }));
-const langLabels = Object.fromEntries([...new Set(SOURCES.map((s) => s.lang))].map((c) => [c, langLabel(c)]));
+/** A pager link that keeps every active filter and drops the cache marker. */
+function pageHref(startRow: number) {
+  const u = new URL(Astro.url);
+  u.searchParams.delete(FRESH_PARAM);
+  if (startRow <= 1) u.searchParams.delete('from');
+  else u.searchParams.set('from', String(startRow));
+  return u.pathname + u.search;
+}
 
-Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+/* A `from` past the end of the list is a stale bookmark or a typed number, so
+   the first page is what was meant. Redirecting keeps the pager's arithmetic
+   honest: it never has to describe a page that holds nothing. */
+if (rows.length === 0 && offset > 0) return Astro.redirect(pageHref(1), 302);
+
+// Without this every row rendered aria-pressed="false", and because /vote
+// toggles, tapping a report you had already backed removed your vote.
+const mine = user ? await myVotes(user.id, rows.map((r) => r.id)) : new Set<number>();
+
+const shownFrom = offset + 1;
+const shownTo = offset + rows.length;
+const nextCount = Math.min(PAGE_SIZE, total - shownTo);
+
+Astro.response.headers.set(
+  'Cache-Control',
+  cacheable
+    ? 'public, max-age=0, s-maxage=60, stale-while-revalidate=300'
+    : // Per-viewer vote state, or a one-visit notice. Neither may be held by a
+      // shared cache, and saying so is cheaper than trusting that none exists.
+      'private, no-store',
+);
 ---
 
 <Base title="Broken sources">
@@ -43,15 +97,25 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, sta
       <div><dt class="label">Wanted</dt><dd class="num">{counts.wanted}</dd></div>
       <div>
         <dt class="label">Stalled 90d+</dt>
-        <dd class="num rotting">{counts.stalled}</dd>
+        <dd class="num rotting">{counts.brokenStalled}</dd>
       </div>
     </dl>
   </header>
 
+  {
+    authFailed && (
+      <p class="error" role="alert">
+        Signing in with Discord didn't complete, so you're still signed out.
+        Nothing was lost — <a href="/auth/discord">try again</a>.
+      </p>
+    )
+  }
+
   <section class="finder-block">
-    <SourceFinder sources={finderRows} langLabels={langLabels} client:load />
+    <SourceFinder client:load />
     <p class="finder-hint">
-      Or <a href="/new">report a problem</a> — takes two taps.
+      Or <a href="/new">report a problem</a> — under a minute, once you know
+      your app and extension versions.
     </p>
   </section>
 
@@ -71,12 +135,36 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, sta
     ) : (
       <ol class="rows">
         {rows.map((r) => (
-          <ReportRow report={r} />
+          <ReportRow report={r} mine={mine.has(r.id)} />
         ))}
       </ol>
     )
   }
 
+  {/* Plain words and plain numbers, and two ordinary links — this works with
+      JavaScript off, and a filter change resets to row 1 on purpose, because
+      FilterBar's GET form does not carry `from`. */}
+  {
+    (shownTo < total || offset > 0) && (
+      <nav class="pager" aria-label="More reports">
+        <p class="pager-count">
+          Showing {shownFrom}–{shownTo} of {total} open reports
+        </p>
+        <div class="pager-links">
+          {offset > 0 && (
+            <a class="btn" rel="prev" href={pageHref(Math.max(1, offset + 1 - PAGE_SIZE))}>
+              Previous {Math.min(PAGE_SIZE, offset)}
+            </a>
+          )}
+          {nextCount > 0 && (
+            <a class="btn" rel="next" href={pageHref(shownTo + 1)}>
+              Next {nextCount}
+            </a>
+          )}
+        </div>
+      </nav>
+    )
+  }
 </Base>
 
 <style>
@@ -122,6 +210,24 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, sta
     .head { padding-block-end: var(--space-3); }
   }
 
+  /* Same shape as the message the forms use, so a failed sign-in looks like
+     every other thing this site has to tell you. */
+  .error {
+    margin-block-start: var(--space-4);
+    padding: var(--space-3);
+    border: 1px solid var(--dead);
+    border-inline-start-width: 2px;
+    border-radius: var(--radius-md);
+    background: var(--dead-fill);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+  }
+  .error a {
+    color: var(--signal-ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   .finder-block {
     display: flex;
     align-items: flex-end;
@@ -141,4 +247,28 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, sta
     text-underline-offset: 2px;
   }
 
+  /* --- pager --- */
+  .pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    padding-block-start: var(--space-5);
+  }
+  .pager-count {
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+  }
+  .pager-links {
+    display: flex;
+    gap: var(--space-2);
+  }
+  @media (max-width: 640px) {
+    /* The count on its own line, then the links side by side across the full
+       width: at 390px a right-aligned "Next 60" is a thumb-stretch. */
+    .pager { flex-direction: column; align-items: stretch; }
+    .pager-links .btn { flex: 1; }
+  }
 </style>

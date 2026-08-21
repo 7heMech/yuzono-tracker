@@ -9,6 +9,12 @@ import { avatarUrl, currentUser } from '../lib/auth';
  * session read there would either fail or force the whole page to render on
  * demand — losing exactly the edge-cached anonymous path the board is built
  * around. As an island the page stays static and only this fragment is live.
+ *
+ * Header.astro now only mounts this island when the non-secret `signed_in`
+ * cookie is present, because for an anonymous visitor the output below is
+ * byte-identical to the fallback in the page. That cookie is a hint and not an
+ * authorisation signal: the signed-out branch below is what a forged or stale
+ * one gets, since the session read here is the only thing that decides.
  */
 const user = await currentUser(Astro);
 const avatar = user ? avatarUrl(user, 48) : null;
@@ -23,14 +29,22 @@ const staff = user ? atLeast(user.level, 'admin') : false;
       {staff && (
         <a class="btn btn-ghost staff-link" href="/admin">Dashboard</a>
       )}
-      <span class="me" title={user.username}>
+      {/* The identity doubles as the way in to /me, and it says so in words
+          rather than relying on the "click your own avatar" convention: until
+          that page existed nothing on the site let a person find what they had
+          filed, so the link has to be findable. The username moves to the
+          title, where it is confirmation rather than something you need — the
+          avatar already answers "am I the right account". On a phone the words
+          drop and the avatar carries the link, because the two controls have
+          to stay tappable inside 390px. */}
+      <a class="me" href="/me" title={user.username} aria-label={`Your reports (${user.username})`}>
         {avatar ? (
           <img class="avatar" src={avatar} alt="" width="22" height="22" />
         ) : (
           <span class="avatar avatar-blank" aria-hidden="true" />
         )}
-        <span class="name">{user.username}</span>
-      </span>
+        <span class="name">Your reports</span>
+      </a>
       {/* A form, not a link: /auth/logout is POST-only, both because a link
           would 404 against it and because a GET sign-out is trivially
           triggered by any page that can embed an image. */}
@@ -58,15 +72,17 @@ const staff = user ? atLeast(user.level, 'admin') : false;
     font-size: var(--text-sm);
     color: var(--text-secondary);
   }
+  .me:hover { color: var(--text-primary); }
   .avatar { border-radius: var(--radius-full); }
   .avatar-blank {
     inline-size: 22px;
     block-size: 22px;
     background: var(--surface-active);
   }
-  /* On a phone the name is the first thing worth dropping: the avatar already
-     says who you are, and the two buttons must stay tappable. */
+  /* On a phone the words are the first thing worth dropping: the avatar keeps
+     the link tappable on its own, and Sign out must stay reachable beside it. */
   @media (max-width: 700px) {
     .name { display: none; }
+    .me { padding-inline: var(--space-1); }
   }
 </style>

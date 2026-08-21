@@ -71,6 +71,32 @@
   const appOk = $derived(app !== APP_OTHER ? !!app : appOther.trim().length > 1);
   const ready = $derived(!!chosen && appOk && !!appVer.trim() && !!extVer.trim() && !stale);
 
+  let gate: HTMLInputElement | undefined;
+
+  /**
+   * The problem buttons are the submit buttons, and they live in the page rather
+   * than in this island — so gating them means reaching out to the form.
+   *
+   * Worth the reach. Without it, tapping a problem before picking a source sent
+   * an anonymous visitor all the way through Discord and returned them to "your
+   * draft is still here" above an empty form: a full OAuth round trip spent on
+   * a submission that could never succeed. The `ready` flag was already
+   * computed here and posted in a hidden field that the server never read.
+   *
+   * With JavaScript off nothing here runs, the buttons stay live, and the
+   * server's own "Pick which source this is about first" catches it — which is
+   * why the message below is hidden until this effect reveals it.
+   */
+  $effect(() => {
+    const form = gate?.form;
+    if (!form) return;
+    const blocked = !chosen;
+    form.toggleAttribute('data-needs-source', blocked);
+    for (const b of form.querySelectorAll<HTMLButtonElement>('button[name="problem"]')) {
+      b.disabled = blocked;
+    }
+  });
+
   function pick(s: Row) {
     chosen = s;
     q = '';
@@ -93,7 +119,7 @@
   }
 </script>
 
-<input type="hidden" name="source" value={chosen?.id ?? ''} />
+<input type="hidden" name="source" value={chosen?.id ?? ''} bind:this={gate} />
 <!-- Mirrors the client-side gate so the server can enforce it too. -->
 <input type="hidden" name="ready" value={ready ? '1' : ''} />
 

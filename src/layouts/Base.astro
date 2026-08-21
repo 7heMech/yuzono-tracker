@@ -28,24 +28,41 @@ const {
     <meta name="color-scheme" content="dark light" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 
-    <Font cssVariable="--font-ui-family" preload />
-    <Font cssVariable="--font-data-family" />
+    {/*
+      Preload only the subsets that are actually painted.
 
-    <script is:inline>
-      // Applied before first paint so an explicit choice never flashes the
-      // system theme. `light-dark()` in the tokens resolves off color-scheme,
-      // which this attribute sets. The system preference is resolved to a real
-      // theme here too, so "auto" is the initial state rather than a third
-      // mode the toggle has to explain; it keeps following the system until
-      // someone actually picks (see ThemeToggle).
-      const stored = localStorage.getItem('theme');
-      document.documentElement.dataset.theme =
-        stored === 'light' || stored === 'dark'
-          ? stored
-          : matchMedia('(prefers-color-scheme: light)').matches
-            ? 'light'
-            : 'dark';
-    </script>
+      Unfiltered `preload` emits a link for every generated file, which meant
+      IBM Plex Sans' `latin-ext` (25,868 bytes) was fetched at highest priority
+      on every page to render nothing: the only non-ASCII characters in the 310
+      source names are one "ü" — U+00FC, inside the `latin` subset's range —
+      plus Arabic and Chinese, which neither subset covers and which the system
+      fallback has to draw regardless. Left unpreloaded it would still be there
+      for anyone whose report text needs it, fetched on demand by unicode-range.
+
+      IBM Plex Mono was not preloaded at all, and it carries every number on
+      the board through --font-data, so the counts visibly reflowed. It is
+      preloaded at 400 and 600 — the vote counts are 600, everything else is
+      400 — and not at 500, which appears only inside the search islands that
+      hydrate later anyway. Sans is preloaded across all three weights because
+      Google serves it as one variable file, so those three links resolve to a
+      single 40 KB request.
+    */}
+    <Font cssVariable="--font-ui-family" preload={[{ subset: 'latin' }]} />
+    <Font
+      cssVariable="--font-data-family"
+      preload={[
+        { subset: 'latin', weight: 400 },
+        { subset: 'latin', weight: 600 },
+      ]}
+    />
+
+    {/*
+      The theme is resolved before first paint and the toggle is wired up by
+      src/scripts/theme.js, injected at Astro's `head-inline` stage from
+      astro.config.mjs. It is not an `is:inline` script here on purpose: the CSP
+      Astro generates hashes injected scripts and not inline ones, so keeping it
+      in this file would have shipped a policy that blocked it.
+    */}
   </head>
 
   <body>
@@ -85,5 +102,6 @@ const {
         color: var(--text-secondary);
       }
     </style>
+
   </body>
 </html>

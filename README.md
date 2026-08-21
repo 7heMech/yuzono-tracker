@@ -29,9 +29,33 @@ you to it instead of creating a duplicate.
 Astro 7 (`output: 'server'`) on Cloudflare Workers via `@astrojs/cloudflare`,
 Svelte 5 islands, D1 + Drizzle, Astro sessions on Workers KV, Discord OAuth.
 
-Source pages are prerendered — one static page per source, with live report data
-arriving in a server island — so an anonymous visitor arriving from a search
-engine gets edge HTML and never touches the D1 primary.
+Source pages are prerendered — one static page per source at a readable URL like
+`/source/animepahe/`, with live report data arriving in a server island. An
+anonymous visitor arriving from a search engine gets the page itself from the
+edge; the island behind it is one Worker invocation and one indexed D1 read, so
+the *page* is free and only the "is this broken right now?" fragment costs
+anything. Earlier revisions of this file claimed the primary was never touched at
+all, which was never true — the live status has to come from somewhere.
+
+## Local gotcha: the boards really are cached in dev
+
+The Cloudflare adapter runs `astro dev` under Miniflare, so `caches.default`
+exists locally and the hand-written edge cache in `src/lib/queries.ts` is live —
+and with `persistState: true` its entries are written to
+`.wrangler/state/v3/cache`, where they **survive a dev-server restart**. Change a
+board, or anything a board queries, and the old numbers keep coming back. That is
+a cache hit, not a stale module. Stop the server before clearing it — Miniflare
+holds the backing SQLite file open, and deleting it underneath a running server
+makes every later cache read throw:
+
+```sh
+bunx astro dev stop
+rm -rf .wrangler/state/v3/cache
+bunx astro dev
+```
+
+Do that before trusting a board render or a screenshot. Signed-in renders are
+never cached, so this only ever affects the anonymous view.
 
 ## Setup
 
@@ -184,8 +208,12 @@ Neither Discord guild admin nor GitHub org admin:
   `guilds.members.read`, which returns the signed-in user's own roles. No bot in
   the server. `/admin` takes role *ids* rather than names because resolving a
   name would require one — and it shows you your own role ids to copy from.
-- **GitHub promotion** builds a prefilled issue-form URL against the existing
-  templates rather than opening issues via the API, so it needs no token.
-- Issue state syncs back by polling the public API on a cron, not a webhook.
+- **GitHub promotion** is designed but not built: it would build a prefilled
+  issue-form URL against the existing templates rather than opening issues via
+  the API, so it needs no token. `GITHUB_TOKEN` is unused; `GITHUB_REPO` is read
+  only to build the issue *link* on a report that already has an issue number.
+- Issue state does not sync back yet. There is no cron and no `scheduled`
+  handler, and nothing in this codebase calls the GitHub API — the issue numbers
+  on existing reports came from the one-off import in `scripts/import-issues.ts`.
 
 Access tokens are never stored — only the resolved flags land in the session.

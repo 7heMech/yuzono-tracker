@@ -41,6 +41,61 @@ export const CAUSE_LABELS = {
   other: 'Other',
 } as const;
 
+/**
+ * The same seven causes said as a clause that can follow a symptom, which is a
+ * different job from CAUSE_LABELS: those are values in a fact list and tags in
+ * a row, where "Site down" is exactly right, while a headline needs something
+ * that reads on from "Can't browse — ". Lower case so the join is one
+ * sentence; "Cloudflare" keeps its capital because it is a name. `other`
+ * carries no information at all, so it contributes nothing rather than a
+ * meaningless "it's something else".
+ */
+const CAUSE_CLAUSE = {
+  redesign: 'the site was redesigned',
+  domain: 'the domain changed',
+  cloudflare: 'Cloudflare is blocking it',
+  down: 'the site is down',
+  geo: "it's geo-blocked",
+  extractor: 'no video loads',
+  other: null,
+} as const satisfies Record<keyof typeof CAUSE_LABELS, string | null>;
+
+/**
+ * What to lead with when a report's stored title is imported HTTP jargon.
+ *
+ * The backlog came over from GitHub with titles like "Error 503 & Error 444
+ * (Videos)" and "Error 404 (Search)", while a report filed here is titled with
+ * the plain-language problem it was filed under ("Video won't play"). Visitors
+ * land on both from the same board and from Discord links, so the imported
+ * ones are rebuilt from `stage` and `cause` — the two columns that do hold
+ * plain words. Anything that does not start "Error <number>" is returned
+ * untouched: a title a person wrote is always better than one generated here,
+ * and the stored title stays visible on the detail page for cross-referencing
+ * the GitHub issue.
+ */
+export function reportHeadline(r: {
+  title: string;
+  stage: 'browse' | 'episodes' | 'video' | null;
+  cause: keyof typeof CAUSE_LABELS | null;
+}): string {
+  if (!/^Error \d+/.test(r.title)) return r.title;
+
+  // An extractor failure *is* a video failure, so "No video — no video loads"
+  // would say one thing twice. That pair collapses to the wording /new uses
+  // for the identical problem, which is also what ReportRow's `redundant`
+  // check exists to avoid on the row.
+  if (r.stage === 'video' && r.cause === 'extractor') return "Video won't play";
+
+  const symptom = r.stage ? STAGE_FAILURE[r.stage] : null;
+  const clause = r.cause ? CAUSE_CLAUSE[r.cause] : null;
+  if (symptom && clause) return `${symptom} — ${clause}`;
+  if (symptom) return symptom;
+  // No stage recorded — the cause is the whole sentence, so it starts one.
+  if (clause) return clause[0].toUpperCase() + clause.slice(1);
+  // Nothing plain to build from. The jargon beats an empty headline.
+  return r.title;
+}
+
 export const KIND_LABELS = {
   bug: 'Broken',
   request: 'Source request',

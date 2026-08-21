@@ -35,7 +35,15 @@ export async function send(webhookUrl: string, embed: Embed) {
 
 const subject = (r: Report) => getSource(r.sourceId)?.name ?? r.proposedName ?? 'a source';
 
-/** Announce a fix. Fires once per report; `announced_at` is the guard. */
+/**
+ * Announce a fix. Fires once per report; `fix_announced_at` is the guard.
+ *
+ * That column exists purely so this is not the same guard as the demand
+ * alert's. Sharing `announced_at` meant a demand alert permanently consumed
+ * the fix announcement — and it did so for exactly the reports whose fix was
+ * most worth announcing, since crossing the demand threshold is what fired the
+ * alert in the first place.
+ */
 export async function announceFixed(report: Report, origin: string, cfg?: Config) {
   const c = cfg ?? (await readConfig());
   if (!c.webhook_url || c.webhook_on_fixed !== '1') return null;
@@ -44,8 +52,8 @@ export async function announceFixed(report: Report, origin: string, cfg?: Config
   // changes cannot both post.
   const claimed = await db()
     .update(reports)
-    .set({ announcedAt: sql`(unixepoch())` })
-    .where(and(eq(reports.id, report.id), isNull(reports.announcedAt)))
+    .set({ fixAnnouncedAt: sql`(unixepoch())` })
+    .where(and(eq(reports.id, report.id), isNull(reports.fixAnnouncedAt)))
     .returning({ id: reports.id });
   if (!claimed.length) return null;
 
@@ -59,10 +67,9 @@ export async function announceFixed(report: Report, origin: string, cfg?: Config
 }
 
 /**
- * Announce a report that has crossed the demand threshold. Uses the same
- * `announced_at` claim, so a report is announced once for whichever reason
- * comes first — being noisy about the same thing twice is worse than being
- * quiet about the second reason.
+ * Announce a report that has crossed the demand threshold. `announced_at` is
+ * this alert's own guard, so it fires once and — unlike before — does not also
+ * spend the fix announcement. The two are genuinely different news.
  */
 export async function announceDemand(reportId: number, origin: string) {
   const cfg = await readConfig();

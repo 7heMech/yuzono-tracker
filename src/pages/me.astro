@@ -1,0 +1,288 @@
+---
+import Base from '../layouts/Base.astro';
+import ReportRow from '../components/ReportRow.astro';
+import { currentUser } from '../lib/auth';
+import { myBacked, myReports, myUpdates, markRead } from '../lib/notify';
+import { getSource } from '../lib/sources';
+import { relativeAge, reportHeadline, STATUS_LABELS } from '../lib/format';
+
+export const prerender = false;
+
+/**
+ * Your corner of the board.
+ *
+ * Nothing on this site used to let a person find what they had filed:
+ * `reporter_id` was stored and indexed and never read by any query, and with
+ * both boards cut off at sixty rows, a report ranked below that was lost to its
+ * own author. This page is the other half of the notifications table — the
+ * broadcast in Discord cannot say which fix was yours, and this can.
+ */
+
+const user = await currentUser(Astro);
+if (!user) return Astro.redirect('/auth/discord?next=/me', 302);
+
+let done: string | null = null;
+
+/* Marking read is a POST, not something the page does on load: prefetch and
+   back-navigation both issue GETs, and either one would clear the badge before
+   the person had read anything. */
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const ids = String(form.get('ids') ?? '')
+    .split(',')
+    .map(Number)
+    .filter((n) => Number.isSafeInteger(n) && n > 0);
+  await markRead(user.id, ids);
+  return Astro.redirect('/me?read=1', 303);
+}
+
+const [updates, filed, backed] = await Promise.all([
+  myUpdates(user.id),
+  myReports(user.id),
+  myBacked(user.id),
+]);
+
+if (Astro.url.searchParams.has('read')) done = 'Marked as read.';
+
+const unread = updates.filter((u) => u.readAt === null);
+const subjectOf = (u: (typeof updates)[number]) =>
+  getSource(u.sourceId)?.name ?? u.proposedName ?? 'a source';
+
+// Said as a sentence, because "status_changed / promoted / duplicate" is the
+// column's vocabulary and not a person's.
+const WHAT_HAPPENED = {
+  status_changed: 'moved to',
+  promoted: 'was taken to GitHub as',
+  duplicate: 'was merged into',
+} as const;
+
+// This page is about one person, so it must never be cached anywhere.
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+---
+
+<Base title="Your reports" narrow>
+  <header class="head">
+    <h1>Your reports</h1>
+    <p class="sub">
+      Signed in as <b>{user.username}</b>. Everything you've filed and everything
+      you've said you're affected by, plus what has changed since.
+    </p>
+  </header>
+
+  {done && <p class="flash" role="status">{done}</p>}
+
+  <section class="block">
+    <div class="block-head">
+      <h2>Updates</h2>
+      {
+        unread.length > 0 && (
+          <form method="POST">
+            <input type="hidden" name="ids" value={unread.map((u) => u.id).join(',')} />
+            <button class="btn btn-ghost" type="submit">
+              Mark {unread.length} as read
+            </button>
+          </form>
+        )
+      }
+    </div>
+    {
+      updates.length === 0 ? (
+        <p class="empty-line">
+          Nothing yet. When a report you filed or backed is confirmed, fixed or
+          closed, it turns up here.
+        </p>
+      ) : (
+        <ol class="updates">
+          {updates.map((u) => (
+            <li class:list={['update', { fresh: u.readAt === null }]}>
+              <a href={`/report/${u.reportId}`}>
+                <span class="u-what">
+                  {u.readAt === null && <b class="u-new">New</b>}
+                  <b class="u-src">{subjectOf(u)}</b>
+                  <span class="u-mid">
+                    {WHAT_HAPPENED[u.kind]} {STATUS_LABELS[u.reportStatus]}
+                  </span>
+                </span>
+                <span class="u-meta">
+                  <span class="u-title">
+                    {reportHeadline({
+                      title: u.reportTitle,
+                      stage: u.reportStage,
+                      cause: u.reportCause,
+                    })}
+                  </span>
+                  <span>{relativeAge(u.createdAt)} ago</span>
+                </span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      )
+    }
+  </section>
+
+  <section class="block">
+    <h2>You filed</h2>
+    {
+      filed.length === 0 ? (
+        <p class="empty-line">
+          You haven't filed anything yet. <a href="/new">Report a problem</a> or{' '}
+          <a href="/request">request a source</a>.
+        </p>
+      ) : (
+        <ol class="rows">
+          {filed.map((r) => (
+            <ReportRow report={r as never} mine={true} />
+          ))}
+        </ol>
+      )
+    }
+  </section>
+
+  <section class="block">
+    <h2>You're counted on</h2>
+    {
+      backed.length === 0 ? (
+        <p class="empty-line">
+          Nothing yet. Tapping the count on any report adds you to it, which is
+          what moves it up the board.
+        </p>
+      ) : (
+        <ol class="rows">
+          {backed.map((r) => (
+            <ReportRow report={r as never} mine={true} />
+          ))}
+        </ol>
+      )
+    }
+  </section>
+
+  {
+    filed.length > 0 && (
+      <p class="foot-note">
+        A report you filed against a source that has since been renamed still
+        points at the right page — <a href="/sources/">the catalogue</a> is keyed
+        on the extension, not the name.
+      </p>
+    )
+  }
+</Base>
+
+<style>
+  .head {
+    padding-block-end: var(--space-4);
+    border-block-end: 1px solid var(--border-subtle);
+  }
+  h1 {
+    font-size: var(--text-xl);
+    letter-spacing: var(--track-tight);
+  }
+  .sub {
+    max-inline-size: 62ch;
+    margin-block-start: var(--space-1);
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+  }
+  .flash {
+    padding: var(--space-3);
+    margin-block-start: var(--space-4);
+    border: 1px solid var(--border-default);
+    border-inline-start: 2px solid var(--signal);
+    border-radius: var(--radius-md);
+    background: var(--signal-fill);
+    font-size: var(--text-sm);
+  }
+
+  .block {
+    margin-block-start: var(--space-8);
+  }
+  .block-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+  h2 {
+    font-size: var(--text-lg);
+    letter-spacing: var(--track-tight);
+    margin-block-end: var(--space-2);
+  }
+
+  .updates {
+    display: grid;
+    gap: var(--space-px);
+  }
+  .update a {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface-raised);
+  }
+  .update a:hover {
+    border-color: var(--border-strong);
+  }
+  /* Unread says "New" in a word. The border is emphasis on text that already
+     reads without it, not an encoding to be decoded. */
+  .fresh a {
+    border-inline-start: 2px solid var(--signal);
+  }
+  .u-new {
+    margin-inline-end: var(--space-2);
+    font-size: var(--text-xs);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+    color: var(--signal-ink);
+  }
+  .u-src {
+    font-weight: var(--weight-semi);
+  }
+  .u-mid {
+    margin-inline-start: var(--space-1);
+    color: var(--text-secondary);
+  }
+  .u-meta {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    min-inline-size: 0;
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+  }
+  .u-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-inline-size: 28ch;
+  }
+
+  .foot-note {
+    margin-block-start: var(--space-8);
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+  }
+  .foot-note a,
+  .empty-line a {
+    color: var(--signal-ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* On a phone the update line stacks: the subject and what happened to it are
+     the sentence, and the title plus age follow underneath rather than being
+     squeezed onto the same row. */
+  @media (max-width: 640px) {
+    .u-title {
+      max-inline-size: 100%;
+      white-space: normal;
+    }
+    .u-meta {
+      flex-basis: 100%;
+    }
+  }
+</style>

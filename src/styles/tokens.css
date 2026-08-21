@@ -18,8 +18,17 @@
 
   :root {
     /* --- type ------------------------------------------------------------ */
-    --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
-    --font-data: 'IBM Plex Mono', ui-monospace, monospace;
+    /* Through the variables the `<Font>` components define, not by name.
+       Astro suffixes the family it declares with a content hash — the built CSS
+       says `@font-face { font-family: "IBM Plex Sans-89f6298b5c0aba9e" }` — so
+       naming the font here matched nothing at all: every page rendered in
+       system-ui and ui-monospace while still downloading 66 KB of woff2 that no
+       rule could reach. The generated value also carries the metric-adjusted
+       fallback, which is what stops the swap shifting the layout, and then the
+       `fallbacks` from astro.config.mjs. The literals stay as a var() fallback
+       for the case where the variable is missing entirely. */
+    --font-ui: var(--font-ui-family, 'IBM Plex Sans', system-ui, sans-serif);
+    --font-data: var(--font-data-family, 'IBM Plex Mono', ui-monospace, monospace);
 
     --text-xs: 0.75rem;    /* 12 — micro labels, rail counts */
     --text-sm: 0.8125rem;  /* 13 — metadata, column labels */
@@ -97,11 +106,30 @@
     --surface-hover:   light-dark(oklch(0 0 0 / 0.028),  oklch(1 0 0 / 0.035));
     --surface-active:  light-dark(oklch(0 0 0 / 0.05),   oklch(1 0 0 / 0.06));
 
-    /* --- text ------------------------------------------------------------ */
+    /* --- text ------------------------------------------------------------
+       Four tiers, and all four clear 4.5:1 against every surface they land on
+       (canvas, raised, inset) in both themes. That was not true: --text-muted
+       measured 2.81-3.11 in light and 2.79-3.02 in dark — under even the 3:1
+       floor for non-text — while carrying input placeholders, the breadcrumb
+       and the line of copy that explains the dedupe promise, and light
+       --text-tertiary sat at 4.20 on inset, which put most board metadata
+       under AA. Ratios measured from these exact values, worst surface first:
+
+         light  tertiary 0.48 -> 5.91 inset / 6.26 canvas / 6.54 raised
+         light  muted    0.53 -> 4.77 inset / 5.06 canvas / 5.28 raised
+         dark   tertiary 0.65 -> 5.76 raised / 6.04 canvas / 6.23 inset
+         dark   muted    0.60 -> 4.72 raised / 4.95 canvas / 5.11 inset
+
+       Only lightness moved; hue 85 and the near-zero chroma that keeps these
+       warm rather than grey are untouched. The tiers are closer together than
+       before because the band between AA and the surface is genuinely narrow —
+       at 4.5:1 there is no room in light mode above L 0.54 — so the muted tier
+       is now a step, not a whisper. Anything quieter than this would be
+       unreadable, which is the point: there is no fifth tier to add. */
     --text-primary:   light-dark(oklch(0.19 0.008 85), oklch(0.955 0.004 85));
     --text-secondary: light-dark(oklch(0.42 0.008 85), oklch(0.760 0.005 85));
-    --text-tertiary:  light-dark(oklch(0.56 0.008 85), oklch(0.600 0.006 85));
-    --text-muted:     light-dark(oklch(0.66 0.008 85), oklch(0.475 0.006 85));
+    --text-tertiary:  light-dark(oklch(0.48 0.008 85), oklch(0.650 0.006 85));
+    --text-muted:     light-dark(oklch(0.53 0.008 85), oklch(0.600 0.006 85));
 
     /* --- borders: carry all the depth. no shadows anywhere. -------------- */
     --border-subtle:    light-dark(oklch(0 0 0 / 0.055), oklch(1 0 0 / 0.055));
@@ -137,6 +165,10 @@
       --border-strong:   light-dark(oklch(0 0 0 / 0.38), oklch(1 0 0 / 0.32));
       --text-secondary:  light-dark(oklch(0.30 0.008 85), oklch(0.88 0.004 85));
       --text-tertiary:   light-dark(oklch(0.42 0.008 85), oklch(0.74 0.006 85));
+      /* Muted belongs here too, or asking for more contrast left the quietest
+         tier exactly where it was: 6.44 light / 6.98 dark on the worst
+         surface, against 4.77 / 4.72 by default. */
+      --text-muted:      light-dark(oklch(0.46 0.008 85), oklch(0.70 0.006 85));
     }
   }
 }

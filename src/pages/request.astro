@@ -3,10 +3,11 @@ import Base from '../layouts/Base.astro';
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '../lib/db/client';
 import { OPEN_STATUSES, reports } from '../lib/db/schema';
-import { currentUser } from '../lib/auth';
+import { canWriteNow, currentUser } from '../lib/auth';
 import { ensureVote } from '../lib/vote';
 import { languageFacets } from '../lib/sources';
 import { normaliseUrl } from '../lib/problems';
+import { FILING_COOLDOWN_MESSAGE, overFilingLimit, sameHost } from '../lib/writes';
 
 export const prerender = false;
 
@@ -38,14 +39,20 @@ if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   name = String(form.get('name') ?? '').trim().slice(0, 80);
   url = String(form.get('url') ?? '').trim().slice(0, 200);
-  lang = String(form.get('lang') ?? '').trim();
+  // Capped like the other two, and capped *here* rather than at validation:
+  // the anonymous branch below writes this straight into the session, so an
+  // uncapped value was a half-megabyte KV write before anything had looked at
+  // it. The whitelist further down is what makes it a language.
+  lang = String(form.get('lang') ?? '').trim().slice(0, 16);
   nsfw = form.get('nsfw') === '1';
 
   if (!user) {
     Astro.session?.set('pending_request', { name, url, lang, nsfw } satisfies Draft);
     return Astro.redirect('/auth/discord?next=/request', 302);
   }
-  if (!user.canWrite) return Astro.redirect('/cant-post', 302);
+  // Re-derived on every write instead of trusted from the session: see
+  // canWriteNow in lib/auth.
+  if (!(await canWriteNow(user))) return Astro.redirect('/cant-post', 302);
 
   const link = normaliseUrl(url);
 
@@ -57,6 +64,11 @@ if (Astro.request.method === 'POST') {
       : 'Add the address — a request without a link cannot be built from.';
   } else if (!lang) {
     error = 'Pick the language the site is in.';
+  } else if (!langs.some((l) => l.code === lang)) {
+    // The select only offers the catalogue's languages, so anything else was
+    // not typed by a person using this form. It was stored unchecked and then
+    // rendered on /requests as if it were a language.
+    error = 'Pick the language from the list.';
   } else {
     const d = db();
     // Small table (~130 open requests), so match in memory: same link *or* the
@@ -71,35 +83,46 @@ if (Astro.request.method === 'POST') {
       .from(reports)
       .where(and(eq(reports.kind, 'request'), inArray(reports.status, [...OPEN_STATUSES])));
 
-    const host = new URL(link).host.replace(/^www\./, '');
+    // Hosts compared for equality, never containment — see sameHost in
+    // lib/writes for what the substring test let through.
     const existing = open.find(
       (r) =>
-        (r.proposedUrl && r.proposedUrl.replace(/^www\./, '').includes(host)) ||
+        (r.proposedUrl && sameHost(r.proposedUrl, link)) ||
         (r.proposedName && norm(r.proposedName) === norm(name)),
     );
 
     if (existing) {
+      // Joining an existing request is a vote, so it is deliberately outside
+      // the cooldown below: being asked to wait before agreeing with someone
+      // would be the one thing this board most wants people to do.
       await ensureVote(existing.id, user.id);
       return Astro.redirect(`/report/${existing.id}?joined=1`, 303);
     }
 
-    const [created] = await d
-      .insert(reports)
-      .values({
-        kind: 'request',
-        proposedName: name,
-        proposedUrl: link,
-        lang,
-        nsfw,
-        title: `Add ${name}`,
-        reporterId: user.id,
-        votes: 1,
-      })
-      .returning({ id: reports.id });
+    if (await overFilingLimit(user.id)) {
+      error = FILING_COOLDOWN_MESSAGE;
+    } else {
+      const [created] = await d
+        .insert(reports)
+        .values({
+          kind: 'request',
+          proposedName: name,
+          proposedUrl: link,
+          lang,
+          nsfw,
+          title: `Add ${name}`,
+          reporterId: user.id,
+          // No `votes: 1` seed. The counter and the vote row are one fact, and
+          // seeding it here meant ensureVote below found no row of its own,
+          // inserted one and incremented again — so every request was born
+          // claiming two people wanted it and only one had said so.
+        })
+        .returning({ id: reports.id });
 
-    if (created) {
-      await ensureVote(created.id, user.id);
-      return Astro.redirect(`/report/${created.id}?filed=1`, 303);
+      if (created) {
+        await ensureVote(created.id, user.id);
+        return Astro.redirect(`/report/${created.id}?filed=1`, 303);
+      }
     }
   }
 }

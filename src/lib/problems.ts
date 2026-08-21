@@ -77,10 +77,62 @@ export type Problem = (typeof PROBLEMS)[number];
 export type ProblemKey = Problem['key'];
 
 /**
+ * The keys as a plain tuple, for the `problem` column's enum. Derived rather
+ * than written out again so the column and the form can never disagree about
+ * what a problem is.
+ */
+export const PROBLEM_KEYS = PROBLEMS.map((p) => p.key) as unknown as [
+  ProblemKey,
+  ...ProblemKey[],
+];
+
+/**
  * Typed against the real union rather than a loose structural shape: only two
  * of the seven entries carry these flags, so a `{ needsUrl?: boolean }`
  * parameter doesn't describe the others.
  */
+/**
+ * The problem key implied by a report's `stage` and `cause`.
+ *
+ * Needed because the 468 reports imported from GitHub predate the `problem`
+ * column: an issue carries a stage and a cause but no problem key, and the
+ * taxonomy above was derived from those labels in the first place, so the
+ * mapping back is exact.
+ *
+ * This lives here, next to the taxonomy, because three places have to agree on
+ * it: the `CASE` in drizzle/0005_problem_key_and_board_indexes.sql, which
+ * backfilled the rows already in production; scripts/import-issues.ts, which
+ * derives it again whenever the seed is regenerated; and this. `problem` is the
+ * third column of the partial unique index `reports_open_per_source_problem`,
+ * so a disagreement does not raise an error — it tells a reporter "someone
+ * already reported this" about a problem nobody reported. tests/consistency
+ * executes the migration's SQL against this function to hold them together.
+ *
+ * `hasSource` mirrors the migration's final statement. A NULL in the third
+ * column of a partial unique index never conflicts with anything in SQLite, so
+ * a report that hangs off a real source and has no derivable problem would
+ * escape dedupe entirely; those get the catch-all instead. A report with no
+ * source — a request for a site that does not exist yet — has nothing to
+ * dedupe against and correctly gets nothing.
+ */
+export function problemKeyFor(
+  kind: string,
+  stage: string | null,
+  cause: string | null,
+  hasSource: boolean,
+): ProblemKey | null {
+  const derived = ((): ProblemKey | null => {
+    if (kind === 'domain') return 'moved';
+    if (kind === 'dead') return 'gone';
+    if (kind !== 'bug') return null;
+    if (stage === 'video') return 'no-video';
+    if (stage === 'episodes') return 'no-episodes';
+    if (stage === 'browse') return cause === 'cloudflare' || cause === 'geo' ? 'blocked' : 'no-browse';
+    return 'other';
+  })();
+  return derived ?? (hasSource ? 'other' : null);
+}
+
 export const problemNeedsUrl = (p: Problem) => 'needsUrl' in p && p.needsUrl === true;
 export const problemNeedsDetail = (p: Problem) => 'needsDetail' in p && p.needsDetail === true;
 export const problemByKey = (k: string) => PROBLEMS.find((p) => p.key === k);

@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { desc, sql } from 'drizzle-orm';
 import {
   index,
   integer,
@@ -7,6 +7,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
+import { PROBLEM_KEYS } from '../problems';
 
 /**
  * There is deliberately no `sources` table.
@@ -79,6 +80,15 @@ export const users = sqliteTable('users', {
    */
   discordLevel: text('discord_level', { enum: STAFF_LEVELS }),
   manualLevel: text('manual_level', { enum: STAFF_LEVELS }),
+  /**
+   * Blocked from writing, regardless of guild membership or account age.
+   *
+   * The gate that decides whether someone may post was previously computed
+   * once at login and never revisited, so there was no way to stop an abusive
+   * account short of waiting for it to sign in again. This column is read on
+   * every write, which is what makes revocation immediate.
+   */
+  banned: integer('banned', { mode: 'boolean' }).notNull().default(false),
   firstSeen: integer('first_seen').notNull().default(sql`(unixepoch())`),
   lastLogin: integer('last_login').notNull().default(sql`(unixepoch())`),
 });
@@ -109,6 +119,16 @@ export const reports = sqliteTable(
     stage: text('stage', { enum: STAGES }),
     cause: text('cause', { enum: CAUSES }),
 
+    /**
+     * Which of the seven problems on /new this is — the dedupe key.
+     *
+     * `kind` cannot do that job: five of the seven problems are `kind: 'bug'`,
+     * so deduping on kind alone made a source's *second* distinct failure
+     * impossible to file and silently upvoted an unrelated report instead.
+     * Null only on rows that predate the column and on kinds with no source.
+     */
+    problem: text('problem', { enum: PROBLEM_KEYS }),
+
     title: text('title').notNull(),
     body: text('body'),
 
@@ -130,9 +150,18 @@ export const reports = sqliteTable(
 
     /**
      * Denormalised counter, written in the same D1 batch as the vote row.
-     * The board's whole job is ORDER BY demand; a counter keeps that a single
-     * indexed scan instead of an aggregate join on every render, which matters
-     * because D1 reads all hit one primary region.
+     *
+     * The board's whole job is ORDER BY demand, and a counter keeps that an
+     * index range scan rather than an aggregate join on every render — which
+     * matters because D1 reads all hit one primary region. It is only that
+     * cheap while `reports_board` below leads with the same columns the board
+     * filters on; when the index led with `kind` instead, the plan added a temp
+     * B-tree sort and the claim this comment used to make ("a single indexed
+     * scan") was simply false.
+     *
+     * Because it is denormalised it can drift, so it is moved *only* by
+     * lib/vote.ts, in the same batch as the vote row, and never seeded at
+     * insert time.
      */
     votes: integer('votes').notNull().default(0),
 
@@ -140,17 +169,29 @@ export const reports = sqliteTable(
     updatedAt: integer('updated_at').notNull().default(sql`(unixepoch())`),
     statusChangedAt: integer('status_changed_at'),
 
-    /** When this report was last announced to Discord — so it happens once. */
+    /**
+     * When this report was announced to Discord as *demand* — so a threshold
+     * alert fires once.
+     */
     announcedAt: integer('announced_at'),
+
+    /**
+     * When its fix was announced. A separate column on purpose: sharing
+     * `announced_at` meant a demand alert permanently consumed the fix
+     * announcement, so the reports whose fix was most worth telling people
+     * about were exactly the ones that never got told.
+     */
+    fixAnnouncedAt: integer('fix_announced_at'),
   },
   (t) => [
     /**
-     * The core mechanic: one open report per source per kind. A second person
-     * hitting the same breakage is routed to upvote rather than file, which is
-     * what turns vote count into a usable priority number.
+     * The core mechanic: one open report per source per *problem*. A second
+     * person hitting the same breakage is routed to upvote rather than file,
+     * which is what turns vote count into a usable priority number — while a
+     * genuinely different failure on the same source can still be filed.
      */
-    uniqueIndex('reports_open_per_source_kind')
-      .on(t.sourceId, t.kind)
+    uniqueIndex('reports_open_per_source_problem')
+      .on(t.sourceId, t.kind, t.problem)
       .where(sql`status IN ('open', 'confirmed', 'in_progress') AND source_id IS NOT NULL`),
 
     /** Same rule for source requests, keyed on the proposed URL. */
@@ -158,7 +199,45 @@ export const reports = sqliteTable(
       .on(t.proposedUrl)
       .where(sql`status IN ('open', 'confirmed', 'in_progress') AND proposed_url IS NOT NULL`),
 
-    index('reports_board').on(t.kind, t.status, t.votes),
+    /**
+     * Column order is the board's query, in order: both boards filter
+     * `status IN (...)` and (unless NSFW is on) `nsfw = 0`, then sort by votes
+     * descending with `created_at` as the tiebreak. `kind` comes last because
+     * it arrives as an `IN` list, which cannot be used as an equality seek —
+     * leading with it forced a temp B-tree for every board render.
+     */
+    index('reports_board').on(t.status, t.nsfw, desc(t.votes), t.createdAt, t.kind),
+    /**
+     * The board's default sort, and the reason it needs a *partial* index.
+     *
+     * `reports_board` above leads with `status`, which the board supplies as a
+     * three-value `IN` list — so SQLite runs three separate seeks and cannot
+     * merge them in `votes desc` order. The plan came out as
+     * `SEARCH reports USING INDEX reports_board (status=? AND nsfw=?)` plus
+     * `USE TEMP B-TREE FOR ORDER BY`, and no reordering of those columns
+     * removes it while `status` is a list rather than an equality.
+     *
+     * Moving the list into the index's own predicate is what fixes it: every
+     * row in this index is already open, so there is nothing left to seek on
+     * and the scan already comes out in sort order. Verified with
+     * EXPLAIN QUERY PLAN that the planner picks it unhinted —
+     * `SEARCH reports USING INDEX reports_board_open (nsfw=?)`, no temp B-tree.
+     *
+     * It covers the default `demand` sort with 18+ off, which is the great
+     * majority of board views. The 18+ path has no equality on `nsfw`, and the
+     * `recent` and `stalled` sorts want a different column order, so those fall
+     * back to `reports_board` and still sort correctly. Three more partial
+     * indexes to flatten three rarer paths is not a trade worth making on a
+     * 468-row table; revisit if the board ever grows enough for it to show.
+     *
+     * `reports_board` stays: it is what serves the covering `count(*)` behind
+     * the pager, on both the 18+ and the non-18+ path.
+     */
+    index('reports_board_open')
+      .on(t.nsfw, desc(t.votes), t.createdAt, t.kind)
+      .where(sql`status IN ('open', 'confirmed', 'in_progress')`),
+    /** Covers the three header tallies without touching the table. */
+    index('reports_tallies').on(t.status, t.kind, t.createdAt),
     index('reports_by_source').on(t.sourceId),
     index('reports_by_reporter').on(t.reporterId),
     index('reports_by_age').on(t.status, t.createdAt),

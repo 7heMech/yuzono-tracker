@@ -273,6 +273,9 @@
      and this audience is overwhelmingly on phones. */
   @media (pointer: coarse) {
     .btn { block-size: 38px; }
+    /* An icon button has to grow in both directions or the touch target ends
+       up 38 tall and 30 wide — which is what the theme toggle was. */
+    .btn-icon { inline-size: 38px; }
     .btn-lg { block-size: 44px; }
     .chip { block-size: 34px; padding-inline: var(--space-2); }
     .input, .select, .textarea { block-size: 44px; }

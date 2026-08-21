@@ -1,31 +1,48 @@
 ---
+import { env } from 'cloudflare:workers';
 import Base from '../../layouts/Base.astro';
 import VoteButton from '../../components/VoteButton.astro';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { db } from '../../lib/db/client';
 import { reports, votes } from '../../lib/db/schema';
 import { currentUser } from '../../lib/auth';
 import { atLeast } from '../../lib/levels';
 import { isResponse, levelOf, logAction, requireStaff } from '../../lib/staff';
 import { announceFixed } from '../../lib/webhook';
-import { getSource, langLabel } from '../../lib/sources';
-import { CAUSE_LABELS, relativeAge, STAGE_FAILURE, STATUS_LABELS } from '../../lib/format';
+import { notifyWatchers } from '../../lib/notify';
+import { getSource, langLabel, sourcePath } from '../../lib/sources';
+import {
+  CAUSE_LABELS,
+  relativeAge,
+  reportHeadline,
+  STAGE_FAILURE,
+  STATUS_LABELS,
+} from '../../lib/format';
 import { STATUSES } from '../../lib/db/schema';
 
 export const prerender = false;
 
 const id = Number(Astro.params.id);
-if (!Number.isInteger(id)) return Astro.redirect('/', 302);
+/* A non-numeric id is a broken pasted link, so it gets the page that explains
+   itself and offers the finder rather than being tipped onto the board with no
+   idea why. Rewrite, not redirect, so the bad URL stays visible in the bar. */
+if (!Number.isInteger(id)) return Astro.rewrite('/404');
 
-/* Moderator action: move the report along. Authorisation is re-read from D1
-   here rather than taken from the session, so a revoked moderator loses this
-   immediately instead of when they next sign in. */
+/* Moderator actions. Authorisation is re-read from D1 here rather than taken
+   from the session, so a revoked moderator loses this immediately instead of
+   when they next sign in.
+
+   One form, two fields: a status button submits `status`, the 18+ button
+   submits `nsfw`, and only the button that was pressed is sent. That keeps a
+   single POST handler behind a single `requireStaff` gate. */
 if (Astro.request.method === 'POST') {
   const gate = await requireStaff(Astro, 'mod');
   if (isResponse(gate)) return gate;
 
   const form = await Astro.request.formData();
   const wanted = String(form.get('status') ?? '');
+  const nsfwWanted = form.get('nsfw');
+
   if ((STATUSES as readonly string[]).includes(wanted)) {
     const status = wanted as (typeof STATUSES)[number];
     const [updated] = await db()
@@ -35,14 +52,55 @@ if (Astro.request.method === 'POST') {
       .returning();
     if (updated) {
       await logAction(gate.user, 'report.status', String(id), status);
-      if (status === 'fixed') await announceFixed(updated, Astro.url.origin);
+
+      /* Two side effects, neither of which the moderator should wait for: the
+         Discord post costs 200-500ms of somebody else's network, and the
+         notification fan-out is a write nobody is watching. Announcing is
+         `after` work; the redirect is the answer.
+
+         Notifications are the loop this project exists to close — a Discord
+         announcement is a broadcast and cannot say which fix was *yours*, so
+         the reporter and everyone who backed the report each get a row they can
+         read on /me. */
+      const after: Promise<unknown>[] = [
+        notifyWatchers(id, 'status_changed', status, gate.user.id),
+      ];
+      if (status === 'fixed') after.push(announceFixed(updated, Astro.url.origin));
+
+      // waitUntil on Workers, await when there is no Cloudflare context —
+      // which is what keeps `astro dev` working. Same shape as /vote.
+      const cf = Astro.locals.cfContext;
+      if (cf) for (const task of after) cf.waitUntil(task);
+      else await Promise.all(after);
     }
+    return Astro.redirect(`/report/${id}?saved=status`, 303);
   }
-  return Astro.redirect(`/report/${id}?saved=1`, 303);
+
+  if (nsfwWanted === '0' || nsfwWanted === '1') {
+    const nsfw = nsfwWanted === '1';
+    /* Only on a source request. A report against a catalogue source inherits
+       `nsfw` from the catalogue, so editing it here would be overwritten by
+       the next sync and would disagree with the source page — the
+       `proposed_name IS NOT NULL` predicate enforces that in SQL rather than
+       trusting a second read of the row. */
+    const [updated] = await db()
+      .update(reports)
+      .set({ nsfw, updatedAt: sql`(unixepoch())` })
+      .where(and(eq(reports.id, id), isNotNull(reports.proposedName)))
+      .returning({ id: reports.id });
+    if (updated) await logAction(gate.user, 'report.nsfw', String(id), nsfw ? 'on' : 'off');
+    return Astro.redirect(`/report/${id}?saved=${nsfw ? 'nsfw-on' : 'nsfw-off'}`, 303);
+  }
+
+  return Astro.redirect(`/report/${id}`, 303);
 }
 
 const [report] = await db().select().from(reports).where(eq(reports.id, id));
-if (!report) return new Response('Not found', { status: 404 });
+/* Report ids get pasted into Discord and outlive the report, so a miss lands
+   on the real 404 page — header, theme and the source finder — instead of a
+   bare text/plain body with no way back. /404 sets the 404 status itself,
+   because a rewrite resets it to 200. */
+if (!report) return Astro.rewrite('/404');
 
 const user = await currentUser(Astro);
 // Display-only: the POST above is what actually decides.
@@ -59,18 +117,51 @@ const mine = user
 const source = getSource(report.sourceId);
 const joined = Astro.url.searchParams.has('joined');
 const filed = Astro.url.searchParams.has('filed');
-const saved = Astro.url.searchParams.has('saved');
+const saved = Astro.url.searchParams.get('saved');
+
+/* Imported reports are titled in raw HTTP jargon ("Error 404 (Search)"), so
+   lead with the plain-language phrasing everywhere the title is read — and
+   keep the stored one in the facts below, where a maintainer cross-referencing
+   the GitHub issue can still find it verbatim. */
+const headline = reportHeadline(report);
+
+/* A source request is the only report whose 18+ flag lives on the row: for
+   everything else it is copied from the catalogue at filing time, so the
+   catalogue is the place to change it. */
+const isRequest = !!report.proposedName;
+
+// The repo is configuration, not a constant — a fork points GITHUB_REPO at its
+// own issues rather than sending its visitors to this one.
+const repo = String(env.GITHUB_REPO ?? 'yuzono/anime-extensions');
+
+/* This route shipped no cache headers at all, which is what made prefetching it
+   from the board so expensive — 60 links on the homepage, every one of them a
+   full Worker invocation and a D1 read. Anonymous renders are identical for
+   everyone and can be held briefly; a signed-in one carries `mine` and the
+   moderator controls, so it must never be stored anywhere. */
+Astro.response.headers.set(
+  'Cache-Control',
+  user ? 'private, no-store' : 'public, max-age=0, s-maxage=30, stale-while-revalidate=120',
+);
 ---
 
-<Base title={`${source?.name ?? report.proposedName ?? 'Report'} — ${report.title}`} narrow>
+<Base title={`${source?.name ?? report.proposedName ?? 'Report'} — ${headline}`} narrow>
   {
-    saved && <p class="flash" role="status">Status updated.</p>
+    saved && (
+      <p class="flash" role="status">
+        {saved === 'nsfw-on'
+          ? 'Marked 18+. It now shows only when 18+ is on.'
+          : saved === 'nsfw-off'
+            ? 'No longer marked 18+.'
+            : 'Status updated.'}
+      </p>
+    )
   }
   {
     (joined || filed) && (
       <p class="flash" role="status">
         {joined
-          ? "Someone had already reported this — you've been added to it, so it counts twice as loud now."
+          ? `Someone had already reported this — you've been added to it, so it now speaks for ${report.votes} people.`
           : "Filed. You're the first to report this one."}
       </p>
     )
@@ -80,11 +171,11 @@ const saved = Astro.url.searchParams.has('saved');
     <header class="head">
       <VoteButton reportId={report.id} votes={report.votes} mine={mine} />
       <div>
-        <h1>{report.title}</h1>
+        <h1>{headline}</h1>
         <p class="on">
           on{' '}
           {source ? (
-            <a href={`/source/${source.id}`}>{source.name}</a>
+            <a href={sourcePath(source)}>{source.name}</a>
           ) : (
             <span>{report.proposedName ?? 'an unknown source'}</span>
           )}
@@ -132,6 +223,17 @@ const saved = Astro.url.searchParams.has('saved');
         </div>
       )}
       <div><dt class="label">Reported</dt><dd>{relativeAge(report.createdAt)} ago</dd></div>
+      {
+        /* Only when the heading is no longer the stored title. This is the
+           wording on the GitHub issue, so a maintainer cross-referencing needs
+           it verbatim — last and full-width, since imported titles are long. */
+        headline !== report.title && (
+          <div class="wide">
+            <dt class="label">Filed as</dt>
+            <dd class="raw">{report.title}</dd>
+          </div>
+        )
+      }
     </dl>
 
     {report.body && <div class="body"><p>{report.body}</p></div>}
@@ -150,6 +252,22 @@ const saved = Astro.url.searchParams.has('saved');
           <p class="mod-hint">
             Marking it fixed announces it to Discord if a webhook is set, once.
           </p>
+
+          {isRequest && (
+            <div class="mod-extra">
+              <p class="mod-label">Audience</p>
+              <div class="mod-row">
+                <button class="btn" type="submit" name="nsfw" value={report.nsfw ? '0' : '1'}>
+                  {report.nsfw ? 'Not 18+ after all' : 'Mark 18+'}
+                </button>
+              </div>
+              <p class="mod-hint">
+                {report.nsfw
+                  ? 'Currently hidden unless a visitor turns 18+ on.'
+                  : 'The requester ticked this themselves. 18+ requests are hidden until a visitor asks for them.'}
+              </p>
+            </div>
+          )}
         </form>
       )
     }
@@ -158,7 +276,7 @@ const saved = Astro.url.searchParams.has('saved');
       <p class="gh">
         Tracked on GitHub as{' '}
         <a
-          href={`https://github.com/yuzono/anime-extensions/issues/${report.githubIssue}`}
+          href={`https://github.com/${repo}/issues/${report.githubIssue}`}
           rel="noopener noreferrer">
           #{report.githubIssue}
         </a>
@@ -201,6 +319,13 @@ const saved = Astro.url.searchParams.has('saved');
     text-decoration: underline;
     text-underline-offset: 2px;
   }
+  /* Verbatim, so it reads as quoted data rather than as the page's own words —
+     it is the string to search for on GitHub, character for character. */
+  .raw {
+    font-family: var(--font-data);
+    color: var(--text-tertiary);
+    overflow-wrap: anywhere;
+  }
   /* The report was filed on a version that has since moved on — worth saying,
      not worth shouting, since it was current when it was filed. */
   .behind { color: var(--text-muted); font-family: var(--font-ui); }
@@ -220,6 +345,13 @@ const saved = Astro.url.searchParams.has('saved');
     margin-block: var(--space-2);
   }
   .mod-hint { font-size: var(--text-sm); color: var(--text-muted); }
+  /* Same panel, second control: a rule keeps it from reading as another
+     status, which is the one thing it must not be mistaken for. */
+  .mod-extra {
+    margin-block-start: var(--space-4);
+    padding-block-start: var(--space-3);
+    border-block-start: 1px solid var(--border-subtle);
+  }
 
   .gh { margin-block-start: var(--space-6); font-size: var(--text-sm); color: var(--text-tertiary); }
   .gh a { font-family: var(--font-data); color: var(--signal-ink); text-decoration: underline; }

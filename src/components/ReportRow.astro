@@ -4,6 +4,7 @@ import { getSource, langDir, langLabel } from '../lib/sources';
 import {
   CAUSE_LABELS,
   relativeAge,
+  reportHeadline,
   STAGE_FAILURE,
   stalledLabel,
   STATUS_LABELS,
@@ -20,14 +21,30 @@ const { report: r, mine = false } = Astro.props;
 const source = getSource(r.sourceId);
 const displayName = source?.name ?? r.proposedName ?? 'Unknown source';
 
+const stalled = stalledLabel(r.createdAt);
+
+// 468 of these came over from the GitHub backlog titled in raw HTTP jargon —
+// "Error 503 & Error 444 (Videos)" — and this row is what a search visitor
+// lands on. reportHeadline rebuilds those from the stage and cause columns and
+// leaves a human-written title alone; the stored title still shows on the
+// detail page for cross-referencing the issue.
+const headline = reportHeadline(r);
+// When it rebuilt the title it built it *out of* stage and cause, so the two
+// tags below would then repeat the headline word for word — "Can't browse —
+// the site was redesigned" followed by "Can't browse" and "Site redesigned",
+// which on a phone costs a whole extra wrapped line to say nothing. Comparing
+// against the stored title is how we know it rebuilt: a title a person wrote
+// comes back untouched, and for those rows the tags are still the only place
+// the row says what broke.
+const rebuilt = headline !== r.title;
+
 // Everything the row says, it says in words. Ordering carries the ranking, so
 // there is nothing here that needs a legend to read.
-const why = r.cause && r.cause !== 'other' ? CAUSE_LABELS[r.cause] : null;
+const why = !rebuilt && r.cause && r.cause !== 'other' ? CAUSE_LABELS[r.cause] : null;
 // "No video" + "No videos" says one thing twice: an extractor failure *is* a
 // video failure, so the cause alone carries it.
 const redundant = r.cause === 'extractor' && r.stage === 'video';
-const whatBroke = r.stage && !redundant ? STAGE_FAILURE[r.stage] : null;
-const stalled = stalledLabel(r.createdAt);
+const whatBroke = !rebuilt && r.stage && !redundant ? STAGE_FAILURE[r.stage] : null;
 ---
 
 <li class="row">
@@ -36,7 +53,7 @@ const stalled = stalledLabel(r.createdAt);
   <a class="row-main" href={`/report/${r.id}`}>
     <span class="row-title">
       <b class="src" dir={langDir(r.lang)}>{displayName}</b>
-      <span class="what">{r.title}</span>
+      <span class="what">{headline}</span>
     </span>
     <span class="row-meta">
       {r.status !== 'open' && (
