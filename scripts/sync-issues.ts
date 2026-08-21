@@ -26,7 +26,26 @@ const REPO = process.env.GITHUB_REPO ?? 'yuzono/anime-extensions';
 const TRACKER = (process.env.TRACKER_URL ?? 'http://localhost:4321').replace(/\/$/, '');
 const SECRET = process.env.TRACKER_SYNC_SECRET ?? '';
 
-if (!dryRun && !SECRET) throw new Error('TRACKER_SYNC_SECRET is required (or pass --dry-run)');
+/* A missing secret means "not set up yet", which is a different thing from
+   broken. On the schedule that has to exit cleanly, or a repo that has merged
+   this but not yet generated a secret on /admin mails its owner a failure every
+   half hour until they do. A run somebody actually started still errors, since
+   there the silence would be the confusing outcome. */
+if (!dryRun && !SECRET) {
+  if (process.env.GITHUB_EVENT_NAME === 'schedule') {
+    console.error(
+      'TRACKER_SYNC_SECRET is not set, so there is nothing to sync to yet.\n' +
+        'Generate one on the tracker\'s /admin page, add it to this repository as\n' +
+        'a secret named TRACKER_SYNC_SECRET, and set a TRACKER_URL variable.',
+    );
+    process.exit(0);
+  }
+  throw new Error('TRACKER_SYNC_SECRET is required (or pass --dry-run)');
+}
+
+if (!dryRun && !process.env.TRACKER_URL) {
+  console.error(`TRACKER_URL is not set; falling back to ${TRACKER}`);
+}
 
 type ApiIssue = {
   number: number;
