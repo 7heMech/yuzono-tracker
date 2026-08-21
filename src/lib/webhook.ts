@@ -3,6 +3,8 @@ import { db } from './db/client';
 import { reports, type Report } from './db/schema';
 import { readConfig, type Config } from './settings';
 import { getSource } from './sources';
+import { reportHeadline } from './format';
+import { reporterMeta } from './reporter';
 
 /**
  * Outbound Discord announcements.
@@ -28,12 +30,13 @@ export async function send(webhookUrl: string, embed: Embed) {
   const res = await fetch(webhookUrl, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ embeds: [{ color: YELLOW, ...embed }] }),
+    body: JSON.stringify({ embeds: [{ color: YELLOW, ...embed }], allowed_mentions: { parse: [] } }),
   });
   return { ok: res.ok, status: res.status, body: res.ok ? '' : await res.text() };
 }
 
-const subject = (r: Report) => getSource(r.sourceId)?.name ?? r.proposedName ?? 'a source';
+const subject = (r: Pick<Report, 'sourceId' | 'proposedName'>) =>
+  getSource(r.sourceId)?.name ?? r.proposedName ?? 'a source';
 
 /**
  * Announce a fix. Fires once per report; `fix_announced_at` is the guard.
@@ -86,10 +89,49 @@ export async function announceDemand(reportId: number, origin: string) {
     .returning({ id: reports.id });
   if (!claimed.length) return null;
 
+  const title =
+    report.kind === 'request'
+      ? `${report.votes} people want ${subject(report)}`
+      : `${report.votes} people are hit by ${subject(report)}`;
+
   return send(cfg.webhook_url, {
-    title: `${report.votes} people are hit by ${subject(report)}`,
+    title,
     description: report.title,
     url: `${origin}/report/${report.id}`,
+  });
+}
+
+/**
+ * Announce a newly filed report.
+ *
+ * Filing needs no claim column: it happens once by construction because the
+ * partial unique index turns a second attempt into an upvote and a ?joined=1
+ * redirect. Only genuine inserts reach this call site; the joined path is
+ * silent by design.
+ *
+ * One function, not two, that picks its own gate from `report.kind`. Takes a
+ * narrow `Pick<Report, ...>` so callers need not widen `returning()` further
+ * than necessary, and reuses `subject()` and `reportHeadline()` so the embed
+ * says what the board says.
+ */
+export async function announceFiled(
+  report: Pick<Report, 'id' | 'kind' | 'title' | 'stage' | 'cause' | 'sourceId' | 'proposedName' | 'reporterId'>,
+  origin: string,
+  cfg?: Config,
+) {
+  const c = cfg ?? (await readConfig());
+  if (!c.webhook_url) return null;
+  const gate = report.kind === 'request' ? c.webhook_on_new_request : c.webhook_on_new_report;
+  if (gate !== '1') return null;
+
+  const headline = reportHeadline(report);
+  const who = reporterMeta(report.reporterId).mention;
+
+  return send(c.webhook_url, {
+    title: headline,
+    description: `on ${subject(report)}`,
+    url: `${origin}/report/${report.id}`,
+    fields: [{ name: 'Filed by', value: who, inline: true }],
   });
 }
 

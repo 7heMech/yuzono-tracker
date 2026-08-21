@@ -8,6 +8,7 @@ import { ensureVote } from '../lib/vote';
 import { languageFacets } from '../lib/sources';
 import { normaliseUrl } from '../lib/problems';
 import { FILING_COOLDOWN_MESSAGE, overFilingLimit, sameHost } from '../lib/writes';
+import { announceFiled } from '../lib/webhook';
 
 export const prerender = false;
 
@@ -117,10 +118,23 @@ if (Astro.request.method === 'POST') {
           // inserted one and incremented again — so every request was born
           // claiming two people wanted it and only one had said so.
         })
-        .returning({ id: reports.id });
+        .returning({
+          id: reports.id,
+          kind: reports.kind,
+          title: reports.title,
+          stage: reports.stage,
+          cause: reports.cause,
+          sourceId: reports.sourceId,
+          proposedName: reports.proposedName,
+          reporterId: reports.reporterId,
+        });
 
       if (created) {
         await ensureVote(created.id, user.id);
+        const after: Promise<unknown>[] = [announceFiled(created, Astro.url.origin)];
+        const cf = Astro.locals.cfContext;
+        if (cf) for (const task of after) cf.waitUntil(task);
+        else await Promise.all(after);
         return Astro.redirect(`/report/${created.id}?filed=1`, 303);
       }
     }

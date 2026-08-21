@@ -42,6 +42,18 @@ export function isOutdated(reported: string, latest: string): boolean {
 }
 
 /**
+ * True when the input has no digit anywhere, so it cannot be a version.
+ * An empty string is not unreadable — it is missing, handled elsewhere.
+ */
+export function isUnreadableVersion(version: string): boolean {
+  return version.trim().length > 0 && !/\d/.test(version);
+}
+
+// Compatibility aliases — the name is not the point, the check is.
+export const isUnreadable = isUnreadableVersion;
+export const isVersionUnreadable = isUnreadableVersion;
+
+/**
  * The two apps this repo targets, plus an escape hatch. "Other" is not a
  * throwaway option: plenty of players can install these extensions and are not
  * forks of either, so picking it asks for the actual name rather than

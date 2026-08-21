@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { isOutdated, APPS, APP_OTHER } from '../lib/version';
+  import { isOutdated, compareVersions, isUnreadableVersion, APPS, APP_OTHER } from '../lib/version';
 
   // Source picking and the setup fields live in one island because they depend
   // on each other: choosing a source is what tells us the current extension
@@ -67,9 +67,16 @@
   });
 
   const latest = $derived(chosen?.extVersion ?? '');
+  const unreadable = $derived(isUnreadableVersion(extVer));
   const stale = $derived(!!latest && !!extVer && isOutdated(extVer, latest));
+  const ahead = $derived(!!latest && !!extVer.trim() && !unreadable && compareVersions(extVer, latest) > 0);
+  const current = $derived(
+    !!latest && !!extVer.trim() && !unreadable && !stale && compareVersions(extVer, latest) === 0,
+  );
   const appOk = $derived(app !== APP_OTHER ? !!app : appOther.trim().length > 1);
-  const ready = $derived(!!chosen && appOk && !!appVer.trim() && !!extVer.trim() && !stale);
+  const ready = $derived(
+    !!chosen && appOk && !!appVer.trim() && !!extVer.trim() && !stale && !unreadable,
+  );
 
   let gate: HTMLInputElement | undefined;
 
@@ -100,9 +107,6 @@
   function pick(s: Row) {
     chosen = s;
     q = '';
-    // Prefill with the version we know is current — most people are on it, and
-    // those who aren't now have something concrete to compare against.
-    if (!extVer.trim()) extVer = s.extVersion;
   }
 
   function clear() {
@@ -234,12 +238,12 @@
         inputmode="decimal"
         autocomplete="off"
         spellcheck="false"
-        aria-invalid={stale ? 'true' : undefined}
+        aria-invalid={stale || unreadable ? 'true' : undefined}
         aria-describedby="ext-hint"
         required
       />
       <p class="field-hint" id="ext-hint">
-        {#if latest}
+        {#if latest && extVer.trim()}
           Latest is <b class="num">{latest}</b>. Find yours in Browse → Extensions.
         {:else}
           Find it in Browse → Extensions.
@@ -248,7 +252,15 @@
     </div>
   </div>
 
-  {#if stale}
+  {#if unreadable}
+    <div class="stale" role="alert">
+      <p class="stale-title">Check the version number</p>
+      <p>
+        That doesn't look like a version — it has no digits. Find it in Browse →
+        Extensions and copy the numbers, e.g. 14.49.
+      </p>
+    </div>
+  {:else if stale}
     <!-- Caught before submitting, with the specific numbers, because "update
          first" is only actionable if you can see what you're on. -->
     <div class="stale" role="alert">
@@ -262,6 +274,16 @@
         Browse → Extensions → find {chosen?.name} → Update.
       </p>
     </div>
+  {:else if ahead}
+    <div class="ahead" role="status">
+      <p>
+        You're on <b class="num">{extVer}</b>, ahead of the catalogue's
+        <b class="num">{latest}</b>. The catalogue may be behind — you can still file
+        this, but mention you're ahead.
+      </p>
+    </div>
+  {:else if current}
+    <p class="field-hint current-hint" role="status">✓ You're on the latest version.</p>
   {/if}
 </section>
 
@@ -360,4 +382,21 @@
     color: var(--text-primary);
   }
   .stale-how { color: var(--text-tertiary); }
+
+  .ahead {
+    display: grid;
+    gap: var(--space-1);
+    margin-block-start: var(--space-4);
+    padding: var(--space-3);
+    border: 1px solid var(--border-default);
+    border-inline-start-width: 2px;
+    border-radius: var(--radius-md);
+    background: var(--surface-inset);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+  .current-hint {
+    margin-block-start: var(--space-3);
+    color: var(--text-secondary);
+  }
 </style>

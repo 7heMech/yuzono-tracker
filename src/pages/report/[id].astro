@@ -5,7 +5,8 @@ import VoteButton from '../../components/VoteButton.astro';
 import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from '../../lib/db/client';
 import { reports, votes } from '../../lib/db/schema';
-import { currentUser } from '../../lib/auth';
+import { avatarUrl, currentUser, dbUser } from '../../lib/auth';
+import { reporterMeta } from '../../lib/reporter';
 import { atLeast } from '../../lib/levels';
 import { isResponse, levelOf, logAction, requireStaff } from '../../lib/staff';
 import { announceFixed } from '../../lib/webhook';
@@ -143,7 +144,7 @@ const [report] = await db().select().from(reports).where(eq(reports.id, id));
    because a rewrite resets it to 200. */
 if (!report) return Astro.rewrite('/404');
 
-const user = await currentUser(Astro);
+const [user, reporter] = await Promise.all([currentUser(Astro), dbUser(report.reporterId)]);
 // Display-only: the POST above is what actually decides.
 const canModerate = user ? atLeast(await levelOf(user.id), 'mod') : false;
 const mine = user
@@ -246,6 +247,28 @@ Astro.response.headers.set(
             <a href={sourcePath(source)}>{source.name}</a>
           ) : (
             <span>{report.proposedName ?? 'an unknown source'}</span>
+          )}
+          <span class="by"> · filed by </span>
+          {report.reporterId === '0' ? (
+            <span>imported from GitHub</span>
+          ) : report.reporterId === 'github' ? (
+            report.githubIssue ? (
+              <a href={`https://github.com/${repo}/issues/${report.githubIssue}`} rel="noopener noreferrer">opened on GitHub</a>
+            ) : (
+              <span>opened on GitHub</span>
+            )
+          ) : (
+            <span class="filed-by">
+              {(() => {
+                const a = reporter ? avatarUrl({ id: reporter.discordId, avatarHash: reporter.avatarHash }, 20) : null;
+                return a ? (
+                  <img class="avatar" src={a} alt="" width="20" height="20" />
+                ) : (
+                  <span class="avatar avatar-blank" aria-hidden="true" />
+                );
+              })()}
+              <span>{reporterMeta(report.reporterId, reporter).display}</span>
+            </span>
           )}
         </p>
       </div>
@@ -399,6 +422,8 @@ Astro.response.headers.set(
   .on { margin-block-start: var(--space-1); color: var(--text-tertiary); font-size: var(--text-sm); }
   .on a { color: var(--text-secondary); text-decoration: underline; text-underline-offset: 2px; }
   .on a:hover { color: var(--signal-ink); }
+  .filed-by { display: inline-flex; align-items: center; gap: var(--space-1); vertical-align: middle; }
+  .filed-by .avatar, .filed-by .avatar-blank { inline-size: 20px; block-size: 20px; }
 
   .facts {
     display: flex;

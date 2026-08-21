@@ -221,7 +221,7 @@ export async function currentUser(
 }
 
 /** The avatar URL Discord serves for this user, or null for the default one. */
-export const avatarUrl = (u: SessionUser, size = 32) =>
+export const avatarUrl = (u: { id: string; avatarHash: string | null }, size = 32) =>
   u.avatarHash
     ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatarHash}.png?size=${size}`
     : null;

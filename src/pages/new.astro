@@ -8,8 +8,9 @@ import { canWriteNow, currentUser } from '../lib/auth';
 import { ensureVote } from '../lib/vote';
 import { getSource, langLabel, SOURCES } from '../lib/sources';
 import { normaliseUrl, problemByKey, problemNeedsDetail, problemNeedsUrl, PROBLEMS } from '../lib/problems';
-import { APP_OTHER, isOutdated } from '../lib/version';
+import { APP_OTHER, isOutdated, isUnreadableVersion } from '../lib/version';
 import { FILING_COOLDOWN_MESSAGE, overFilingLimit } from '../lib/writes';
+import { announceFiled } from '../lib/webhook';
 
 export const prerender = false;
 
@@ -103,6 +104,9 @@ if (Astro.request.method === 'POST') {
     error = 'Type the name of the app you use.';
   } else if (!appName || !appVersion || !extVersion) {
     error = 'Fill in your app and version. A report without them can rarely be acted on.';
+  } else if (isUnreadableVersion(extVersion)) {
+    error =
+      "That doesn't look like a version number — it has no digits. Find yours in Browse → Extensions (e.g. 14.49).";
   } else if (isOutdated(extVersion, source.extVersion)) {
     error =
       `You're on ${source.name} v${extVersion} and v${source.extVersion} is out. ` +
@@ -196,10 +200,23 @@ if (Astro.request.method === 'POST') {
         // the counter in one batch, so seeding it here counted the reporter
         // twice — every new report opened claiming two people and one voter.
       })
-      .returning({ id: reports.id });
+      .returning({
+        id: reports.id,
+        kind: reports.kind,
+        title: reports.title,
+        stage: reports.stage,
+        cause: reports.cause,
+        sourceId: reports.sourceId,
+        proposedName: reports.proposedName,
+        reporterId: reports.reporterId,
+      });
 
     if (created) {
       await ensureVote(created.id, user.id);
+      const after: Promise<unknown>[] = [announceFiled(created, Astro.url.origin)];
+      const cf = Astro.locals.cfContext;
+      if (cf) for (const task of after) cf.waitUntil(task);
+      else await Promise.all(after);
       return Astro.redirect(`/report/${created.id}?filed=1`, 303);
     }
   }
@@ -285,16 +302,31 @@ const langLabels = Object.fromEntries(
     <section class="step">
       <h2 class="step-h"><span class="step-n">3</span> What's wrong?</h2>
       {/* Revealed by ReportForm once it knows no source is picked, so it stays
-          hidden with JavaScript off — where the buttons still work and the
-          server does the refusing. Said in words rather than by dimming
-          something and leaving the reason to be guessed. */}
+           hidden with JavaScript off — where the buttons still work and the
+           server does the refusing. Said in words rather than by dimming
+           something and leaving the reason to be guessed. */}
       <p class="needs-source" role="status">Pick your source first.</p>
+      <div class="field detail-field">
+        <label class="label" for="problemDetail"
+          >Anything else worth knowing? <span class="detail-optional"
+            >Optional, unless you pick Something else.</span
+          ></label
+        >
+        <textarea
+          class="textarea"
+          id="problemDetail"
+          name="problemDetail"
+          rows="3"
+          placeholder="e.g. Episode 5 plays episode 3 instead, or subtitles are out of sync"
+          >{shown.detail}</textarea
+        >
+        <p class="field-hint">One or two sentences is plenty.</p>
+      </div>
       <ul class="problems">
         {
           PROBLEMS.map((p) => {
             const needsUrl = problemNeedsUrl(p);
-            const needsDetail = problemNeedsDetail(p);
-            if (!needsUrl && !needsDetail) {
+            if (!needsUrl) {
               return (
                 <li>
                   <button class="problem" type="submit" name="problem" value={p.key}>
@@ -307,54 +339,34 @@ const langLabels = Object.fromEntries(
             return (
               <li class="wide">
                 {/* Native disclosure: the extra field costs no JavaScript and
-                    no second page. */}
+                     no second page. */}
                 <details class="problem problem-open" open={openCard === p.key}>
                   <summary>
                     <span class="problem-label">{p.label}</span>
                     <span class="problem-hint">{p.hint}</span>
                   </summary>
-                  {needsUrl ? (
-                    <div class="card-body">
-                      <div class="row-2">
-                        <label class="sr-only" for="newUrl">New address</label>
-                        <input
-                          class="input"
-                          id="newUrl"
-                          name="newUrl"
-                          type="url"
-                          inputmode="url"
-                          autocomplete="off"
-                          spellcheck="false"
-                          value={shown.newUrl}
-                          placeholder="new-address.com"
-                        />
-                        <button class="btn btn-primary" type="submit" name="problem" value={p.key}>
-                          Send
-                        </button>
-                      </div>
-                      <p class="field-hint">
-                        Paste the address you were redirected to. Just the domain is fine.
-                      </p>
+                  <div class="card-body">
+                    <div class="row-2">
+                      <label class="sr-only" for="newUrl">New address</label>
+                      <input
+                        class="input"
+                        id="newUrl"
+                        name="newUrl"
+                        type="url"
+                        inputmode="url"
+                        autocomplete="off"
+                        spellcheck="false"
+                        value={shown.newUrl}
+                        placeholder="new-address.com"
+                      />
+                      <button class="btn btn-primary" type="submit" name="problem" value={p.key}>
+                        Send
+                      </button>
                     </div>
-                  ) : (
-                    <div class="card-body">
-                      <label class="sr-only" for="problemDetail">What happens</label>
-                      <textarea
-                        class="textarea"
-                        id="problemDetail"
-                        name="problemDetail"
-                        rows="3"
-                        placeholder="e.g. Episode 5 plays episode 3 instead, or subtitles are out of sync"
-                        >{shown.detail}</textarea
-                      >
-                      <div class="row-2 end">
-                        <p class="field-hint">One or two sentences is plenty.</p>
-                        <button class="btn btn-primary" type="submit" name="problem" value={p.key}>
-                          Send
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                    <p class="field-hint">
+                      Paste the address you were redirected to. Just the domain is fine.
+                    </p>
+                  </div>
                 </details>
               </li>
             );
@@ -383,6 +395,15 @@ const langLabels = Object.fromEntries(
   form[data-needs-source] .needs-source { display: block; }
   form[data-needs-source] .problem { opacity: 0.55; }
   form[data-needs-source] button.problem { cursor: not-allowed; }
+
+  .detail-field { margin-block-end: var(--space-3); }
+  .detail-field .textarea { min-block-size: 0; }
+  .detail-optional {
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: var(--weight-normal);
+    color: var(--text-tertiary);
+  }
 
   h1 { font-size: var(--text-xl); }
   .lede { color: var(--text-tertiary); margin-block: var(--space-1) var(--space-6); }
