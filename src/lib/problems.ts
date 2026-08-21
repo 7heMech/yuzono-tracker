@@ -1,8 +1,8 @@
 /**
  * The entire report taxonomy, expressed as things a person would actually say.
  *
- * Order matters for layout: the five single-tap problems come first so they
- * pair up in the two-column grid, and the two that need an extra field come
+ * Order matters for layout: the six single-tap problems come first so they
+ * pair up in the two-column grid, and the one that needs an extra field comes
  * last, where being full-width leaves no hole.
  *
  * Six choices keeps the decision inside Hick's-law territory, and each one is a
@@ -52,16 +52,6 @@ export const PROBLEMS = [
     cause: 'down',
   },
   {
-    key: 'moved',
-    label: 'Site moved to a new address',
-    hint: 'The old domain redirects or is parked somewhere else',
-    kind: 'domain',
-    stage: 'browse',
-    cause: 'domain',
-    /** The new address is the whole point of this report, so ask for it. */
-    needsUrl: true,
-  },
-  {
     key: 'other',
     label: 'Something else',
     hint: 'Wrong episode plays, subtitles broken, or anything not listed above',
@@ -70,6 +60,16 @@ export const PROBLEMS = [
     cause: 'other',
     /** No fixed category to infer from, so a description is the report. */
     needsDetail: true,
+  },
+  {
+    key: 'moved',
+    label: 'Site moved to a new address',
+    hint: 'The old domain redirects or is parked somewhere else',
+    kind: 'domain',
+    stage: 'browse',
+    cause: 'domain',
+    /** The new address is the whole point of this report, so ask for it. */
+    needsUrl: true,
   },
 ] as const;
 

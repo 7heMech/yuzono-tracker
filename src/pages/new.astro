@@ -449,9 +449,9 @@ const langLabels = Object.fromEntries(
 
   .problems { display: grid; gap: var(--space-2); }
   @media (min-width: 640px) { .problems { grid-template-columns: 1fr 1fr; } }
-  /* The two cards that carry a field are full width in every state, so opening
-     one reflows nothing: no sideways jump, no re-pairing of its neighbours.
-     They sit last in the list, so the single-tap cards still pair up cleanly. */
+  /* The card that carries a field is full width in every state, so opening
+      it reflows nothing: no sideways jump, no re-pairing of its neighbours.
+      It sits last in the list, so the single-tap cards still pair up cleanly. */
   .problems li.wide { grid-column: 1 / -1; }
 
   .problem {
