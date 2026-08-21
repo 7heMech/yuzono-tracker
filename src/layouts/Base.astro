@@ -1,5 +1,4 @@
 ---
-import { ClientRouter } from 'astro:transitions';
 import { Font } from 'astro:assets';
 import '../styles/tokens.css';
 import '../styles/base.css';
@@ -64,7 +63,6 @@ const {
       Astro generates hashes injected scripts and not inline ones, so keeping it
       in this file would have shipped a policy that blocked it.
     */}
-    <ClientRouter fallback="animate" />
   </head>
 
   <body>
