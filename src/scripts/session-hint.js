@@ -17,12 +17,13 @@
  * correct in the first frame and nothing is ever repainted.
  *
  * The cookie is not HttpOnly precisely so it can be read here. Nothing is
- * trusted: the attribute only chooses a label and the link goes to /me either
- * way, which authenticates properly and bounces to Discord sign-in when there
- * is no session behind the cookie. A forged or stale cookie buys a wrong
- * label and nothing else. With JavaScript off the attribute never appears,
- * the guest label shows, and /me still routes correctly — the same places a
- * visitor without the cookie ends up.
+ * trusted: the attribute only chooses a label and the link goes to
+ * /me?next=here either way, which /me forwards to Discord with that same
+ * next when there is no session behind the cookie. A forged or stale cookie
+ * buys a wrong label and nothing else. With JavaScript off the attribute
+ * never appears, the guest label shows, and /me still routes correctly — the
+ * same places a visitor without the cookie ends up, just with the original
+ * page preserved through the detour.
  *
  * Injected at Astro's `head-inline` stage rather than written inline in the
  * layout, for the same reason as src/scripts/theme.js: the CSP hashes injected

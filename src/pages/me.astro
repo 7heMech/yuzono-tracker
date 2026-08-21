@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import ReportRow from '../components/ReportRow.astro';
 import { currentUser } from '../lib/auth';
+import { safeReturnTo } from '../lib/redirect';
 import { myBacked, myReports, myUpdates, markRead } from '../lib/notify';
 import { getSource } from '../lib/sources';
 import { relativeAge, reportHeadline, STATUS_LABELS } from '../lib/format';
@@ -19,7 +20,11 @@ export const prerender = false;
  */
 
 const user = await currentUser(Astro);
-if (!user) return Astro.redirect('/auth/discord?next=/me', 302);
+if (!user) {
+  const rawNext = Astro.url.searchParams.get('next');
+  const dest = rawNext ? safeReturnTo(rawNext, Astro.url.origin, '/me') : '/me';
+  return Astro.redirect(`/auth/discord?next=${encodeURIComponent(dest)}`, 302);
+}
 
 let done: string | null = null;
 

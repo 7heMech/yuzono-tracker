@@ -1,6 +1,7 @@
 ---
 import { atLeast } from '../lib/levels';
 import { avatarUrl, currentUser } from '../lib/auth';
+import { safeReturnTo } from '../lib/redirect';
 
 /**
  * The signed-in corner of the header, as a server island.
@@ -21,6 +22,34 @@ const avatar = user ? avatarUrl(user, 48) : null;
 // Only admins get a link: a moderator's powers live on the report they are
 // moderating, not on a settings page.
 const staff = user ? atLeast(user.level, 'admin') : false;
+const here = (() => {
+  const ref = Astro.request.headers.get('referer');
+  if (ref) {
+    const cleaned = safeReturnTo(ref, Astro.url.origin, '');
+    if (cleaned && cleaned !== '/' && !cleaned.startsWith('/_server-islands')) {
+      const u = new URL(cleaned, Astro.url.origin);
+      u.searchParams.delete('auth');
+      u.searchParams.delete('__fresh');
+      u.searchParams.delete('_cb');
+      return u.pathname + (u.search ? u.search : '');
+    }
+    if (cleaned) {
+      const u = new URL(cleaned, Astro.url.origin);
+      u.searchParams.delete('auth');
+      u.searchParams.delete('__fresh');
+      u.searchParams.delete('_cb');
+      return u.pathname + (u.search ? u.search : '');
+    }
+  }
+  const fallback = Astro.url.pathname + Astro.url.search;
+  if (fallback.startsWith('/_server-islands')) return '/';
+  const p = new URLSearchParams(Astro.url.searchParams);
+  p.delete('auth');
+  p.delete('__fresh');
+  p.delete('_cb');
+  return Astro.url.pathname + (p.toString() ? `?${p.toString()}` : '');
+})();
+const signInHref = `/auth/discord?next=${encodeURIComponent(here)}`;
 ---
 
 {
@@ -53,7 +82,7 @@ const staff = user ? atLeast(user.level, 'admin') : false;
       </form>
     </div>
   ) : (
-    <a class="btn btn-discord" href="/auth/discord">
+    <a class="btn btn-discord" href={signInHref}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M19.3 5.3A16.6 16.6 0 0 0 15.2 4l-.3.6a12.4 12.4 0 0 1 3.7 1.2 12.9 12.9 0 0 0-11-.5l.3-.7A16.5 16.5 0 0 0 4.7 5.3C2.2 9 1.5 12.6 1.9 16.2a16.4 16.4 0 0 0 5 2.5l.6-1a10.7 10.7 0 0 1-1.8-.9l.4-.3a11.7 11.7 0 0 0 10 0l.4.3a10.8 10.8 0 0 1-1.8.9l.6 1a16.3 16.3 0 0 0 5-2.5c.5-4.2-.6-7.8-2.9-10.9ZM8.7 14c-1 0-1.7-.9-1.7-2s.8-2 1.7-2 1.8.9 1.7 2c0 1.1-.8 2-1.7 2Zm6.6 0c-1 0-1.7-.9-1.7-2s.8-2 1.7-2 1.8.9 1.7 2c0 1.1-.8 2-1.7 2Z" />
       </svg>

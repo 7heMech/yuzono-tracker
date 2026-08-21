@@ -4,6 +4,12 @@ import UserChip from './UserChip.astro';
 // Five destinations do not earn a 260px sidebar. A compact bar keeps the
 // board — the thing people came for — at the top of the viewport.
 const path = Astro.url.pathname;
+const _params = new URLSearchParams(Astro.url.searchParams);
+_params.delete('auth');
+_params.delete('__fresh');
+_params.delete('_cb');
+const here = Astro.url.pathname + (_params.toString() ? `?${_params.toString()}` : '');
+const signInHref = `/me?next=${encodeURIComponent(here)}`;
 const tabs = [
   { href: '/', label: 'Broken', match: (p: string) => p === '/' },
   { href: '/requests', label: 'Requests', match: (p: string) => p.startsWith('/requests') },
@@ -28,13 +34,14 @@ const tabs = [
  * The reverse is the interesting case — on the prerendered `/sources/` and
  * `/source/<slug>/` pages there is no request to read at build time, so those
  * pages always ship the guest markup. The link therefore carries both labels
- * ("Sign in" and "Your reports") and points at /me either way, and CSS picks
- * the label off a `data-signed-in` attribute that src/scripts/session-hint.js
- * sets on <html> before first paint. The corner is correct in the first frame
- * on every page — no post-paint swap, which visitors read as a flicker — and
- * with JavaScript off the guest label simply stays, still routing correctly
- * through /me. That is the deliberate trade: 310 pages of cache-friendly HTML
- * for the majority who are not signed in.
+ * ("Sign in" and "Your reports") and points at /me?next=here either way, and
+ * CSS picks the label off a `data-signed-in` attribute that
+ * src/scripts/session-hint.js sets on <html> before first paint. The corner is
+ * correct in the first frame on every page — no post-paint swap, which
+ * visitors read as a flicker — and with JavaScript off the guest label simply
+ * stays, still routing correctly through /me (which forwards ?next to Discord
+ * when there is no session). That is the deliberate trade: 310 pages of
+ * cache-friendly HTML for the majority who are not signed in.
  *
  * The island's fallback gets the same treatment: it used to be the Sign in
  * button, which meant a signed-in visitor on a server-rendered page saw
@@ -99,10 +106,10 @@ const DISCORD_MARK =
              this is one of the 310 prerendered pages, which are built with no
              request at all. The two cases are indistinguishable here, so both
              get this link, and session-hint.js plus the CSS below decide which
-             label it wears before the first paint. /me is the destination for
-             both: signed-out it bounces to Discord sign-in, signed-in it is
-             the reports page. */
-          <a class="btn btn-discord signin-link" href="/me">
+             label it wears before the first paint. Signed-out it goes via
+             /me to Discord with ?next so the detour returns here; signed-in
+             it is the reports page and the ?next is ignored. */
+          <a class="btn btn-discord signin-link" href={signInHref}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d={DISCORD_MARK} />
             </svg>

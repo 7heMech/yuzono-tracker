@@ -5,6 +5,8 @@ import { readSetting } from '../lib/settings';
 
 export const prerender = false;
 const user = await currentUser(Astro);
+const _cantHere = Astro.url.pathname + Astro.url.search;
+const _cantNext = `/auth/discord?next=${encodeURIComponent(_cantHere)}`;
 
 // One authority for the answer and for the explanation: whatever
 // writeBlockReason says here is the same decision canWriteNow makes on /new,
@@ -82,7 +84,7 @@ const title = reason ? titles[reason] : 'You can post';
         </p>
         <p class="actions">
           <a class="btn btn-primary btn-lg" href="https://discord.gg/85MZhUX688">Join the Discord</a>
-          <a class="btn btn-lg" href="/auth/discord">Sign in again</a>
+          <a class="btn btn-lg" href={_cantNext}>Sign in again</a>
         </p>
       </>
     )
@@ -97,7 +99,7 @@ const title = reason ? titles[reason] : 'You can post';
           something. Reading never does.
         </p>
         <p class="actions">
-          <a class="btn btn-primary btn-lg" href="/auth/discord">Sign in with Discord</a>
+          <a class="btn btn-primary btn-lg" href={_cantNext}>Sign in with Discord</a>
           <a class="btn btn-lg" href="/">Back to the board</a>
         </p>
       </>

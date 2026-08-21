@@ -26,6 +26,12 @@ const cause = q.get('cause') ?? '';
 const nsfw = q.get('nsfw') === '1';
 const sort = (q.get('sort') ?? 'demand') as Sort;
 const authFailed = q.get('auth') === 'failed';
+const _retryParams = new URLSearchParams(q);
+_retryParams.delete('auth');
+_retryParams.delete('__fresh');
+_retryParams.delete('_cb');
+const _retryNext = Astro.url.pathname + (_retryParams.toString() ? `?${_retryParams.toString()}` : '');
+const retryHref = `/auth/discord?next=${encodeURIComponent(_retryNext)}`;
 
 /* `from` is the 1-based row this page starts at, so the URL reads the way the
    pager below says it: "Showing 61–120" is ?from=61. A junk value is page one
@@ -106,7 +112,7 @@ Astro.response.headers.set(
     authFailed && (
       <p class="error" role="alert">
         Signing in with Discord didn't complete, so you're still signed out.
-        Nothing was lost — <a href="/auth/discord">try again</a>.
+        Nothing was lost — <a href={retryHref}>try again</a>.
       </p>
     )
   }
