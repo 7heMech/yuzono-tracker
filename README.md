@@ -1,7 +1,7 @@
 # yuzono tracker
 
 A community board for [yuzono/anime-extensions](https://github.com/yuzono/anime-extensions):
-which sources are broken, and which ones people want most — ranked by how many
+which sources are broken, and which ones people want most, ranked by how many
 people are actually affected rather than by who shouted loudest.
 
 Unofficial and community-run. Not affiliated with the extension maintainers.
@@ -14,12 +14,12 @@ Issues arrive as free-form prose on GitHub, duplicates pile up under different
 titles, and 👍 reactions are the only demand signal. Measured against the real
 backlog (468 issues):
 
-- **Source requests are 58% of the open queue** — the larger half of the work,
-  and the half where voting matters most.
-- **Median open age is 69 days**, p90 147. Time-to-close is bimodal: median
-  3 days, p90 57. Things get fixed fast or rot.
-- **281 of 468 issues have zero comments.** Discussion happens in Discord, not
-  the tracker — so this has votes, not comment threads.
+- Source requests are 58% of the open queue. That's the larger half of the
+  work, and the half where voting matters most.
+- Median open age is 69 days, p90 147. Time-to-close is bimodal: median 3
+  days, p90 57. Things get fixed fast or rot.
+- 281 of 468 issues have zero comments. Discussion happens in Discord, not
+  the tracker, so this has votes instead of comment threads.
 
 One open report per source per problem. Filing something already reported adds
 you to it instead of creating a duplicate.
@@ -29,24 +29,24 @@ you to it instead of creating a duplicate.
 Astro 7 (`output: 'server'`) on Cloudflare Workers via `@astrojs/cloudflare`,
 Svelte 5 islands, D1 + Drizzle, Astro sessions on Workers KV, Discord OAuth.
 
-Source pages are prerendered — one static page per source at a readable URL like
+Source pages are prerendered, one static page per source at a readable URL like
 `/source/animepahe/`, with live report data arriving in a server island. An
 anonymous visitor arriving from a search engine gets the page itself from the
 edge; the island behind it is one Worker invocation and one indexed D1 read, so
-the *page* is free and only the "is this broken right now?" fragment costs
-anything. Earlier revisions of this file claimed the primary was never touched at
-all, which was never true — the live status has to come from somewhere.
+the page is free and only the "is this broken right now?" fragment costs
+anything. Earlier revisions of this file claimed the primary was never touched
+at all, which was never true. The live status has to come from somewhere.
 
 ## Local gotcha: the boards really are cached in dev
 
 The Cloudflare adapter runs `astro dev` under Miniflare, so `caches.default`
-exists locally and the hand-written edge cache in `src/lib/queries.ts` is live —
-and with `persistState: true` its entries are written to
-`.wrangler/state/v3/cache`, where they **survive a dev-server restart**. Change a
-board, or anything a board queries, and the old numbers keep coming back. That is
-a cache hit, not a stale module. Stop the server before clearing it — Miniflare
-holds the backing SQLite file open, and deleting it underneath a running server
-makes every later cache read throw:
+exists locally and the hand-written edge cache in `src/lib/queries.ts` is live.
+With `persistState: true` its entries are written to
+`.wrangler/state/v3/cache` and survive a dev-server restart. Change a board,
+or anything a board queries, and the old numbers keep coming back. That is a
+cache hit, not a stale module. Stop the server before clearing it. Miniflare
+holds the backing SQLite file open, and deleting it underneath a running
+server makes every later cache read throw:
 
 ```sh
 bunx astro dev stop
@@ -88,33 +88,33 @@ bun run db:seed
 
 ## Deploying
 
-Either the button above, or **Workers → connect a repository** in the
-dashboard. Both work, and neither needs you to create bindings by hand: the KV
-namespace and D1 database in `wrangler.jsonc` are declared *without* ids, and
-Wrangler provisions them on the first deploy. (A placeholder id is worse than
-no id — Wrangler sends it to the API as-is and the deploy fails with `KV
-namespace '...' is not valid`.)
+Either the button above, or Workers → connect a repository in the dashboard.
+Both work, and neither needs you to create bindings by hand: the KV namespace
+and D1 database in `wrangler.jsonc` are declared without ids, and Wrangler
+provisions them on the first deploy. A placeholder id is worse than no id.
+Wrangler sends it to the API as-is and the deploy fails with `KV
+namespace '...' is not valid`.
 
 The two paths differ in one way worth knowing. The button prompts for the
 values in `.dev.vars.example` and writes the generated resource ids back into
-your fork. A repo-connected deploy does neither: the ids exist only in the
+your fork. A repo-connected deploy does neither. The ids exist only in the
 dashboard, and you supply the three values yourself.
 
 ### Set the three values as secrets, not variables
 
-`DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `OWNER_DISCORD_ID` must be
-added as **secrets** in **Settings → Variables and Secrets**.
+Add `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `OWNER_DISCORD_ID` as
+secrets under Settings → Variables and Secrets.
 
-Not as plain-text variables — `wrangler deploy` replaces the Worker's whole
-`vars` block with the one in `wrangler.jsonc`, so a variable that this repo does
-not declare is deleted on the next deploy. Secrets are untouched by deploys.
+Not as plain-text variables. `wrangler deploy` replaces the Worker's whole
+`vars` block with the one in `wrangler.jsonc`, so a variable that this repo
+does not declare gets deleted on the next deploy. Deploys leave secrets alone.
 That is why these three are absent from `wrangler.jsonc` rather than sitting
 there empty.
 
 ### Migrations
 
 A fresh D1 has no tables, and the database does not exist until the first
-deploy creates it — so migrations are a separate, deliberate step rather than
+deploy creates it. So migrations are a separate, deliberate step rather than
 part of the deploy script:
 
 ```sh
@@ -126,35 +126,35 @@ generated id never reaches this config.
 
 ### Pin the Bun version
 
-Workers Builds ships **Bun 1.2.15** by default and does *not* read the
-`packageManager` field in `package.json` — for Bun the only override is a build
-variable. Set it once, in the Worker's **Settings → Build → Build Variables and
-Secrets**:
+Workers Builds ships Bun 1.2.15 by default and does not read the
+`packageManager` field in `package.json`. For Bun the only override is a build
+variable. Set it once, in the Worker's Settings → Build → Build Variables and
+Secrets:
 
 ```
 BUN_VERSION = 1.4.0
 ```
 
-`packageManager` and `engines.bun` are declared in `package.json` all the same:
-they pin every other CI and keep local installs honest, and they are the place
-to look when the build variable needs bumping.
+`packageManager` and `engines.bun` are declared in `package.json` all the
+same. They pin every other CI and keep local installs honest, and they are the
+place to look when the build variable needs bumping.
 
 ### Two things Cloudflare cannot do for you
 
 1. **Create the Discord application** at
    [discord.com/developers/applications](https://discord.com/developers/applications)
    → OAuth2, and add `https://<your-worker>.workers.dev/auth/callback` to
-   **Redirects**. It has to match exactly, and a mismatch is the single most
-   likely reason a first sign-in fails. No bot, no scopes to configure there —
-   this app requests `identify guilds guilds.members.read` per login.
+   Redirects. It has to match exactly, and a mismatch is the single most
+   likely reason a first sign-in fails. No bot, no scopes to configure there.
+   This app requests `identify guilds guilds.members.read` per login.
 2. **Set `DISCORD_GUILD_ID`** in `wrangler.jsonc` if you are not tracking the
    yuzono server. It ships with theirs.
 
 Then sign in and open `/admin`. Staff roles, the account-age gate and the
-Discord announcement webhook are all edited there and stored in D1 — no
-redeploy to change them. `OWNER_DISCORD_ID` is deliberately not: it is what
-bootstraps the dashboard, so it stays in the environment where a bad grant can
-always be undone.
+Discord announcement webhook are all edited there and stored in D1, so
+changing them takes no redeploy. `OWNER_DISCORD_ID` deliberately stays out of
+D1. It is what bootstraps the dashboard, so it stays in the environment where
+a bad grant can always be undone.
 
 ### Deploying by hand instead
 
@@ -184,10 +184,11 @@ bun run db:remote   # then create the tables
 ## Reviewing the UI
 
 Mobile is the primary target, so `scripts/shot.ts` drives Chromium over the
-DevTools protocol rather than using CLI flags: `--window-size` clamps to a 500px
-minimum and headless desktop never matches `pointer: coarse`, so flags cannot
-review a phone layout at all. The harness sets the real layout viewport, DPR,
-touch support and mobile flag, then reports any element wider than the viewport.
+DevTools protocol rather than using CLI flags. `--window-size` clamps to a
+500px minimum and headless desktop never matches `pointer: coarse`, so flags
+cannot review a phone layout at all. The harness sets the real layout
+viewport, DPR, touch support and mobile flag, then reports any element wider
+than the viewport.
 
 ```sh
 bun run shot /new /            # writes shot_new_390.png, shot_home_390.png
@@ -195,25 +196,28 @@ bun run shot --w 768 --h 1024 /
 SHOT_EVAL="innerWidth" bun run shot /   # evaluate an expression in the page
 ```
 
-Two traps it exists to avoid: Chromium's default profile keeps a persistent HTTP
-cache that silently serves a stale page, and **`astro dev` does not reliably pick
-up scoped style changes in `.astro` files** — restart the dev server before
-trusting a screenshot review.
+Two traps it exists to avoid: Chromium's default profile keeps a persistent
+HTTP cache that silently serves a stale page, and `astro dev` does not
+reliably pick up scoped style changes in `.astro` files. Restart the dev
+server before trusting a screenshot review.
 
 ## Permissions this deliberately does not need
 
 Neither Discord guild admin nor GitHub org admin:
 
-- **Guild membership** comes from the `guilds` scope; **staff roles** from
-  `guilds.members.read`, which returns the signed-in user's own roles. No bot in
-  the server. `/admin` takes role *ids* rather than names because resolving a
-  name would require one — and it shows you your own role ids to copy from.
-- **GitHub promotion** is designed but not built: it would build a prefilled
-  issue-form URL against the existing templates rather than opening issues via
-  the API, so it needs no token. `GITHUB_TOKEN` is unused; `GITHUB_REPO` is read
-  only to build the issue *link* on a report that already has an issue number.
+- Guild membership comes from the `guilds` scope, staff roles from
+  `guilds.members.read`, which returns the signed-in user's own roles. No bot
+  in the server. `/admin` takes role ids rather than names because resolving
+  a name would require one, and it shows you your own role ids to copy from.
+- GitHub promotion is designed but not built. It would build a prefilled
+  issue-form URL against the existing templates rather than opening issues
+  via the API, so it needs no token. `GITHUB_TOKEN` is unused; `GITHUB_REPO`
+  is read only to build the issue link on a report that already has an issue
+  number.
 - Issue state does not sync back yet. There is no cron and no `scheduled`
-  handler, and nothing in this codebase calls the GitHub API — the issue numbers
-  on existing reports came from the one-off import in `scripts/import-issues.ts`.
+  handler, and nothing in this codebase calls the GitHub API. The issue
+  numbers on existing reports came from the one-off import in
+  `scripts/import-issues.ts`.
 
-Access tokens are never stored — only the resolved flags land in the session.
+The app never stores access tokens. Only the resolved flags land in the
+session.
