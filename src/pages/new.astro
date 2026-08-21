@@ -452,14 +452,15 @@ const langLabels = Object.fromEntries(
   /* The card that carries a field is full width in every state, so opening
       it reflows nothing: no sideways jump, no re-pairing of its neighbours.
       It sits last in the list, so the single-tap cards still pair up cleanly. */
-  .problems li { display: flex; }
+  .problems li { display: flex; flex-direction: column; }
   .problems li.wide { grid-column: 1 / -1; }
 
   .problem {
     display: grid;
+    align-content: start;
     gap: 2px;
     inline-size: 100%;
-    block-size: 100%;
+    flex: 1;
     min-block-size: 58px;
     padding: var(--space-3);
     text-align: start;
