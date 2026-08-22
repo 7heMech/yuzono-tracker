@@ -15,6 +15,7 @@ import {
   transitionFor,
   verifySignature,
   type IssueSnapshot,
+  type PromotableReport,
 } from '../../src/lib/github';
 
 /**
@@ -283,7 +284,7 @@ describe('promotion', () => {
   });
 
   test('a source request prefills the form fields', () => {
-    const req = {
+    const req: PromotableReport = {
       id: 478,
       kind: 'request' as const,
       title: 'Add AniWaves',
@@ -306,7 +307,7 @@ describe('promotion', () => {
   });
 
   test('a source request includes the NSFW hint and body in other-details', () => {
-    const req = {
+    const req: PromotableReport = {
       id: 10,
       kind: 'request' as const,
       title: 'Add Example',
@@ -327,7 +328,7 @@ describe('promotion', () => {
   });
 
   test('a bug report prefills source, language and app fields', () => {
-    const bug = {
+    const bug: PromotableReport = {
       id: 77,
       kind: 'bug' as const,
       title: 'Error 404 (Search)',
@@ -351,7 +352,7 @@ describe('promotion', () => {
   });
 
   test('a domain change prefills the new address', () => {
-    const dom = {
+    const dom: PromotableReport = {
       id: 5,
       kind: 'domain' as const,
       title: 'Moved',
@@ -368,7 +369,7 @@ describe('promotion', () => {
   });
 
   test('a feature request prefills source and feature-description', () => {
-    const feat = {
+    const feat: PromotableReport = {
       id: 20,
       kind: 'feature' as const,
       title: 'Add login',
@@ -384,6 +385,67 @@ describe('promotion', () => {
     expect(u.searchParams.get('language')).toBe('English');
     expect(u.searchParams.get('feature-description')).toBe('Should support login via OAuth');
     expect(u.searchParams.get('other-details')).toBe('Tracked at https://t/report/20');
+  });
+
+  test('a long body is truncated but the backlink survives', () => {
+    const req: PromotableReport = {
+      id: 99,
+      kind: 'request' as const,
+      title: 'Add Long',
+      lang: 'en',
+      sourceId: null,
+      proposedName: 'Long',
+      stage: null,
+      cause: null,
+      proposedUrl: 'https://long.example',
+      body: 'x'.repeat(5000),
+      nsfw: true,
+    };
+    const other = new URL(promoteUrl(req, 'a/b', 'https://t')).searchParams.get('other-details')!;
+    expect(other).toContain('Tracked at https://t/report/99');
+    expect(other).toContain('18+/NSFW = yes');
+    expect(other.length).toBeLessThanOrEqual(1500);
+    expect(encodeURIComponent(other).length).toBeLessThanOrEqual(1500);
+  });
+
+  test('non-ASCII body does not blow the encoded limit', () => {
+    const req: PromotableReport = {
+      id: 101,
+      kind: 'request' as const,
+      title: 'Add CJK',
+      lang: 'en',
+      sourceId: null,
+      proposedName: 'CJK',
+      stage: null,
+      cause: null,
+      proposedUrl: 'https://cjk.example',
+      body: '汉'.repeat(1000),
+      nsfw: true,
+    };
+    const other = new URL(promoteUrl(req, 'a/b', 'https://t')).searchParams.get('other-details')!;
+    expect(other).toContain('Tracked at https://t/report/101');
+    expect(encodeURIComponent(other).length).toBeLessThanOrEqual(1500);
+  });
+
+  test('total URL stays within limit even with long fields', () => {
+    const req: PromotableReport = {
+      id: 102,
+      kind: 'request' as const,
+      title: 'Add Long ' + 'A'.repeat(200),
+      lang: 'en',
+      sourceId: null,
+      proposedName: 'Long',
+      stage: null,
+      cause: null,
+      proposedUrl: 'https://example.com/' + 'p/'.repeat(200),
+      body: 'y'.repeat(5000),
+      nsfw: false,
+    };
+    const url = promoteUrl(req, 'a/b', 'https://t');
+    expect(url.length).toBeLessThanOrEqual(8000);
+    const parsed = new URL(url);
+    const other = parsed.searchParams.get('other-details') ?? parsed.searchParams.get('body') ?? '';
+    expect(other).toContain('Tracked at https://t/report/102');
   });
 });
 

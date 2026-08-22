@@ -581,11 +581,9 @@ export function promoteUrl(r: PromotableReport, repo: string, origin: string): s
     return out;
   };
   const truncate = (s: string) => fitEncoded(s, LIMIT);
-  const buildOtherDetails = (opts: { includeBody?: boolean; includeNsfw?: boolean } = {}) => {
-    const includeBody = opts.includeBody !== false;
-    const includeNsfw = opts.includeNsfw !== false;
-    const nsfwPart = includeNsfw && r.nsfw ? '18+/NSFW = yes' : '';
-    let bodyPart = includeBody && r.body ? r.body : '';
+  const buildOtherDetails = () => {
+    const nsfwPart = r.nsfw ? '18+/NSFW = yes' : '';
+    let bodyPart = r.body ?? '';
     const sep = '\n\n';
     const encodedBacklink = encodeURIComponent(backlink).length;
     const sepLen = encodeURIComponent(sep).length;
@@ -687,6 +685,49 @@ export function promoteUrl(r: PromotableReport, repo: string, origin: string): s
       u.searchParams.set('other-details', buildOtherDetails());
       break;
     }
+    default: {
+      const _exhaustive: never = r.kind;
+      void _exhaustive;
+    }
+  }
+
+  // Enforce total serialized URL budget. LIMIT above bounds individual
+  // fields, but combined params (title, link, source, etc.) could still push
+  // the whole URL past GitHub's ~8192 limit. Trim lowest-priority prefill
+  // values first, always keeping the backlink.
+  const TOTAL_LIMIT = 8000;
+  let guardAttempts = 0;
+  while (u.toString().length > TOTAL_LIMIT && guardAttempts < 5) {
+    guardAttempts++;
+    const od = u.searchParams.get('other-details');
+    if (od && od !== backlink && od.length > backlink.length) {
+      u.searchParams.set('other-details', backlink);
+      continue;
+    }
+    const fd = u.searchParams.get('feature-description');
+    if (fd) {
+      const overflow = u.toString().length - TOTAL_LIMIT;
+      const currentEncoded = encodeURIComponent(fd).length;
+      const newBudget = Math.max(10, currentEncoded - overflow - 50);
+      const trimmed = fitEncoded(fd, newBudget);
+      if (trimmed && trimmed.length < fd.length) u.searchParams.set('feature-description', trimmed);
+      else u.searchParams.delete('feature-description');
+      continue;
+    }
+    const link = u.searchParams.get('link');
+    if (link) {
+      u.searchParams.delete('link');
+      continue;
+    }
+    const title = u.searchParams.get('title');
+    if (title && title.length > 30) {
+      const overflow = u.toString().length - TOTAL_LIMIT;
+      const currentEncoded = encodeURIComponent(title).length;
+      const newBudget = Math.max(10, currentEncoded - overflow - 20);
+      u.searchParams.set('title', fitEncoded(title, newBudget));
+      continue;
+    }
+    break;
   }
 
   return u.toString();

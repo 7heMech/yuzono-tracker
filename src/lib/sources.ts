@@ -105,3 +105,17 @@ export function languageFacets() {
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([code, count]) => ({ code, count, label: langLabel(code) }));
 }
+
+/** Trimmed to what the picker reads — shared so /new and /request agree. */
+export const PICKER_ROWS = SOURCES.map((s) => ({
+  id: s.id,
+  name: s.name,
+  lang: s.lang,
+  nsfw: s.nsfw,
+  extName: s.extName,
+  extVersion: s.extVersion,
+}));
+
+export const PICKER_LANGS = Object.fromEntries(
+  [...new Set(SOURCES.map((s) => s.lang))].map((code) => [code, langLabel(code)]),
+);

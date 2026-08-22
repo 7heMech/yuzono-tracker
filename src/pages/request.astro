@@ -7,7 +7,7 @@ import { db } from '../lib/db/client';
 import { OPEN_STATUSES, reports } from '../lib/db/schema';
 import { canWriteNow, currentUser } from '../lib/auth';
 import { ensureVote } from '../lib/vote';
-import { getSource, langLabel, languageFacets, SOURCES } from '../lib/sources';
+import { getSource, languageFacets, PICKER_LANGS, PICKER_ROWS } from '../lib/sources';
 import { normaliseUrl } from '../lib/problems';
 import { duplicateOf } from '../lib/requests';
 import { FILING_COOLDOWN_MESSAGE, isReportId, overFilingLimit } from '../lib/writes';
@@ -309,20 +309,8 @@ if (Astro.request.method === 'GET') {
 
 const change = wantsChange();
 
-/* Trimmed to what the picker reads, as on /new: the whole catalogue as island
-   props would be 8.4 KB gzipped on a page most people reach for the other
-   path. */
-const pickerRows = SOURCES.map((s) => ({
-  id: s.id,
-  name: s.name,
-  lang: s.lang,
-  nsfw: s.nsfw,
-  extName: s.extName,
-  extVersion: s.extVersion,
-}));
-const pickerLangs = Object.fromEntries(
-  [...new Set(SOURCES.map((s) => s.lang))].map((code) => [code, langLabel(code)]),
-);
+const pickerRows = PICKER_ROWS;
+const pickerLangs = PICKER_LANGS;
 const picked = sourceId ? getSource(sourceId) : undefined;
 ---
 

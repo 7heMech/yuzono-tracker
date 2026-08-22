@@ -63,9 +63,12 @@
     );
   });
 
+  let previousChosenId = chosen?.id;
+
   $effect(() => {
-    void chosen?.id;
-    if (failed) {
+    const chosenId = chosen?.id;
+    if (chosenId !== previousChosenId) {
+      previousChosenId = chosenId;
       failed = false;
     }
   });
