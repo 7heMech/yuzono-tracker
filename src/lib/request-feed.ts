@@ -58,8 +58,9 @@ const MAX_AGE_MS = 60_000;
 
 export function loadRequestFeed(): Promise<RequestFeed> {
   if (inflight && Date.now() - fetchedAt > MAX_AGE_MS) inflight = null;
-  if (!inflight) fetchedAt = Date.now();
-  inflight ??= fetch('/requests.json')
+  if (inflight) return inflight;
+  fetchedAt = Date.now();
+  const thisFetch = fetch('/requests.json')
     .then((res) => {
       if (!res.ok) throw new Error(`/requests.json answered ${res.status}`);
       return res.json() as Promise<Payload>;
@@ -85,9 +86,11 @@ export function loadRequestFeed(): Promise<RequestFeed> {
     }))
     .catch((err) => {
       // A failure must not be cached, or one dropped request leaves every box
-      // on the page dead for the rest of its life.
-      inflight = null;
+      // on the page dead for the rest of its life. Guarded against a newer
+      // request that started after this one expired.
+      if (inflight === thisFetch) inflight = null;
       throw err;
     });
+  inflight = thisFetch;
   return inflight;
 }

@@ -126,7 +126,12 @@ if (Astro.request.method === 'POST') {
   if (wantsChange()) {
     /* --- a change to a source that already exists ------------------------ */
     if (!user) {
-      Astro.session?.set('pending_change', { sourceId, title: askTitle, detail } satisfies ChangeDraft);
+      // Preserve the raw title so an over-length paste still fails validation
+      // after the OAuth round trip, rather than being silently truncated to 120.
+      Astro.session?.set(
+        'pending_change',
+        { sourceId, title: rawTitle.slice(0, 500), detail } satisfies ChangeDraft,
+      );
       return Astro.redirect('/auth/discord?next=/request%3Ffor%3Dchange', 302);
     }
     if (!(await canWriteNow(user))) return Astro.redirect('/cant-post', 302);
