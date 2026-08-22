@@ -2,7 +2,7 @@
 import { env } from 'cloudflare:workers';
 import Base from '../../layouts/Base.astro';
 import VoteButton from '../../components/VoteButton.astro';
-import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '../../lib/db/client';
 import { OPEN_STATUSES, reports, votes } from '../../lib/db/schema';
 import { avatarUrl, currentUser, dbUser } from '../../lib/auth';
@@ -123,13 +123,12 @@ if (Astro.request.method === 'POST') {
     const nsfw = nsfwWanted === '1';
     /* Only on a source request. A report against a catalogue source inherits
        `nsfw` from the catalogue, so editing it here would be overwritten by
-       the next sync and would disagree with the source page — the
-       `proposed_name IS NOT NULL` predicate enforces that in SQL rather than
-       trusting a second read of the row. */
+       the next sync and would disagree with the source page — the same rule
+       as `isRequest` below. */
     const [updated] = await db()
       .update(reports)
       .set({ nsfw, updatedAt: sql`(unixepoch())` })
-      .where(and(eq(reports.id, id), isNotNull(reports.proposedName)))
+      .where(and(eq(reports.id, id), eq(reports.kind, 'request')))
       .returning({ id: reports.id });
     if (updated) await logAction(gate.user, 'report.nsfw', String(id), nsfw ? 'on' : 'off');
     return Astro.redirect(`/report/${id}?saved=${nsfw ? 'nsfw-on' : 'nsfw-off'}`, 303);

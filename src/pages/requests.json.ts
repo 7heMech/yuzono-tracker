@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { and, desc, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../lib/db/client';
 import { OPEN_STATUSES, reports } from '../lib/db/schema';
 import { hostOf } from '../lib/host';
@@ -45,50 +45,52 @@ export const prerender = false;
 const MAX_ROWS = 500;
 
 export const GET: APIRoute = async () => {
-  const rows = await db()
-    .select({
-      id: reports.id,
-      kind: reports.kind,
-      sourceId: reports.sourceId,
-      name: reports.proposedName,
-      url: reports.proposedUrl,
-      title: reports.title,
-      votes: reports.votes,
-      nsfw: reports.nsfw,
-    })
-    .from(reports)
-    .where(
-      and(
-        // Both kinds in one query and one pass over the rows: the board's
-        // search box wants them together, and the two are one index range.
-        inArray(reports.kind, ['request', 'feature']),
-        inArray(reports.status, [...OPEN_STATUSES]),
-      ),
-    )
-    .orderBy(desc(reports.votes))
-    .limit(MAX_ROWS);
+  // Each kind capped independently so a surge of one cannot starve the other:
+  // RequestFinder deduplicates on `r`, so even the lowest-voted source request
+  // must still be present when the table grows past MAX_ROWS.
+  const baseSelect = {
+    id: reports.id,
+    kind: reports.kind,
+    sourceId: reports.sourceId,
+    name: reports.proposedName,
+    url: reports.proposedUrl,
+    title: reports.title,
+    votes: reports.votes,
+    nsfw: reports.nsfw,
+  } as const;
+  const [requestRows, featureRows] = await Promise.all([
+    db()
+      .select(baseSelect)
+      .from(reports)
+      .where(and(eq(reports.kind, 'request'), inArray(reports.status, [...OPEN_STATUSES])))
+      .orderBy(desc(reports.votes))
+      .limit(MAX_ROWS),
+    db()
+      .select(baseSelect)
+      .from(reports)
+      .where(and(eq(reports.kind, 'feature'), inArray(reports.status, [...OPEN_STATUSES])))
+      .orderBy(desc(reports.votes))
+      .limit(MAX_ROWS),
+  ]);
 
-  /* Feature rows first, because the display name comes from the catalogue for
-     18 of the 21 and from proposed_name for the rest — the same fallback the
-     board row uses, so the two surfaces name a source the same way. */
-  const f = rows
-    .filter((row) => row.kind === 'feature')
-    .map((row) => {
-      const name = getSource(row.sourceId)?.name ?? row.name ?? 'Unknown source';
-      const out: (string | number)[] = [
-        row.id,
-        // '' on the three rows that name a source the import could not match.
-        row.sourceId ?? '',
-        name,
-        row.title,
-        row.votes,
-      ];
-      if (row.nsfw) out.push(1);
-      return out;
-    });
+  /* Feature rows: the display name comes from the catalogue for 18 of the 21
+     and from proposed_name for the rest — the same fallback the board row uses,
+     so the two surfaces name a source the same way. */
+  const f = featureRows.map((row) => {
+    const name = getSource(row.sourceId)?.name ?? row.name ?? 'Unknown source';
+    const out: (string | number)[] = [
+      row.id,
+      // '' on the three rows that name a source the import could not match.
+      row.sourceId ?? '',
+      name,
+      row.title,
+      row.votes,
+    ];
+    if (row.nsfw) out.push(1);
+    return out;
+  });
 
-  const r = rows
-    .filter((row) => row.kind === 'request')
+  const r = requestRows
     // A request with no name cannot be recognised in a list, and only the 468
     // imported rows can be in that state.
     .filter((row) => !!row.name)

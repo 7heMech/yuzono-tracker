@@ -50,7 +50,7 @@ const STALLED_AFTER = 7_776_000;
  *
  * `.select()` with no argument pulls all 26, `body` — the entire report text —
  * included, for rows that never show it, and the ORDER BY sorter then carries
- * that payload through a temp B-tree. These thirteen are exactly what
+ * that payload through a temp B-tree. These fifteen are exactly what
  * ReportRow.astro touches, `reportHeadline` (title, stage, cause) and `nsfw`
  * included.
  *

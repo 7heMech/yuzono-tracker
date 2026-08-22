@@ -49,11 +49,16 @@ type Payload = {
 
 /**
  * Module scope, so two islands on one page share a single request and a second
- * mount after a client-side navigation pays nothing.
+ * mount after a client-side navigation pays nothing. Expires after a minute so
+ * a filing made in another tab still shows up without a reload.
  */
 let inflight: Promise<RequestFeed> | null = null;
+let fetchedAt = 0;
+const MAX_AGE_MS = 60_000;
 
 export function loadRequestFeed(): Promise<RequestFeed> {
+  if (inflight && Date.now() - fetchedAt > MAX_AGE_MS) inflight = null;
+  if (!inflight) fetchedAt = Date.now();
   inflight ??= fetch('/requests.json')
     .then((res) => {
       if (!res.ok) throw new Error(`/requests.json answered ${res.status}`);

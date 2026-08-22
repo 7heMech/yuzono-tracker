@@ -79,7 +79,7 @@ Astro.response.headers.set(
 );
 ---
 
-<Base title="Requested sources">
+<Base title={state === 'fixed' ? 'Requests that got built' : 'Requests'}>
   <header class="head">
     <div>
       <h1>{state === 'fixed' ? 'Requests that got built' : 'Requests'}</h1>

@@ -53,21 +53,22 @@ let sourceId = '';
 let askTitle = '';
 let detail = '';
 
+let postedMode = '';
+
 /** Which path is on screen. The form posts back to the same URL, so this
     survives a submit; the hidden field below is the belt to that braces. */
 const wantsChange = () =>
   Astro.url.searchParams.get('for') === 'change' ||
   (Astro.request.method === 'POST' && postedMode === 'change');
-let postedMode = '';
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   postedMode = String(form.get('mode') ?? '').trim().slice(0, 8);
   sourceId = String(form.get('source') ?? '').trim().slice(0, 32);
-  // The sentence the board row will show, so it is asked for directly rather
-  // than sliced out of a paragraph. Capped here, like every other field, before
-  // the anonymous branch writes it into the session.
-  askTitle = String(form.get('title') ?? '').trim().slice(0, 120);
+  // Raw title kept uncapped for validation so a 200-char pasted value is
+  // refused rather than silently stored as its first 120 characters.
+  const rawTitle = String(form.get('title') ?? '').trim();
+  askTitle = rawTitle.slice(0, 120);
   detail = String(form.get('detail') ?? '').trim().slice(0, 2000);
   name = String(form.get('name') ?? '').trim().slice(0, 80);
   url = String(form.get('url') ?? '').trim().slice(0, 200);
@@ -138,6 +139,8 @@ if (Astro.request.method === 'POST') {
       error = 'Pick which source this is about first.';
     } else if (askTitle.length < 6) {
       error = "Say what you want in a sentence. \"Add login\" is enough; a word is not.";
+    } else if (rawTitle.length > 120) {
+      error = 'Keep it to one sentence — 120 characters at most.';
     } else if (await overFilingLimit(user.id)) {
       error = FILING_COOLDOWN_MESSAGE;
     } else {
@@ -384,6 +387,7 @@ const picked = sourceId ? getSource(sourceId) : undefined;
               value={askTitle}
               placeholder="e.g. Import my library from AniList"
               autocomplete="off"
+              minlength="6"
               maxlength="120"
               required
             />
@@ -489,6 +493,7 @@ const picked = sourceId ? getSource(sourceId) : undefined;
     .modes .chip { flex: 1; text-align: center; block-size: auto; padding-block: var(--space-2); }
   }
   .note {
+    margin-block-end: var(--space-4);
     padding: var(--space-2) var(--space-3);
     border: 1px solid var(--border-default);
     border-inline-start: 2px solid var(--signal);
@@ -497,6 +502,7 @@ const picked = sourceId ? getSource(sourceId) : undefined;
     color: var(--text-secondary);
   }
   .flow { display: flex; flex-direction: column; gap: var(--space-5); }
+  .flow .note { margin-block-end: 0; }
   /* Same mechanism as the problem cards on /new: the island reveals it. */
   .needs-source {
     display: none;

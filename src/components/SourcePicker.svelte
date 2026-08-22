@@ -73,11 +73,22 @@
     requestAnimationFrame(() => input?.focus());
   }
 
+  // Keep the highlight in bounds when the query changes: typing narrows the
+  // list, and without this a stale index can point past the end.
+  $effect(() => {
+    void hits.length;
+    active = 0;
+  });
+
   function onKey(e: KeyboardEvent) {
     if (!hits.length) return;
     if (e.key === 'ArrowDown') { e.preventDefault(); active = (active + 1) % hits.length; }
     else if (e.key === 'ArrowUp') { e.preventDefault(); active = (active - 1 + hits.length) % hits.length; }
-    else if (e.key === 'Enter') { e.preventDefault(); pick(hits[active]); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      const chosenHit = hits[active];
+      if (chosenHit) pick(chosenHit);
+    }
   }
 </script>
 
