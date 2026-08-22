@@ -6,10 +6,7 @@
  * count becomes the starting vote weight — reactions are exactly the demand
  * signal this board replaces, so nothing is invented.
  *
- *   for p in $(seq 1 10); do \
- *     curl -s -H "Accept: application/vnd.github+json" \
- *       "https://api.github.com/repos/yuzono/anime-extensions/issues?state=all&per_page=100&page=$p"; \
- *   done | jq -s 'add | [.[] | {number, title, state, createdAt: .created_at, closedAt: .closed_at, body, labels: [.labels[].name], up: .reactions["+1"], comments}]' > issues_full.json
+ *   bun -e 'let a=[];for(let p=1;p<=10;p++){let r=await fetch(`https://api.github.com/repos/yuzono/anime-extensions/issues?state=all&per_page=100&page=${p}`,{headers:{Accept:"application/vnd.github+json"}});let j=await r.json();a.push(...j);if(j.length<100)break}let o=a.map(({number,title,state,created_at,closed_at,body,labels,reactions,comments})=>({number,title,state,createdAt:created_at,closedAt:closed_at,body,labels:labels.map(l=>l.name),up:reactions["+1"],comments}));await Bun.write("issues_full.json",JSON.stringify(o))'
  *   bun scripts/import-issues.ts issues_full.json > seeds/seed.sql
  */
 
