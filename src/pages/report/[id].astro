@@ -22,7 +22,6 @@ import {
   STATUS_LABELS,
 } from '../../lib/format';
 import { STATUSES } from '../../lib/db/schema';
-import { isOutdated } from '../../lib/version';
 
 export const prerender = false;
 
@@ -356,7 +355,7 @@ Astro.response.headers.set(
           <dt class="label">Extension</dt>
           <dd class="num">
             v{report.extVersion}
-            {source && isOutdated(report.extVersion, source.extVersion) && (
+            {source && report.extVersion !== source.extVersion && (
               <span class="behind"> · v{source.extVersion} is current</span>
             )}
           </dd>
