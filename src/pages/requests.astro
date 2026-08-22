@@ -10,6 +10,7 @@ import {
   FRESH_PARAM,
   myVotes,
   PAGE_SIZE,
+  type BoardState,
   type Sort,
 } from '../lib/queries';
 
@@ -18,7 +19,11 @@ export const prerender = false;
 const q = Astro.url.searchParams;
 const lang = q.get('lang') ?? '';
 const nsfw = q.get('nsfw') === '1';
-const sort = (q.get('sort') ?? 'demand') as Sort;
+const state: BoardState = q.get('state') === 'fixed' ? 'fixed' : 'open';
+/* Each view has its own default order, and board() falls the other one's back:
+   the fixed board leads with what was fixed most recently, the open board with
+   what most people want. */
+const sort = (q.get('sort') ?? (state === 'fixed' ? 'fixed' : 'demand')) as Sort;
 
 /* 1-based first row of this page, so ?from=61 matches the "Showing 61–120" the
    pager prints. */
@@ -37,7 +42,7 @@ if (cacheable && !q.has(FRESH_PARAM)) {
 }
 
 const [{ rows, total, offset }, counts] = await Promise.all([
-  board({ family: 'wanted', lang, nsfw, sort, offset: from - 1 }),
+  board({ family: 'wanted', state, lang, nsfw, sort, offset: from - 1 }),
   boardCounts(nsfw),
 ]);
 
@@ -76,11 +81,20 @@ Astro.response.headers.set(
 <Base title="Requested sources">
   <header class="head">
     <div>
-      <h1>Requested sources</h1>
+      <h1>{state === 'fixed' ? 'Sources that got added' : 'Requested sources'}</h1>
       <p class="sub">
-        Sources people want added, ranked by demand. This is the larger half of
-        the backlog, {counts.wanted} open requests against {counts.broken} broken
-        sources, so votes here decide what gets built next.
+        {state === 'fixed' ? (
+          <>
+            Requests that have been built, most recently finished first. There
+            are {counts.wantedFixed} of them, against {counts.wanted} still open.
+          </>
+        ) : (
+          <>
+            Sources people want added, ranked by demand. This is the larger half
+            of the backlog, {counts.wanted} open requests against {counts.broken}{' '}
+            broken sources, so votes here decide what gets built next.
+          </>
+        )}
       </p>
     </div>
   </header>
@@ -91,21 +105,39 @@ Astro.response.headers.set(
       every request never offered to take another, and half the people who got
       here by tapping "Requests" had no way on. Same shape and same place as the
       finder block on /, so the two boards offer their action in the same spot. */}
-  <section class="ask">
-    <a class="btn btn-primary btn-lg" href="/request">Request a source</a>
-    <p class="ask-hint">
-      Name, address, language. If someone has already asked for the same site
-      you'll be added to their request instead of making a second one.
-    </p>
-  </section>
+  {
+    state === 'open' && (
+      <section class="ask">
+        <a class="btn btn-primary btn-lg" href="/request">Request a source</a>
+        <p class="ask-hint">
+          Name, address, language. If someone has already asked for the same site
+          you'll be added to their request instead of making a second one.
+        </p>
+      </section>
+    )
+  }
 
-  <FilterBar family="wanted" lang={lang} nsfw={nsfw} sort={sort} />
+  <FilterBar
+    family="wanted"
+    state={state}
+    openCount={counts.wanted}
+    fixedCount={counts.wantedFixed}
+    lang={lang}
+    nsfw={nsfw}
+    sort={sort}
+  />
 
   {
     rows.length === 0 ? (
       <div class="empty">
-        <p class="empty-title">No open requests</p>
-        <a class="btn btn-primary" href="/request">Request a source</a>
+        <p class="empty-title">
+          {state === 'fixed' ? 'Nothing added yet' : 'No open requests'}
+        </p>
+        {state === 'fixed' ? (
+          <a class="btn" href="/requests">See what people are asking for</a>
+        ) : (
+          <a class="btn btn-primary" href="/request">Request a source</a>
+        )}
       </div>
     ) : (
       <ol class="rows">
@@ -123,7 +155,8 @@ Astro.response.headers.set(
     (shownTo < total || offset > 0) && (
       <nav class="pager" aria-label="More requests">
         <p class="pager-count">
-          Showing {shownFrom}–{shownTo} of {total} open requests
+          Showing {shownFrom}–{shownTo} of {total}{' '}
+          {state === 'fixed' ? 'added sources' : 'open requests'}
         </p>
         <div class="pager-links">
           {offset > 0 && (

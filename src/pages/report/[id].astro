@@ -4,7 +4,7 @@ import Base from '../../layouts/Base.astro';
 import VoteButton from '../../components/VoteButton.astro';
 import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from '../../lib/db/client';
-import { reports, votes } from '../../lib/db/schema';
+import { OPEN_STATUSES, reports, votes } from '../../lib/db/schema';
 import { avatarUrl, currentUser, dbUser } from '../../lib/auth';
 import { reporterMeta } from '../../lib/reporter';
 import { atLeast } from '../../lib/levels';
@@ -238,7 +238,14 @@ Astro.response.headers.set(
 
   <article>
     <header class="head">
-      <VoteButton reportId={report.id} votes={report.votes} mine={mine} />
+      {/* Same rule as the row: /vote refuses a closed report, so the button
+          would be a control that does nothing. */}
+      <VoteButton
+        reportId={report.id}
+        votes={report.votes}
+        mine={mine}
+        closed={!(OPEN_STATUSES as readonly string[]).includes(report.status)}
+      />
       <div>
         <h1>{headline}</h1>
         <p class="on">

@@ -31,6 +31,25 @@ export function stalledLabel(createdAt: number, now = Date.now() / 1000): string
   return months >= 12 ? `waiting ${Math.floor(months / 12)}y` : `waiting ${months} months`;
 }
 
+/**
+ * When a fixed report was fixed, as one phrase rather than a badge plus a date.
+ *
+ * The row used to print the "Fixed" pill beside the age of the *report*, which
+ * on the fixed board read as "Fixed · 8mo ago" for something fixed last week.
+ * And stalledLabel above answers from created_at alone, so a closed report old
+ * enough to qualify was labelled "waiting 5 months" after it had been dealt
+ * with. Only `fixed` gets a date here: "Won't fix 3mo ago" says nothing useful
+ * about when a decision stopped mattering, so those keep the plain word.
+ */
+export function fixedLabel(
+  status: string,
+  statusChangedAt: number | null,
+  now = Date.now() / 1000,
+): string | null {
+  if (status !== 'fixed' || !statusChangedAt) return null;
+  return `Fixed ${relativeAge(statusChangedAt, now)} ago`;
+}
+
 export const CAUSE_LABELS = {
   redesign: 'Site redesigned',
   domain: 'Domain changed',

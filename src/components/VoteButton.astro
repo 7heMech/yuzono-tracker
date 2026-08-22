@@ -3,8 +3,20 @@ interface Props {
   reportId: number;
   votes: number;
   mine?: boolean;
+  /**
+   * The report is no longer open, so there is nothing to vote on.
+   *
+   * /vote refuses anything outside OPEN_STATUSES — a vote stashed for a report
+   * that cannot be voted on would poison the session — so on a fixed row this
+   * control was a button that quietly did nothing, and on the new fixed board
+   * that was every row. The number still means something: it is the demand that
+   * got the thing fixed, so it stays and the button does not.
+   */
+  closed?: boolean;
 }
-const { reportId, votes, mine = false } = Astro.props;
+const { reportId, votes, mine = false, closed = false } = Astro.props;
+
+const people = votes === 1 ? 'person' : 'people';
 
 // A plain form post, so it works with JavaScript off. The endpoint redirects to
 // Discord sign-in when there's no session, which means the obvious action never
@@ -36,13 +48,24 @@ const said = mine
   : `Me too. This is broken for me. ${votes} ${votes === 1 ? 'person is' : 'people are'} affected.`;
 ---
 
-<form method="POST" action="/vote" class="vote">
-  <input type="hidden" name="report" value={reportId} />
-  <button class="vote-btn" type="submit" aria-pressed={mine} aria-label={said} title={said}>
-    <span class="vote-n">{votes}</span>
-    <span class="vote-word">{word}</span>
-  </button>
-</form>
+{
+  closed ? (
+    <p class="vote vote-btn vote-tally" title={`${votes} ${people} backed this.`}>
+      <span class="vote-n">{votes}</span>
+      {/* The word says what the number counts, which is the whole rule this
+          control was rebuilt around. */}
+      <span class="vote-word">{people}</span>
+    </p>
+  ) : (
+    <form method="POST" action="/vote" class="vote">
+      <input type="hidden" name="report" value={reportId} />
+      <button class="vote-btn" type="submit" aria-pressed={mine} aria-label={said} title={said}>
+        <span class="vote-n">{votes}</span>
+        <span class="vote-word">{word}</span>
+      </button>
+    </form>
+  )
+}
 
 <style>
   .vote { flex: none; }
@@ -87,6 +110,15 @@ const said = mine
        reads as breakage, and it would grow the row. */
     white-space: nowrap;
   }
+  /* A tally, not a control: same box so the rows still line up, but nothing
+     about it invites a press. */
+  .vote-tally { cursor: default; }
+  .vote-tally:hover {
+    border-color: var(--border-default);
+    color: var(--text-tertiary);
+    background: var(--surface-inset);
+  }
+
   /* Already counted: filled, unmistakable, still clickable to undo. */
   .vote-btn[aria-pressed='true'] {
     background: var(--signal-fill-hi);

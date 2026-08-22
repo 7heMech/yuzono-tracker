@@ -4,6 +4,7 @@ import {
   KIND_LABELS,
   STAGE_FAILURE,
   STATUS_LABELS,
+  fixedLabel,
   relativeAge,
   reportHeadline,
   stalledLabel,
@@ -166,5 +167,30 @@ describe('label tables', () => {
         expect(value, `label for ${key}`).toBeTruthy();
       }
     }
+  });
+});
+
+describe('fixedLabel', () => {
+  const now = 1_700_000_000;
+  const daysAgo = (d: number) => now - d * 86_400;
+
+  test('a fixed report says when it was fixed', () => {
+    expect(fixedLabel('fixed', daysAgo(21), now)).toBe('Fixed 21d ago');
+    expect(fixedLabel('fixed', daysAgo(400), now)).toBe('Fixed 1y ago');
+  });
+
+  test('only fixed gets a date', () => {
+    // "Won't fix 3mo ago" says nothing useful about when a decision stopped
+    // mattering, and those rows keep the plain label instead.
+    expect(fixedLabel('wont_fix', daysAgo(90), now)).toBeNull();
+    expect(fixedLabel('duplicate', daysAgo(90), now)).toBeNull();
+    expect(fixedLabel('open', daysAgo(90), now)).toBeNull();
+    expect(fixedLabel('confirmed', daysAgo(90), now)).toBeNull();
+  });
+
+  test('no fix date means no phrase, so the row falls back to the pill', () => {
+    // 468 rows came over from the issue backlog already closed, and not all of
+    // them carry a status_changed_at.
+    expect(fixedLabel('fixed', null, now)).toBeNull();
   });
 });

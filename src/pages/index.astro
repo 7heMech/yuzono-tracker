@@ -11,6 +11,7 @@ import {
   FRESH_PARAM,
   myVotes,
   PAGE_SIZE,
+  type BoardState,
   type Sort,
 } from '../lib/queries';
 
@@ -24,7 +25,11 @@ const q = Astro.url.searchParams;
 const lang = q.get('lang') ?? '';
 const cause = q.get('cause') ?? '';
 const nsfw = q.get('nsfw') === '1';
-const sort = (q.get('sort') ?? 'demand') as Sort;
+const state: BoardState = q.get('state') === 'fixed' ? 'fixed' : 'open';
+/* Each view has its own default order, and board() falls the other one's back:
+   fixed leads with what was fixed most recently, open with what most people
+   are hit by. */
+const sort = (q.get('sort') ?? (state === 'fixed' ? 'fixed' : 'demand')) as Sort;
 const authFailed = q.get('auth') === 'failed';
 const _retryParams = new URLSearchParams(q);
 _retryParams.delete('auth');
@@ -53,7 +58,7 @@ if (cacheable && !q.has(FRESH_PARAM)) {
 }
 
 const [{ rows, total, offset }, counts] = await Promise.all([
-  board({ family: 'broken', lang, cause, nsfw, sort, offset: from - 1 }),
+  board({ family: 'broken', state, lang, cause, nsfw, sort, offset: from - 1 }),
   boardCounts(nsfw),
 ]);
 
@@ -89,18 +94,34 @@ Astro.response.headers.set(
 );
 ---
 
-<Base title="Broken sources">
+<Base title={state === 'fixed' ? 'Fixed sources' : 'Broken sources'}>
   <header class="head">
     <div class="head-text">
-      <h1>Broken sources</h1>
+      <h1>{state === 'fixed' ? 'Fixed sources' : 'Broken sources'}</h1>
       <p class="sub">
-        Ranked by how many people are hit. Reporting something already listed
-        just adds you to it.
+        {state === 'fixed' ? (
+          <>
+            Reports that have been fixed, most recently closed first. Update the
+            extension and the fix is yours.
+          </>
+        ) : (
+          <>
+            Ranked by how many people are hit. Reporting something already
+            listed just adds you to it.
+          </>
+        )}
       </p>
     </div>
     <dl class="tallies">
       <div><dt class="label">Open</dt><dd class="num">{counts.broken}</dd></div>
       <div><dt class="label">Wanted</dt><dd class="num">{counts.wanted}</dd></div>
+      <div>
+        {/* Both numbers describe the same family, and the third one used to be
+            the only one anybody could act on. Fixed is the good half of the
+            backlog and nothing on the site said how large it was. */}
+        <dt class="label">Fixed</dt>
+        <dd class="num">{counts.brokenFixed}</dd>
+      </div>
       <div>
         <dt class="label">Stalled 90d+</dt>
         <dd class="num rotting">{counts.brokenStalled}</dd>
@@ -131,16 +152,31 @@ Astro.response.headers.set(
     </p>
   </section>
 
-  <FilterBar family="broken" lang={lang} cause={cause} nsfw={nsfw} sort={sort} />
+  <FilterBar
+    family="broken"
+    state={state}
+    openCount={counts.broken}
+    fixedCount={counts.brokenFixed}
+    lang={lang}
+    cause={cause}
+    nsfw={nsfw}
+    sort={sort}
+  />
 
   {
     rows.length === 0 ? (
       <div class="empty">
-        <p class="empty-title">Nothing broken here</p>
+        <p class="empty-title">
+          {state === 'fixed' ? 'Nothing fixed here yet' : 'Nothing broken here'}
+        </p>
         <p>
-          {lang || cause
-            ? 'No open reports match these filters. Try widening them.'
-            : 'No open reports yet. If a source is broken for you, be the first to say so.'}
+          {state === 'fixed'
+            ? lang || cause
+              ? 'No fixed reports match these filters. Try widening them.'
+              : 'No report has been marked fixed yet.'
+            : lang || cause
+              ? 'No open reports match these filters. Try widening them.'
+              : 'No open reports yet. If a source is broken for you, be the first to say so.'}
         </p>
         <a class="btn btn-primary" href="/new">Report a broken source</a>
       </div>
@@ -160,7 +196,8 @@ Astro.response.headers.set(
     (shownTo < total || offset > 0) && (
       <nav class="pager" aria-label="More reports">
         <p class="pager-count">
-          Showing {shownFrom}–{shownTo} of {total} open reports
+          Showing {shownFrom}–{shownTo} of {total}{' '}
+          {state === 'fixed' ? 'fixed reports' : 'open reports'}
         </p>
         <div class="pager-links">
           {offset > 0 && (

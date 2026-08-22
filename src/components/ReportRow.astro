@@ -4,13 +4,14 @@ import { hostOf } from '../lib/host';
 import { getSource, langDir, langLabel } from '../lib/sources';
 import {
   CAUSE_LABELS,
+  fixedLabel,
   relativeAge,
   reportHeadline,
   STAGE_FAILURE,
   stalledLabel,
   STATUS_LABELS,
 } from '../lib/format';
-import type { Report } from '../lib/db/schema';
+import { OPEN_STATUSES, type Report } from '../lib/db/schema';
 
 interface Props {
   report: Report;
@@ -22,7 +23,17 @@ const { report: r, mine = false } = Astro.props;
 const source = getSource(r.sourceId);
 const displayName = source?.name ?? r.proposedName ?? 'Unknown source';
 
-const stalled = stalledLabel(r.createdAt);
+/* Only a report that is still open can be neglected. stalledLabel answers from
+   created_at alone, so on the fixed board every row older than 90 days claimed
+   to be "waiting 5 months" after it had been dealt with. */
+const live = (OPEN_STATUSES as readonly string[]).includes(r.status);
+const stalled = live ? stalledLabel(r.createdAt) : null;
+
+/* One phrase instead of a pill and a date that disagreed: the row used to print
+   "Fixed" beside the age of the *report*, so something fixed last week read as
+   "Fixed · 8mo ago". Where there is a fix date, the status and the date are the
+   same fact and are said once. */
+const fixed = fixedLabel(r.status, r.statusChangedAt);
 
 // 468 of these came over from the GitHub backlog titled in raw HTTP jargon —
 // "Error 503 & Error 444 (Videos)" — and this row is what a search visitor
@@ -62,7 +73,7 @@ const host = r.proposedUrl ? hostOf(r.proposedUrl) : null;
 ---
 
 <li class="row">
-  <VoteButton reportId={r.id} votes={r.votes} mine={mine} />
+  <VoteButton reportId={r.id} votes={r.votes} mine={mine} closed={!live} />
 
   <a class="row-main" href={`/report/${r.id}`}>
     <span class="row-title">
@@ -70,10 +81,14 @@ const host = r.proposedUrl ? hostOf(r.proposedUrl) : null;
       <span class="what">{headline}</span>
     </span>
     <span class="row-meta">
-      {r.status !== 'open' && (
-        <span class="status" data-status={r.status}>
-          {STATUS_LABELS[r.status]}
-        </span>
+      {fixed ? (
+        <span class="status" data-status={r.status}>{fixed}</span>
+      ) : (
+        r.status !== 'open' && (
+          <span class="status" data-status={r.status}>
+            {STATUS_LABELS[r.status]}
+          </span>
+        )
       )}
       {host && <span class="host">{host}</span>}
       {whatBroke && <span class="tag">{whatBroke}</span>}
@@ -81,9 +96,11 @@ const host = r.proposedUrl ? hostOf(r.proposedUrl) : null;
       <span>{langLabel(r.lang)}</span>
       {source && <span class="data">v{source.extVersion}</span>}
       {
+        /* The fix date has already been said above, so the filing date would be
+           a second date on the row with nothing to distinguish it. */
         stalled ? (
           <span class="stalled">{stalled}</span>
-        ) : (
+        ) : fixed ? null : (
           <span>{relativeAge(r.createdAt)} ago</span>
         )
       }
@@ -143,6 +160,12 @@ const host = r.proposedUrl ? hostOf(r.proposedUrl) : null;
 
   @media (max-width: 640px) {
     .row-title { flex-wrap: wrap; }
+    /* 40 of the imported rows have no catalogue match, so their "name" is a
+       whole issue title ("Multiple Indonesian Anime Sources Not Working").
+       nowrap kept those from being split from their headline and instead ran
+       them 45px off the side of a 390px screen, where the overflow was clipped
+       and the end of the name simply disappeared. */
+    .src { white-space: normal; }
     .what { white-space: normal; }
     /* Version is desktop detail; on a phone it costs a whole wrapped line. */
     .row-meta .data { display: none; }

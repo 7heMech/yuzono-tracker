@@ -8,10 +8,25 @@ interface Props {
   cause?: string;
   nsfw: boolean;
   sort: string;
+  /** Which half of the backlog is on screen. */
+  state?: 'open' | 'fixed';
+  /** How many are open, and how many have been fixed, in this family. */
+  openCount: number;
+  fixedCount: number;
 }
 
-const { family, lang = '', cause = '', nsfw, sort } = Astro.props;
+const {
+  family,
+  lang = '',
+  cause = '',
+  nsfw,
+  sort,
+  state = 'open',
+  openCount,
+  fixedCount,
+} = Astro.props;
 const langs = languageFacets();
+const fixedView = state === 'fixed';
 
 // Counted, not typed. This was hardcoded as "108 of 310 sources are marked
 // 18+", which was true and would have gone quietly wrong the next time
@@ -20,15 +35,59 @@ const adult = SOURCES.filter((s) => s.nsfw).length;
 
 // 41 languages is past Hick's-law territory for chips, so language is a select
 // while the handful of causes stay as one-tap chips.
-const sorts = [
-  { key: 'demand', label: 'Most wanted' },
-  { key: 'stalled', label: 'Longest waiting' },
-  { key: 'recent', label: 'Newest' },
+/* Two of the three open sorts mean nothing once a report is closed: "Longest
+   waiting" answers from created_at, which for a fixed report is how long ago it
+   was filed rather than how long anyone waited, and "Newest" is the same
+   question the fixed view already answers better. So the fixed view offers the
+   two orders it can honour, and the labels say which. */
+const sorts = fixedView
+  ? [
+      { key: 'fixed', label: 'Recently fixed' },
+      { key: 'demand', label: 'Most wanted' },
+    ]
+  : [
+      { key: 'demand', label: 'Most wanted' },
+      { key: 'stalled', label: 'Longest waiting' },
+      { key: 'recent', label: 'Newest' },
+    ];
+
+// The sort that is actually in force, so exactly one chip reads as pressed —
+// board() falls the other view's default back to its own, and a chip that
+// disagreed with the list under it is worse than no chip at all.
+const activeSort = fixedView
+  ? sort === 'demand'
+    ? 'demand'
+    : 'fixed'
+  : sort === 'fixed'
+    ? 'demand'
+    : sort || 'demand';
+
+const states = [
+  { key: 'open', label: 'Open', count: openCount },
+  { key: 'fixed', label: 'Fixed', count: fixedCount },
 ];
 ---
 
 <form class="filters" method="get" role="search">
   <div class="line primary">
+    {/* First control on the bar, because it decides what every other one
+        filters. Counts on the chips for the same reason the 18+ chip carries
+        one: "Fixed" alone does not say that 468 of these exist. */}
+    <div class="segmented states" role="group" aria-label="Open or fixed">
+      {
+        states.map((v) => (
+          <button
+            class="chip"
+            type="submit"
+            name="state"
+            value={v.key}
+            aria-pressed={state === v.key}>
+            {v.label} ({v.count})
+          </button>
+        ))
+      }
+    </div>
+
     <label class="sr-only" for="lang">Language</label>
     <select class="select compact" id="lang" name="lang" onchange="this.form.requestSubmit()">
       <option value="">All languages</option>
@@ -41,7 +100,7 @@ const sorts = [
       }
     </select>
 
-    <div class="segmented" role="group" aria-label="Sort order">
+    <div class="segmented sorts" role="group" aria-label="Sort order">
       {
         sorts.map((s) => (
           <button
@@ -49,7 +108,7 @@ const sorts = [
             type="submit"
             name="sort"
             value={s.key}
-            aria-pressed={sort === s.key}>
+            aria-pressed={activeSort === s.key}>
             {s.label}
           </button>
         ))
@@ -98,6 +157,10 @@ const sorts = [
        value of a repeated parameter. Without the cause line, changing the sort
        silently reset the cause to Any. -->
   {sort && <input type="hidden" name="sort" value={sort} />}
+  {/* Not `state &&`: "open" is the default but it still has to survive a chip
+      press, or changing the language on the fixed board would drop you back to
+      the open one. */}
+  <input type="hidden" name="state" value={state} />
   {nsfw && <input type="hidden" name="nsfw" value="1" />}
   {lang && <input type="hidden" name="lang" value={lang} />}
   {cause && <input type="hidden" name="cause" value={cause} />}
@@ -116,21 +179,28 @@ const sorts = [
     gap: var(--space-2);
     flex-wrap: wrap;
   }
-  /* Desktop keeps language, sort and 18+ on one line. Phones drop the sort to
-     its own full-width row — hence the explicit orders, so the 18+ chip stays
-     beside the language select instead of being stranded on a third row. */
-  .primary #lang { order: 0; }
+  /* Desktop keeps all four on one line. A phone gets three rows and no more,
+     because the comment on the cause row below is the constraint for this whole
+     bar: filters must not push the list the page exists for below the fold.
+     So Open/Fixed pairs with 18+ on the first row, the language select takes a
+     full row of its own (a select is easier to hit wide anyway), and the sort
+     keeps the third. Explicit orders, since source order cannot express that. */
+  .primary .states { order: 0; flex-basis: auto; }
   .primary .spacer { order: 1; }
   .primary .nsfw { order: 2; }
-  .primary .segmented { order: 3; flex-basis: 100%; }
+  .primary #lang { order: 3; flex-basis: 100%; }
+  .primary .sorts { order: 4; flex-basis: 100%; }
   @media (min-width: 641px) {
-    .primary .segmented { order: 1; flex-basis: auto; margin-inline-start: var(--space-2); }
-    .primary .spacer { order: 2; }
-    .primary .nsfw { order: 3; }
+    .primary .states { order: 0; }
+    .primary #lang { order: 1; flex-basis: auto; margin-inline-start: var(--space-2); }
+    .primary .sorts { order: 2; flex-basis: auto; margin-inline-start: var(--space-2); }
+    .primary .spacer { order: 3; }
+    .primary .nsfw { order: 4; }
   }
   .select.compact {
     inline-size: auto;
     min-inline-size: 11rem;
+    max-inline-size: 100%;
     block-size: 26px;
     font-size: var(--text-sm);
     padding-inline: var(--space-2);
@@ -171,7 +241,11 @@ const sorts = [
     .causes::-webkit-scrollbar { display: none; }
     /* No scroll-snap: it snapped past the "Cause" label on load, hiding it. */
     .causes .chip { flex: none; }
-    .segmented { inline-size: 100%; }
+    .sorts { inline-size: 100%; }
     .segmented .chip { flex: 1; text-align: center; }
+    /* Two chips carrying counts, beside the 18+ chip rather than across the
+       row: full width would make each half wide enough to look like a button
+       and cost the row the 18+ chip is on. */
+    .states .chip { flex: none; }
   }
 </style>

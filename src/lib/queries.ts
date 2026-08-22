@@ -3,7 +3,18 @@ import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from './db/client';
 import { OPEN_STATUSES, reports, votes, type Report } from './db/schema';
 
-export type Sort = 'demand' | 'stalled' | 'recent';
+export type Sort = 'demand' | 'stalled' | 'recent' | 'fixed';
+
+/**
+ * Which half of the backlog a board is showing: the work outstanding, or the
+ * work done.
+ *
+ * The boards were open-only, with no way to see a fix from the site at all —
+ * a report vanished the moment it was dealt with, which is the one moment the
+ * person who filed it most wants to see. `fixed` is deliberately just that
+ * status: `wont_fix` and `duplicate` are also closed, but neither is news.
+ */
+export type BoardState = 'open' | 'fixed';
 
 /**
  * Rows per page, and the unit the pager counts in — "Next 60".
@@ -17,6 +28,8 @@ export const PAGE_SIZE = 60;
 export interface BoardFilter {
   /** `bug` family (broken sources) or `request` family (wanted sources). */
   family: 'broken' | 'wanted';
+  /** Open work (the default) or fixed. */
+  state?: BoardState;
   lang?: string;
   cause?: string;
   nsfw?: boolean;
@@ -58,6 +71,9 @@ const ROW_COLUMNS = {
      backlog — so scanning the board meant opening reports one at a time to
      find out. Only requests have it; on every other row it is null. */
   proposedUrl: reports.proposedUrl,
+  /* So a closed row can say when it closed. Without it the fixed board dated
+     every row by when it was *filed* — see fixedLabel in lib/format. */
+  statusChangedAt: reports.statusChangedAt,
   lang: reports.lang,
   stage: reports.stage,
   cause: reports.cause,
@@ -71,9 +87,12 @@ const ROW_COLUMNS = {
 export async function board(f: BoardFilter) {
   const kinds = f.family === 'broken' ? BROKEN_KINDS : WANTED_KINDS;
 
+  const state = f.state ?? 'open';
   const where = [
     inArray(reports.kind, [...kinds]),
-    inArray(reports.status, [...OPEN_STATUSES]),
+    state === 'fixed'
+      ? eq(reports.status, 'fixed')
+      : inArray(reports.status, [...OPEN_STATUSES]),
   ];
   if (f.lang) where.push(eq(reports.lang, f.lang));
   if (f.cause) where.push(eq(reports.cause, f.cause as never));
@@ -83,14 +102,35 @@ export async function board(f: BoardFilter) {
   // on `status`.
   if (!f.nsfw) where.push(eq(reports.nsfw, false));
 
+  /* Most recently fixed first, which is what the fixed board is for. The
+     coalesce is because 468 rows came from the issue backlog already closed and
+     only some carry a status_changed_at; falling back to updated_at keeps them
+     in a sensible place instead of at the very end.
+
+     The two views do not share their default, so a sort carried across in the
+     query string can name an order the other view has no meaning for: `fixed`
+     on the open board, `stalled` on the fixed board. Each falls back to its own
+     default rather than being refused, since it arrives from a link, not from a
+     control anybody pressed. */
+  const sort: Sort =
+    state === 'fixed'
+      ? f.sort === 'demand'
+        ? 'demand'
+        : 'fixed'
+      : f.sort === 'fixed'
+        ? 'demand'
+        : (f.sort ?? 'demand');
+
   const order =
-    f.sort === 'recent'
-      ? [desc(reports.createdAt)]
-      : f.sort === 'stalled'
-        ? // Oldest first, but weighted — a stalled item nobody wants is not
-          // the same problem as a stalled item fifty people want.
-          [asc(reports.createdAt), desc(reports.votes)]
-        : [desc(reports.votes), asc(reports.createdAt)];
+    sort === 'fixed'
+      ? [desc(sql`coalesce(${reports.statusChangedAt}, ${reports.updatedAt})`)]
+      : sort === 'recent'
+        ? [desc(reports.createdAt)]
+        : sort === 'stalled'
+          ? // Oldest first, but weighted — a stalled item nobody wants is not
+            // the same problem as a stalled item fifty people want.
+            [asc(reports.createdAt), desc(reports.votes)]
+          : [desc(reports.votes), asc(reports.createdAt)];
 
   const limit = f.limit ?? PAGE_SIZE;
   const offset = Math.max(0, f.offset ?? 0);
@@ -153,6 +193,9 @@ export interface BoardCounts {
   wanted: number;
   brokenStalled: number;
   wantedStalled: number;
+  /** Fixed, per family — the count the boards' Fixed control carries. */
+  brokenFixed: number;
+  wantedFixed: number;
 }
 
 /**
@@ -183,15 +226,24 @@ export async function boardCounts(nsfw = false): Promise<BoardCounts> {
   const wanted = sql`kind in ('request','feature','meta','removal')`;
   const stalled = sql`created_at < unixepoch() - ${STALLED_AFTER}`;
 
-  const where = [inArray(reports.status, [...OPEN_STATUSES])];
+  /* Open *and* fixed in one pass, split by a case rather than counted twice.
+     Both status sets are a range on the same leading column of reports_board,
+     so this is still one covering scan — and the alternative was a second round
+     trip to D1's single primary region to print one more number. */
+  const isOpen = sql`status in ('open', 'confirmed', 'in_progress')`;
+  const isFixed = sql`status = 'fixed'`;
+
+  const where = [inArray(reports.status, ['open', 'confirmed', 'in_progress', 'fixed'])];
   if (!nsfw) where.push(eq(reports.nsfw, false));
 
   const [row] = await db()
     .select({
-      broken: sql<number>`sum(case when ${broken} then 1 else 0 end)`,
-      wanted: sql<number>`sum(case when ${wanted} then 1 else 0 end)`,
-      brokenStalled: sql<number>`sum(case when ${broken} and ${stalled} then 1 else 0 end)`,
-      wantedStalled: sql<number>`sum(case when ${wanted} and ${stalled} then 1 else 0 end)`,
+      broken: sql<number>`sum(case when ${broken} and ${isOpen} then 1 else 0 end)`,
+      wanted: sql<number>`sum(case when ${wanted} and ${isOpen} then 1 else 0 end)`,
+      brokenStalled: sql<number>`sum(case when ${broken} and ${isOpen} and ${stalled} then 1 else 0 end)`,
+      wantedStalled: sql<number>`sum(case when ${wanted} and ${isOpen} and ${stalled} then 1 else 0 end)`,
+      brokenFixed: sql<number>`sum(case when ${broken} and ${isFixed} then 1 else 0 end)`,
+      wantedFixed: sql<number>`sum(case when ${wanted} and ${isFixed} then 1 else 0 end)`,
     })
     .from(reports)
     .where(and(...where));
@@ -203,6 +255,8 @@ export async function boardCounts(nsfw = false): Promise<BoardCounts> {
     wanted: Number(row?.wanted ?? 0),
     brokenStalled: Number(row?.brokenStalled ?? 0),
     wantedStalled: Number(row?.wantedStalled ?? 0),
+    brokenFixed: Number(row?.brokenFixed ?? 0),
+    wantedFixed: Number(row?.wantedFixed ?? 0),
   };
 }
 
