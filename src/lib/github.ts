@@ -548,27 +548,66 @@ export function promoteUrl(r: PromotableReport, repo: string, origin: string): s
 
   // Shared builder for `other-details` — every template has it. The report's
   // own `body` (detail field) comes first so a maintainer sees the user's
-  // words before the tracker bookkeeping. 1500 chars keeps the whole URL well
-  // under GitHub's ~8192 limit after encoding. The backlink is always kept;
-  // a very long body is truncated to make room for it rather than pushing it
-  // out, because `reportIdFromBody` needs it to link the issue back.
+  // words before the tracker bookkeeping. 1500 *encoded* chars keeps the whole
+  // URL well under GitHub's ~8192 limit after percent-encoding. The backlink is
+  // always kept; a very long body is truncated to make room for it rather than
+  // pushing it out, because `reportIdFromBody` needs it to link the issue back.
+  // LIMIT is a budget on encodeURIComponent(...) length, not UTF-16 code units,
+  // so non-ASCII (e.g. 9 bytes per CJK char after encoding) cannot overflow the URL.
   const LIMIT = 1500;
-  const truncate = (s: string) => (s.length > LIMIT ? s.slice(0, LIMIT) : s);
+  const fitEncoded = (s: string, budget: number) => {
+    let out = s;
+    while (out.length > 0) {
+      let encLen: number;
+      try {
+        encLen = encodeURIComponent(out).length;
+      } catch {
+        // Slice landed inside a surrogate pair — drop the dangling high surrogate.
+        out = out.slice(0, -1);
+        continue;
+      }
+      if (encLen <= budget) break;
+      let nextLen = Math.max(0, Math.floor(out.length * 0.9) - 1);
+      // Avoid splitting a surrogate pair (emoji) which would throw on encode.
+      if (nextLen > 0 && nextLen < out.length) {
+        const prev = out.charCodeAt(nextLen - 1);
+        const next = out.charCodeAt(nextLen);
+        if (prev >= 0xd800 && prev <= 0xdbff && next >= 0xdc00 && next <= 0xdfff) nextLen -= 1;
+      }
+      // Ensure progress even when 0.9 rounding stalls on tiny strings.
+      if (nextLen >= out.length) nextLen = out.length - 1;
+      out = out.slice(0, nextLen);
+    }
+    return out;
+  };
+  const truncate = (s: string) => fitEncoded(s, LIMIT);
   const buildOtherDetails = (opts: { includeBody?: boolean; includeNsfw?: boolean } = {}) => {
     const includeBody = opts.includeBody !== false;
     const includeNsfw = opts.includeNsfw !== false;
     const nsfwPart = includeNsfw && r.nsfw ? '18+/NSFW = yes' : '';
     let bodyPart = includeBody && r.body ? r.body : '';
-    // Reserve space for backlink and separators so it is never truncated away.
     const sep = '\n\n';
-    let needed = backlink.length;
-    if (bodyPart) needed += bodyPart.length + sep.length;
-    if (nsfwPart) needed += nsfwPart.length + sep.length;
-    if (needed > LIMIT) {
-      // Shrink body first — it is the only part that can be arbitrarily long.
-      const available = LIMIT - backlink.length - (nsfwPart ? nsfwPart.length + sep.length : 0) - (bodyPart ? sep.length : 0);
-      if (available <= 0) bodyPart = '';
-      else bodyPart = bodyPart.slice(0, available);
+    const encodedBacklink = encodeURIComponent(backlink).length;
+    const sepLen = encodeURIComponent(sep).length;
+    const nsfwEncoded = nsfwPart ? encodeURIComponent(nsfwPart).length : 0;
+    // Reserve encoded budget for backlink, separators and nsfwPart first.
+    // Body is the only part that can be arbitrarily long, so it shrinks.
+    let bodyBudget = LIMIT - encodedBacklink;
+    if (nsfwPart) bodyBudget -= nsfwEncoded + sepLen;
+    if (bodyPart) bodyBudget -= sepLen;
+    if (bodyPart) {
+      if (bodyBudget <= 0) {
+        bodyPart = '';
+      } else {
+        bodyPart = fitEncoded(bodyPart, bodyBudget);
+        // Re-shrink if rounding left us just over (double-check total).
+        while (
+          bodyPart.length > 0 &&
+          encodeURIComponent(bodyPart).length + sepLen + encodedBacklink + (nsfwPart ? nsfwEncoded + sepLen : 0) > LIMIT
+        ) {
+          bodyPart = fitEncoded(bodyPart, encodeURIComponent(bodyPart).length - 1);
+        }
+      }
     }
     const parts: string[] = [];
     if (bodyPart) parts.push(bodyPart);

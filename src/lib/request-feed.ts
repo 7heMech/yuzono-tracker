@@ -65,7 +65,7 @@ export function loadRequestFeed(): Promise<RequestFeed> {
       if (!res.ok) throw new Error(`/requests.json answered ${res.status}`);
       return res.json() as Promise<Payload>;
     })
-    .then(({ r, f }) => ({
+    .then(({ r, f = [] }) => ({
       requests: r.map(([id, name, host, votes, nsfw]) => ({
         id,
         name,

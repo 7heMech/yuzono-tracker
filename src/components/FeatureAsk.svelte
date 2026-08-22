@@ -37,6 +37,7 @@
   );
   let asks = $state.raw<FeatureRow[] | null>(null);
   let loading = $state(false);
+  let failed = $state(false);
   let gate: HTMLInputElement | undefined;
 
   /**
@@ -45,19 +46,28 @@
    * the other path entirely.
    */
   $effect(() => {
-    if (!chosen || asks || loading) return;
+    if (!chosen || asks !== null || loading || failed) return;
     loading = true;
     loadRequestFeed().then(
       (feed) => {
         asks = feed.features;
+        failed = false;
         loading = false;
       },
       () => {
         // Silent. This panel is an early warning, and a form that works beats
         // an apology for a list that did not load.
+        failed = true;
         loading = false;
       },
     );
+  });
+
+  $effect(() => {
+    void chosen?.id;
+    if (failed) {
+      failed = false;
+    }
   });
 
   /**
