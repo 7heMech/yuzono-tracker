@@ -15,24 +15,6 @@ import { announceFiled } from '../lib/webhook';
 
 export const prerender = false;
 
-/**
- * Asking for something. Two paths, one page.
- *
- *   source — a site that is not in the catalogue yet, which is 198 of the open
- *            backlog and was all this page did.
- *   change — something on a source that already exists: "import my library
- *            from AniList", "add another server". 21 of those are on the board
- *            already and every one of them arrived through the GitHub import,
- *            because until now the site had no way to file one. /new cannot
- *            take them: it demands an app version and an extension version and
- *            refuses a stale extension, and none of that means anything for a
- *            feature.
- *
- * Both paths land on the requests board, which is why they share a page rather
- * than being two. The mode is a query parameter so each is a link somebody can
- * send, and so the chooser works with JavaScript off.
- */
-
 const user = await currentUser(Astro);
 const langs = languageFacets();
 
@@ -146,8 +128,6 @@ if (Astro.request.method === 'POST') {
       error = "Say what you want in a sentence. \"Add login\" is enough; a word is not.";
     } else if (rawTitle.length > 120) {
       error = 'Keep it to one sentence — 120 characters at most.';
-    } else if (await overFilingLimit(user.id)) {
-      error = FILING_COOLDOWN_MESSAGE;
     } else {
       const [existing] = await db()
         .select({ id: reports.id })
@@ -165,69 +145,72 @@ if (Astro.request.method === 'POST') {
         await ensureVote(existing.id, user.id);
         return Astro.redirect(`/report/${existing.id}?joined=1`, 303);
       }
-
-      const [created] = await db()
-        .insert(reports)
-        .values({
-          kind: 'feature',
-          sourceId: source.id,
-          // Both denormalised from the catalogue, as /new does it: the board
-          // filters on them, and the catalogue is what answers for a source
-          // that exists. A person is never asked either question here.
-          lang: source.lang,
-          nsfw: source.nsfw,
-          title: askTitle,
-          body: detail || null,
-          reporterId: user.id,
-          /* `problem` is deliberately left null.
-
-             It is the third column of reports_open_per_source_problem, and
-             problemKeyFor hands a source-bearing non-bug kind 'other' — so
-             writing it would allow exactly one open feature request per source
-             and turn the second person's "add login" into a duplicate of the
-             first person's "import my library". SQLite lets nulls repeat in a
-             unique index, which is what keeps two different asks about one
-             source two rows. The panel on the form is what prevents the real
-             duplicates; see FeatureAsk.svelte. */
-        })
-        .onConflictDoNothing()
-        .returning({
-          id: reports.id,
-          kind: reports.kind,
-          title: reports.title,
-          stage: reports.stage,
-          cause: reports.cause,
-          sourceId: reports.sourceId,
-          proposedName: reports.proposedName,
-          proposedUrl: reports.proposedUrl,
-          reporterId: reports.reporterId,
-        });
-
-      if (!created) {
-        const [existingAfter] = await db()
-          .select({ id: reports.id })
-          .from(reports)
-          .where(
-            and(
-              eq(reports.kind, 'feature'),
-              eq(reports.sourceId, source.id),
-              eq(reports.title, askTitle),
-              inArray(reports.status, [...OPEN_STATUSES]),
-            ),
-          )
-          .limit(1);
-        if (existingAfter) {
-          await ensureVote(existingAfter.id, user.id);
-          return Astro.redirect(`/report/${existingAfter.id}?joined=1`, 303);
-        }
-        error = 'Could not create request. Try again.';
+      if (await overFilingLimit(user.id)) {
+        error = FILING_COOLDOWN_MESSAGE;
       } else {
-        await ensureVote(created.id, user.id);
-        const after: Promise<unknown>[] = [announceFiled(created, Astro.url.origin)];
-        const cf = Astro.locals.cfContext;
-        if (cf) for (const task of after) cf.waitUntil(task);
-        else await Promise.all(after);
-        return Astro.redirect(`/report/${created.id}?filed=1`, 303);
+        const [created] = await db()
+          .insert(reports)
+          .values({
+            kind: 'feature',
+            sourceId: source.id,
+            // Both denormalised from the catalogue, as /new does it: the board
+            // filters on them, and the catalogue is what answers for a source
+            // that exists. A person is never asked either question here.
+            lang: source.lang,
+            nsfw: source.nsfw,
+            title: askTitle,
+            body: detail || null,
+            reporterId: user.id,
+            /* `problem` is deliberately left null.
+
+               It is the third column of reports_open_per_source_problem, and
+               problemKeyFor hands a source-bearing non-bug kind 'other' — so
+               writing it would allow exactly one open feature request per source
+               and turn the second person's "add login" into a duplicate of the
+               first person's "import my library". SQLite lets nulls repeat in a
+               unique index, which is what keeps two different asks about one
+               source two rows. The panel on the form is what prevents the real
+               duplicates; see FeatureAsk.svelte. */
+          })
+          .onConflictDoNothing()
+          .returning({
+            id: reports.id,
+            kind: reports.kind,
+            title: reports.title,
+            stage: reports.stage,
+            cause: reports.cause,
+            sourceId: reports.sourceId,
+            proposedName: reports.proposedName,
+            proposedUrl: reports.proposedUrl,
+            reporterId: reports.reporterId,
+          });
+
+        if (!created) {
+          const [existingAfter] = await db()
+            .select({ id: reports.id })
+            .from(reports)
+            .where(
+              and(
+                eq(reports.kind, 'feature'),
+                eq(reports.sourceId, source.id),
+                eq(reports.title, askTitle),
+                inArray(reports.status, [...OPEN_STATUSES]),
+              ),
+            )
+            .limit(1);
+          if (existingAfter) {
+            await ensureVote(existingAfter.id, user.id);
+            return Astro.redirect(`/report/${existingAfter.id}?joined=1`, 303);
+          }
+          error = 'Could not create request. Try again.';
+        } else {
+          await ensureVote(created.id, user.id);
+          const after: Promise<unknown>[] = [announceFiled(created, Astro.url.origin)];
+          const cf = Astro.locals.cfContext;
+          if (cf) for (const task of after) cf.waitUntil(task);
+          else await Promise.all(after);
+          return Astro.redirect(`/report/${created.id}?filed=1`, 303);
+        }
       }
     }
   } else {
