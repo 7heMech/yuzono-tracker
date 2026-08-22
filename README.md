@@ -74,11 +74,10 @@ Imports the existing GitHub backlog, using each issue's 👍 count as the starti
 vote weight:
 
 ```sh
-gh api -X GET repos/yuzono/anime-extensions/issues -f state=all -f per_page=100 \
-  --paginate --jq '[.[] | select(.pull_request == null) | {number, title, state,
-    createdAt: .created_at, closedAt: .closed_at, labels: [.labels[].name],
-    up: .reactions["+1"], reactions: .reactions.total_count, comments: .comments}]' \
-  | jq -s add > issues.json
+for p in $(seq 1 10); do \
+  curl -s -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/yuzono/anime-extensions/issues?state=all&per_page=100&page=$p"; \
+done | jq -s 'add | [.[] | select(.pull_request == null) | {number, title, state, createdAt: .created_at, closedAt: .closed_at, labels: [.labels[].name], up: .reactions["+1"], comments}]' > issues.json
 
 bun scripts/import-issues.ts issues.json > seeds/seed.sql
 bun run db:seed

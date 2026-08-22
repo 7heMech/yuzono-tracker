@@ -6,10 +6,10 @@
  * count becomes the starting vote weight — reactions are exactly the demand
  * signal this board replaces, so nothing is invented.
  *
- *   gh api -X GET repos/yuzono/anime-extensions/issues -f state=all -f per_page=100 \
- *     --paginate --jq '[.[] | {number, title, state, createdAt: .created_at,
- *       closedAt: .closed_at, body, labels: [.labels[].name],
- *       up: .reactions["+1"], comments}]' > issues_full.json
+ *   for p in $(seq 1 10); do \
+ *     curl -s -H "Accept: application/vnd.github+json" \
+ *       "https://api.github.com/repos/yuzono/anime-extensions/issues?state=all&per_page=100&page=$p"; \
+ *   done | jq -s 'add | [.[] | {number, title, state, createdAt: .created_at, closedAt: .closed_at, body, labels: [.labels[].name], up: .reactions["+1"], comments}]' > issues_full.json
  *   bun scripts/import-issues.ts issues_full.json > seeds/seed.sql
  */
 
