@@ -1,6 +1,6 @@
 import { CAUSES, KINDS, STAGES, STATUSES } from './db/schema';
 import { normaliseUrl, problemKeyFor, type ProblemKey } from './problems';
-import { SOURCES } from './sources';
+import { langLabel, SOURCES } from './sources';
 import { reportHeadline } from './format';
 
 /**
@@ -489,6 +489,18 @@ export interface PromotableReport {
   proposedName: string | null;
   stage: Stage | null;
   cause: Cause | null;
+  /** Address for a source request (02) or removal (07). */
+  proposedUrl?: string | null;
+  /** New address for a domain change (03). */
+  newUrl?: string | null;
+  /** Free-form detail from the report form, prefilled into other-details or feature-description. */
+  body?: string | null;
+  /** Whether the reporter marked a request 18+. Mirrored into other-details as `18+/NSFW = yes`. */
+  nsfw?: boolean | null;
+  /** Versions and app for bug/domain reports. */
+  extVersion?: string | null;
+  appName?: string | null;
+  appVersion?: string | null;
 }
 
 /**
@@ -510,17 +522,134 @@ export function promoteTitle(r: PromotableReport): string {
  * submits the form; the next sync pass recognises the new issue and links it,
  * so nobody ever pastes an issue number back by hand.
  *
- * Unknown query parameters are ignored by GitHub's issue forms, so the `body`
- * hint below is safe to send whether or not the template happens to expose a
- * matching field id. It carries the tracker backlink, which is the strong way
- * to recognise the issue later; `promoteTitle` is the fallback when it does not
- * survive into the issue body.
+ * GitHub issue *forms* (YAML) are prefilled via query parameters keyed by the
+ * field `id` — e.g. `?name=AniWaves&link=https://…&language=English` for
+ * `02_request_source.yml`. The generic `body` parameter is for markdown
+ * templates and is ignored by forms, so each kind maps its report columns onto
+ * the ids its template actually exposes. The tracker backlink is written into
+ * `other-details` (present on every template) so it survives into the rendered
+ * issue body where `reportIdFromBody` can find it; `body` is kept as well for
+ * the fallback path and for older templates. `promoteTitle` remains the
+ * fallback when the backlink does not survive.
  */
 export function promoteUrl(r: PromotableReport, repo: string, origin: string): string {
   const u = new URL(`https://github.com/${repo}/issues/new`);
   u.searchParams.set('template', TEMPLATES[r.kind]);
   u.searchParams.set('title', promoteTitle(r));
-  u.searchParams.set('body', `Tracked at ${origin}/report/${r.id}`);
+
+  const backlink = `Tracked at ${origin}/report/${r.id}`;
+  // Keep `body` for the generic fallback; forms ignore unknown params, so this
+  // is harmless when `other-details` is the one that actually shows.
+  u.searchParams.set('body', backlink);
+
+  const source = r.sourceId ? SOURCES.find((s) => s.id === r.sourceId) : undefined;
+  const sourceName = source?.name ?? r.proposedName ?? 'Unknown';
+  const langName = r.lang ? langLabel(r.lang) : '';
+
+  // Shared builder for `other-details` — every template has it. The report's
+  // own `body` (detail field) comes first so a maintainer sees the user's
+  // words before the tracker bookkeeping. 1500 chars keeps the whole URL well
+  // under GitHub's ~8192 limit after encoding. The backlink is always kept;
+  // a very long body is truncated to make room for it rather than pushing it
+  // out, because `reportIdFromBody` needs it to link the issue back.
+  const LIMIT = 1500;
+  const truncate = (s: string) => (s.length > LIMIT ? s.slice(0, LIMIT) : s);
+  const buildOtherDetails = (opts: { includeBody?: boolean; includeNsfw?: boolean } = {}) => {
+    const includeBody = opts.includeBody !== false;
+    const includeNsfw = opts.includeNsfw !== false;
+    const nsfwPart = includeNsfw && r.nsfw ? '18+/NSFW = yes' : '';
+    let bodyPart = includeBody && r.body ? r.body : '';
+    // Reserve space for backlink and separators so it is never truncated away.
+    const sep = '\n\n';
+    let needed = backlink.length;
+    if (bodyPart) needed += bodyPart.length + sep.length;
+    if (nsfwPart) needed += nsfwPart.length + sep.length;
+    if (needed > LIMIT) {
+      // Shrink body first — it is the only part that can be arbitrarily long.
+      const available = LIMIT - backlink.length - (nsfwPart ? nsfwPart.length + sep.length : 0) - (bodyPart ? sep.length : 0);
+      if (available <= 0) bodyPart = '';
+      else bodyPart = bodyPart.slice(0, available);
+    }
+    const parts: string[] = [];
+    if (bodyPart) parts.push(bodyPart);
+    if (nsfwPart) parts.push(nsfwPart);
+    parts.push(backlink);
+    return parts.join(sep);
+  };
+
+  switch (r.kind) {
+    case 'request': {
+      // 02_request_source.yml: name, link, language, other-details
+      const name = r.proposedName ?? sourceName;
+      if (name && name !== 'Unknown') u.searchParams.set('name', name);
+      if (r.proposedUrl) u.searchParams.set('link', r.proposedUrl);
+      if (langName) u.searchParams.set('language', langName);
+      u.searchParams.set('other-details', buildOtherDetails());
+      break;
+    }
+    case 'bug': {
+      // 01_report_issue.yml: source, language, which-app, app-version, other-details
+      // Source information placeholder is "AnimePahe 14.19 (English)"
+      const ver = r.extVersion || source?.extVersion || '';
+      const srcInfo = ver
+        ? `${sourceName} ${ver} (${langName || r.lang})`
+        : langName
+          ? `${sourceName} (${langName})`
+          : sourceName;
+      u.searchParams.set('source', srcInfo);
+      if (langName) u.searchParams.set('language', langName);
+      if (r.appName) u.searchParams.set('which-app', r.appName);
+      if (r.appVersion) u.searchParams.set('app-version', r.appVersion);
+      u.searchParams.set('other-details', buildOtherDetails());
+      break;
+    }
+    case 'domain': {
+      // 03_report_url_change.yml: source, language, link (new URL), other-details
+      const ver = r.extVersion || source?.extVersion || '';
+      const srcInfo = ver ? `${sourceName} ${ver}` : sourceName;
+      u.searchParams.set('source', srcInfo);
+      if (langName) u.searchParams.set('language', langName);
+      if (r.newUrl) u.searchParams.set('link', r.newUrl);
+      u.searchParams.set('other-details', buildOtherDetails());
+      break;
+    }
+    case 'dead': {
+      // 04_report_dead_source.yml: source (name), language, link, other-details
+      u.searchParams.set('source', sourceName);
+      if (langName) u.searchParams.set('language', langName);
+      const link = r.proposedUrl || source?.baseUrl || r.newUrl || null;
+      if (link) u.searchParams.set('link', link);
+      u.searchParams.set('other-details', buildOtherDetails());
+      break;
+    }
+    case 'feature': {
+      // 05_request_feature.yml: source, language, feature-description, other-details
+      u.searchParams.set('source', sourceName);
+      if (langName) u.searchParams.set('language', langName);
+      // The user's ask lives in `body` (detail) and `title` (one-line headline).
+      // Prefer the longer detail, fall back to the title so the field is never
+      // left empty for a row that genuinely has a description.
+      const feat = r.body?.trim() ? r.body : r.title;
+      if (feat) u.searchParams.set('feature-description', truncate(feat));
+      u.searchParams.set('other-details', backlink);
+      break;
+    }
+    case 'meta': {
+      // 06_request_meta.yml: feature-description, other-details
+      const feat = r.body?.trim() ? r.body : r.title;
+      if (feat) u.searchParams.set('feature-description', truncate(feat));
+      u.searchParams.set('other-details', backlink);
+      break;
+    }
+    case 'removal': {
+      // 07_request_removal.yml: link, other-details
+      const link = r.proposedUrl || source?.baseUrl || r.newUrl || null;
+      if (link) u.searchParams.set('link', link);
+      u.searchParams.set('other-details', buildOtherDetails());
+      break;
+    }
+  }
+
   return u.toString();
 }
 

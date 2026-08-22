@@ -281,6 +281,110 @@ describe('promotion', () => {
     expect(reportIdFromBody('no link here')).toBeNull();
     expect(reportIdFromBody(null)).toBeNull();
   });
+
+  test('a source request prefills the form fields', () => {
+    const req = {
+      id: 478,
+      kind: 'request' as const,
+      title: 'Add AniWaves',
+      lang: 'en',
+      sourceId: null,
+      proposedName: 'AniWaves',
+      stage: null,
+      cause: null,
+      proposedUrl: 'https://aniwaves.ru',
+      body: null,
+      nsfw: false,
+    };
+    const u = new URL(promoteUrl(req, 'yuzono/anime-extensions', 'https://t.example'));
+    expect(u.searchParams.get('name')).toBe('AniWaves');
+    expect(u.searchParams.get('link')).toBe('https://aniwaves.ru');
+    expect(u.searchParams.get('language')).toBe('English');
+    expect(u.searchParams.get('other-details')).toBe('Tracked at https://t.example/report/478');
+    // body kept for fallback, even though forms ignore it
+    expect(u.searchParams.get('body')).toBe('Tracked at https://t.example/report/478');
+  });
+
+  test('a source request includes the NSFW hint and body in other-details', () => {
+    const req = {
+      id: 10,
+      kind: 'request' as const,
+      title: 'Add Example',
+      lang: 'en',
+      sourceId: null,
+      proposedName: 'Example',
+      stage: null,
+      cause: null,
+      proposedUrl: 'https://example.com',
+      body: 'Please add this site',
+      nsfw: true,
+    };
+    const u = new URL(promoteUrl(req, 'a/b', 'https://t'));
+    const other = u.searchParams.get('other-details')!;
+    expect(other).toContain('Please add this site');
+    expect(other).toContain('18+/NSFW = yes');
+    expect(other).toContain('Tracked at https://t/report/10');
+  });
+
+  test('a bug report prefills source, language and app fields', () => {
+    const bug = {
+      id: 77,
+      kind: 'bug' as const,
+      title: 'Error 404 (Search)',
+      lang: 'en',
+      sourceId: '3556703948634317295',
+      proposedName: null,
+      stage: 'browse' as const,
+      cause: 'down' as const,
+      body: 'Search returns 404',
+      extVersion: '14.3',
+      appName: 'Anikku',
+      appVersion: '0.18.3',
+    };
+    const u = new URL(promoteUrl(bug, 'yuzono/anime-extensions', 'https://t.example'));
+    expect(u.searchParams.get('source')).toBe('AniDB 14.3 (English)');
+    expect(u.searchParams.get('language')).toBe('English');
+    expect(u.searchParams.get('which-app')).toBe('Anikku');
+    expect(u.searchParams.get('app-version')).toBe('0.18.3');
+    expect(u.searchParams.get('other-details')).toContain('Search returns 404');
+    expect(u.searchParams.get('other-details')).toContain('Tracked at https://t.example/report/77');
+  });
+
+  test('a domain change prefills the new address', () => {
+    const dom = {
+      id: 5,
+      kind: 'domain' as const,
+      title: 'Moved',
+      lang: 'en',
+      sourceId: '3556703948634317295',
+      proposedName: null,
+      stage: 'browse' as const,
+      cause: 'domain' as const,
+      newUrl: 'https://new.example',
+    };
+    const u = new URL(promoteUrl(dom, 'a/b', 'https://t'));
+    expect(u.searchParams.get('link')).toBe('https://new.example');
+    expect(u.searchParams.get('source')).toContain('AniDB');
+  });
+
+  test('a feature request prefills source and feature-description', () => {
+    const feat = {
+      id: 20,
+      kind: 'feature' as const,
+      title: 'Add login',
+      lang: 'en',
+      sourceId: '3556703948634317295',
+      proposedName: null,
+      stage: null,
+      cause: null,
+      body: 'Should support login via OAuth',
+    };
+    const u = new URL(promoteUrl(feat, 'a/b', 'https://t'));
+    expect(u.searchParams.get('source')).toBe('AniDB');
+    expect(u.searchParams.get('language')).toBe('English');
+    expect(u.searchParams.get('feature-description')).toBe('Should support login via OAuth');
+    expect(u.searchParams.get('other-details')).toBe('Tracked at https://t/report/20');
+  });
 });
 
 describe('nsfwFor', () => {
