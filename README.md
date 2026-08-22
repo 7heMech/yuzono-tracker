@@ -74,11 +74,7 @@ Imports the existing GitHub backlog, using each issue's 👍 count as the starti
 vote weight:
 
 ```sh
-gh api -X GET repos/yuzono/anime-extensions/issues -f state=all -f per_page=100 \
-  --paginate --jq '[.[] | select(.pull_request == null) | {number, title, state,
-    createdAt: .created_at, closedAt: .closed_at, labels: [.labels[].name],
-    up: .reactions["+1"], reactions: .reactions.total_count, comments: .comments}]' \
-  | jq -s add > issues.json
+bun -e 'let a=[];for(let p=1;p<=10;p++){let r=await fetch(`https://api.github.com/repos/yuzono/anime-extensions/issues?state=all&per_page=100&page=${p}`,{headers:{Accept:"application/vnd.github+json"}});if(!r.ok)throw new Error(`page ${p} ${r.status}`);let j=await r.json();if(!Array.isArray(j))throw new Error(`page ${p} not array`);a.push(...j);if(j.length<100)break;if(p==10&&j.length==100)throw new Error("truncated at 1000")}let o=a.filter(i=>!i.pull_request).map(({number,title,state,created_at,closed_at,body,labels,reactions,comments})=>({number,title,state,createdAt:created_at,closedAt:closed_at,body,labels:labels.map(l=>l.name),up:reactions["+1"],comments}));await Bun.write("issues.json",JSON.stringify(o))'
 
 bun scripts/import-issues.ts issues.json > seeds/seed.sql
 bun run db:seed

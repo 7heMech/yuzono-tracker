@@ -6,10 +6,7 @@
  * count becomes the starting vote weight — reactions are exactly the demand
  * signal this board replaces, so nothing is invented.
  *
- *   gh api -X GET repos/yuzono/anime-extensions/issues -f state=all -f per_page=100 \
- *     --paginate --jq '[.[] | {number, title, state, createdAt: .created_at,
- *       closedAt: .closed_at, body, labels: [.labels[].name],
- *       up: .reactions["+1"], comments}]' > issues_full.json
+ *   bun -e 'let a=[];for(let p=1;p<=10;p++){let r=await fetch(`https://api.github.com/repos/yuzono/anime-extensions/issues?state=all&per_page=100&page=${p}`,{headers:{Accept:"application/vnd.github+json"}});if(!r.ok)throw new Error(`page ${p} ${r.status}`);let j=await r.json();if(!Array.isArray(j))throw new Error(`page ${p} not array`);a.push(...j);if(j.length<100)break;if(p==10&&j.length==100)throw new Error("truncated at 1000")}let o=a.filter(i=>!i.pull_request).map(({number,title,state,created_at,closed_at,body,labels,reactions,comments})=>({number,title,state,createdAt:created_at,closedAt:closed_at,body,labels:labels.map(l=>l.name),up:reactions["+1"],comments}));await Bun.write("issues_full.json",JSON.stringify(o))'
  *   bun scripts/import-issues.ts issues_full.json > seeds/seed.sql
  */
 
@@ -47,7 +44,7 @@ type Issue = {
   /**
    * Optional, because the first exports of this file did not include it — and
    * that omission is why every imported request lost the site's address. The
-   * `--jq` above now asks for it; an older export still imports, just without
+   * bun fetch above now asks for it; an older export still imports, just without
    * the addresses.
    */
   body?: string | null;

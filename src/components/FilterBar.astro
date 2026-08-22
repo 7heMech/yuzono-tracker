@@ -42,8 +42,8 @@ const adult = SOURCES.filter((s) => s.nsfw).length;
    two orders it can honour, and the labels say which. */
 const sorts = fixedView
   ? [
-      { key: 'fixed', label: 'Recently fixed' },
       { key: 'demand', label: 'Most wanted' },
+      { key: 'fixed', label: 'Recently fixed' },
     ]
   : [
       { key: 'demand', label: 'Most wanted' },

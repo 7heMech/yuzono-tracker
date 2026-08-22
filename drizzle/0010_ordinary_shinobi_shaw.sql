@@ -1,0 +1,1 @@
+ALTER TABLE `reports` ADD `status_note` text;

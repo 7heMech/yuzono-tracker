@@ -71,6 +71,13 @@
       "when": 1787424142977,
       "tag": "0009_futuristic_big_bertha",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1787427529977,
+      "tag": "0010_ordinary_shinobi_shaw",
+      "breakpoints": true
     }
   ]
 }
