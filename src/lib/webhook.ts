@@ -134,7 +134,12 @@ export async function announceFiled(
 ) {
   const c = cfg ?? (await readConfig());
   if (!c.webhook_url) return null;
-  const gate = report.kind === 'request' ? c.webhook_on_new_request : c.webhook_on_new_report;
+  /* A feature request counts as a request: it is filed from the requests board,
+     it is ranked with the requests, and somebody watching the channel for
+     "people want things" wants to hear about it there rather than among the
+     breakage. */
+  const asking = report.kind === 'request' || report.kind === 'feature';
+  const gate = asking ? c.webhook_on_new_request : c.webhook_on_new_report;
   if (gate !== '1') return null;
 
   const headline = reportHeadline(report);

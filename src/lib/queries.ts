@@ -50,7 +50,7 @@ const STALLED_AFTER = 7_776_000;
  *
  * `.select()` with no argument pulls all 26, `body` — the entire report text —
  * included, for rows that never show it, and the ORDER BY sorter then carries
- * that payload through a temp B-tree. These twelve are exactly what
+ * that payload through a temp B-tree. These thirteen are exactly what
  * ReportRow.astro touches, `reportHeadline` (title, stage, cause) and `nsfw`
  * included.
  *
@@ -60,6 +60,10 @@ const STALLED_AFTER = 7_776_000;
  */
 const ROW_COLUMNS = {
   id: reports.id,
+  /* So a row can say what it is. Everything on the wanted board used to read as
+     a source request, including the 21 feature requests against sources that
+     already exist. */
+  kind: reports.kind,
   sourceId: reports.sourceId,
   // Selected so a row can say it is 18+, not just be filtered by it. The board
   // is already scoped by the toggle, but a row reached from /me, from a source

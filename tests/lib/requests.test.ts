@@ -62,6 +62,34 @@ describe('duplicateOf', () => {
 });
 
 describe('suggestRequests', () => {
+  /**
+   * A feature request has no address; what identifies it is the ask. The board's
+   * search box passes that as `text`, so a query has to reach it — typing
+   * "library" must find "Import Library From Anime List" on AniList, which is
+   * the only thing that row and its 20 siblings can be found by.
+   */
+  test('the ask of a feature request is searched too', () => {
+    const feed = [
+      ...OPEN,
+      { id: 9, name: 'AniList', url: null, text: 'Import Library From Anime List', votes: 8 },
+    ];
+    expect(suggestRequests(feed, 'library', '').map((r) => r.id)).toEqual([9]);
+    // And by the source it is filed against, which is the other half of what a
+    // person would type.
+    expect(suggestRequests(feed, 'anilist', '').map((r) => r.id)).toContain(9);
+  });
+
+  test('an ask is never treated as an address', () => {
+    // duplicateOf compares hosts and names to decide whether two people want
+    // the same *site*. Two asks about one source are two asks, so `text` must
+    // stay out of that decision entirely.
+    const feed = [
+      { id: 9, name: 'AniList', url: null, text: 'Add login', votes: 1 },
+    ];
+    expect(duplicateOf(feed, 'Add login', '')).toBeUndefined();
+    expect(duplicateOf(feed, '', 'add login')).toBeUndefined();
+  });
+
   test('a partial name finds the request', () => {
     expect(suggestRequests(OPEN, 'anime', '').map((r) => r.id)).toContain(1);
   });

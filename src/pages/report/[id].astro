@@ -15,6 +15,7 @@ import { promoteUrl } from '../../lib/github';
 import { getSource, langLabel, sourcePath } from '../../lib/sources';
 import {
   CAUSE_LABELS,
+  KIND_LABELS,
   relativeAge,
   reportHeadline,
   STAGE_FAILURE,
@@ -172,8 +173,20 @@ const headline = reportHeadline(report);
    merely intended — reconcileNsfw in lib/github-sync.ts re-derives it from the
    catalogue on every sync pass, so an edit here to a catalogue-backed row would
    genuinely be overwritten. The moderator control below is gated to
-   catalogue-less rows for that reason. */
-const isRequest = !!report.proposedName;
+   catalogue-less rows for that reason.
+
+   Keyed on the kind rather than on `proposed_name` being set: three of the
+   imported feature requests carry a proposed_name too (the import could not
+   match their source), and for those the panel offered to re-flag a row whose
+   hint talks about "18+ requests" and a requester who ticked a box that was
+   never on screen. */
+const isRequest = report.kind === 'request';
+
+/* Said in words, and only where the rest of the page would not say it. A
+   feature request has no stage, no cause and no address, so without this the
+   page shows a source name, a sentence and three facts, and never mentions that
+   what it is looking at is somebody asking for something. */
+const askKind = report.kind === 'feature' ? KIND_LABELS.feature : null;
 
 /* Whether to warn a visitor, and on whose authority. The catalogue answers for
    a source that exists; a request has only what the person filing it ticked,
@@ -286,6 +299,9 @@ Astro.response.headers.set(
         <dt class="label">Status</dt>
         <dd class="status" data-status={report.status}>{STATUS_LABELS[report.status]}</dd>
       </div>
+      {askKind && (
+        <div><dt class="label">Kind</dt><dd>{askKind} request</dd></div>
+      )}
       {
         /* The address is the request. Until now the page named the site and
            never said which site it meant — two sites share a name often

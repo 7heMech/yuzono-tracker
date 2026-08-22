@@ -1,8 +1,9 @@
 import type { APIRoute } from 'astro';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, inArray } from 'drizzle-orm';
 import { db } from '../lib/db/client';
 import { OPEN_STATUSES, reports } from '../lib/db/schema';
 import { hostOf } from '../lib/host';
+import { getSource } from '../lib/sources';
 
 /**
  * The open source requests, for the type-ahead on /request.
@@ -18,9 +19,20 @@ import { hostOf } from '../lib/host';
  * duplicate: filing one is deduplicated on the server regardless, so a stale
  * copy costs a suggestion, never a wrong write.
  *
- * Positional rows, as in /sources.json: [id, name, host, votes] with a
- * trailing 1 on the 18+ ones. Names and hosts are short, so the repeated key
- * names would be most of the bytes.
+ * Two arrays, not one list of mixed shapes:
+ *
+ *   r — source requests. [id, name, host, votes] with a trailing 1 on the 18+
+ *       ones. This is what the request form's twin detection reads, and it has
+ *       to keep reading exactly what it read before.
+ *   f — feature requests against a source that already exists.
+ *       [id, sourceId, name, ask, votes] on the same trailing-1 rule, where
+ *       `name` is the catalogue's name for the source and `ask` is the stored
+ *       title. The id is carried because the request form filters these by the
+ *       source somebody has just picked, and a name is not a key: the catalogue
+ *       has sources whose names differ only by language.
+ *
+ * Positional, as in /sources.json: names, hosts and short asks would otherwise
+ * be outweighed by their own repeated key names.
  */
 
 export const prerender = false;
@@ -36,17 +48,47 @@ export const GET: APIRoute = async () => {
   const rows = await db()
     .select({
       id: reports.id,
+      kind: reports.kind,
+      sourceId: reports.sourceId,
       name: reports.proposedName,
       url: reports.proposedUrl,
+      title: reports.title,
       votes: reports.votes,
       nsfw: reports.nsfw,
     })
     .from(reports)
-    .where(and(eq(reports.kind, 'request'), inArray(reports.status, [...OPEN_STATUSES])))
+    .where(
+      and(
+        // Both kinds in one query and one pass over the rows: the board's
+        // search box wants them together, and the two are one index range.
+        inArray(reports.kind, ['request', 'feature']),
+        inArray(reports.status, [...OPEN_STATUSES]),
+      ),
+    )
     .orderBy(desc(reports.votes))
     .limit(MAX_ROWS);
 
+  /* Feature rows first, because the display name comes from the catalogue for
+     18 of the 21 and from proposed_name for the rest — the same fallback the
+     board row uses, so the two surfaces name a source the same way. */
+  const f = rows
+    .filter((row) => row.kind === 'feature')
+    .map((row) => {
+      const name = getSource(row.sourceId)?.name ?? row.name ?? 'Unknown source';
+      const out: (string | number)[] = [
+        row.id,
+        // '' on the three rows that name a source the import could not match.
+        row.sourceId ?? '',
+        name,
+        row.title,
+        row.votes,
+      ];
+      if (row.nsfw) out.push(1);
+      return out;
+    });
+
   const r = rows
+    .filter((row) => row.kind === 'request')
     // A request with no name cannot be recognised in a list, and only the 468
     // imported rows can be in that state.
     .filter((row) => !!row.name)
@@ -63,7 +105,7 @@ export const GET: APIRoute = async () => {
       return out;
     });
 
-  return new Response(JSON.stringify({ r }), {
+  return new Response(JSON.stringify({ r, f }), {
     headers: {
       'content-type': 'application/json; charset=utf-8',
       // Anonymous and identical for everyone — there is nothing per-viewer in

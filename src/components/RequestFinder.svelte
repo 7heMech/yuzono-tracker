@@ -1,39 +1,8 @@
 <script module lang="ts">
-  /** One open request, decoded from /requests.json. */
-  type Row = { id: number; name: string; url: string; votes: number; nsfw: boolean };
-  /** The positional payload that route emits — see src/pages/requests.json.ts. */
-  type Payload = { r: [number, string, string, number, number?][] };
+  import { loadRequestFeed, type RequestRow } from '../lib/request-feed';
 
-  /**
-   * Module scope, so a second mount on the same page reuses the first fetch.
-   * /request has one form, but a client-side navigation back to it would
-   * otherwise pay for the list again.
-   */
-  let inflight: Promise<Row[]> | null = null;
-
-  function loadRequests(): Promise<Row[]> {
-    inflight ??= fetch('/requests.json')
-      .then((res) => {
-        if (!res.ok) throw new Error(`/requests.json answered ${res.status}`);
-        return res.json() as Promise<Payload>;
-      })
-      .then(({ r }) =>
-        r.map(([id, name, url, votes, nsfw]) => ({
-          id,
-          name,
-          url,
-          votes,
-          nsfw: nsfw === 1,
-        })),
-      )
-      .catch((err) => {
-        // A failure must not be cached, or one dropped request leaves the form
-        // blind for the rest of the page's life.
-        inflight = null;
-        throw err;
-      });
-    return inflight;
-  }
+  /** One open source request, as /requests.json describes it. */
+  type Row = RequestRow;
 </script>
 
 <script lang="ts">
@@ -74,9 +43,12 @@
   function begin() {
     if (rows || loading) return;
     loading = true;
-    loadRequests().then(
-      (loaded) => {
-        rows = loaded;
+    loadRequestFeed().then(
+      (feed) => {
+        // Only the source requests: this form's question is "has somebody asked
+        // for this *site*", and a feature request against an existing source is
+        // never an answer to it.
+        rows = feed.requests;
         loading = false;
       },
       () => {

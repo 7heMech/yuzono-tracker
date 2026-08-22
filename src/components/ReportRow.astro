@@ -5,6 +5,7 @@ import { getSource, langDir, langLabel } from '../lib/sources';
 import {
   CAUSE_LABELS,
   fixedLabel,
+  KIND_LABELS,
   relativeAge,
   reportHeadline,
   STAGE_FAILURE,
@@ -70,6 +71,14 @@ const adult = source ? source.nsfw : r.nsfw;
    site not at all. Plain text, in the data face, because it is a value. Only
    requests carry `proposed_url`, so this is null on every other row. */
 const host = r.proposedUrl ? hostOf(r.proposedUrl) : null;
+
+/* What kind of ask this is, when the row would otherwise not say.
+   A feature request carries no stage, no cause and no address, so on the wanted
+   board it rendered as a bold source name and a title and nothing else — which
+   on a board of source requests reads as "somebody wants AniList added" rather
+   than "somebody wants AniList to import their library". The other kinds all
+   say what they are through the headline or the tags they already carry. */
+const asked = r.kind === 'feature' ? KIND_LABELS.feature : null;
 ---
 
 <li class="row">
@@ -90,6 +99,7 @@ const host = r.proposedUrl ? hostOf(r.proposedUrl) : null;
           </span>
         )
       )}
+      {asked && <span class="tag">{asked}</span>}
       {host && <span class="host">{host}</span>}
       {whatBroke && <span class="tag">{whatBroke}</span>}
       {why && <span class="tag">{why}</span>}

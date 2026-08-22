@@ -1,18 +1,14 @@
 <script lang="ts">
   import { isOutdated, compareVersions, isUnreadableVersion, APPS, APP_OTHER } from '../lib/version';
+  import SourcePicker, { type Picked, type SourceRow } from './SourcePicker.svelte';
 
   // Source picking and the setup fields live in one island because they depend
   // on each other: choosing a source is what tells us the current extension
   // version, which is what makes the "you're out of date" check possible
-  // before the form is ever submitted.
-  type Row = {
-    id: string;
-    name: string;
-    lang: string;
-    nsfw: boolean;
-    extName: string;
-    extVersion: string;
-  };
+  // before the form is ever submitted. The picker itself moved to
+  // SourcePicker.svelte, which the request form uses too; `chosen` stays here
+  // because the version gate below is what reads it.
+  type Row = SourceRow;
 
   let {
     sources,
@@ -34,11 +30,9 @@
 
   const initial = selectedId ? sources.find((s) => s.id === selectedId) : undefined;
 
-  let chosen = $state<Row | { id: string; name: string; extVersion: string } | null>(
+  let chosen = $state<Row | Picked | null>(
     initial ?? (selectedId ? { id: selectedId, name: selectedName, extVersion: '' } : null),
   );
-  let q = $state('');
-  let active = $state(0);
   // A remembered custom app name arrives as the appName itself, so anything
   // not in the list means "Other" was chosen last time.
   const known = (APPS as readonly string[]).includes(appName);
@@ -49,22 +43,6 @@
   let editingApp = $state(!(appName && appVersion));
   let appVer = $state(appVersion);
   let extVer = $state(extVersion);
-  let input: HTMLInputElement | undefined;
-
-  const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g, '');
-
-  const hits = $derived.by(() => {
-    const n = norm(q);
-    if (n.length < 2) return [];
-    const starts: Row[] = [];
-    const contains: Row[] = [];
-    for (const s of sources) {
-      const name = norm(s.name);
-      if (name.startsWith(n)) starts.push(s);
-      else if (name.includes(n) || norm(s.extName).includes(n)) contains.push(s);
-    }
-    return [...starts, ...contains].slice(0, 7);
-  });
 
   const latest = $derived(chosen?.extVersion ?? '');
   const unreadable = $derived(isUnreadableVersion(extVer));
@@ -104,71 +82,15 @@
     }
   });
 
-  function pick(s: Row) {
-    chosen = s;
-    q = '';
-  }
-
-  function clear() {
-    chosen = null;
-    q = '';
-    requestAnimationFrame(() => input?.focus());
-  }
-
-  function onKey(e: KeyboardEvent) {
-    if (!hits.length) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); active = (active + 1) % hits.length; }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); active = (active - 1 + hits.length) % hits.length; }
-    else if (e.key === 'Enter') { e.preventDefault(); pick(hits[active]); }
-  }
 </script>
 
-<input type="hidden" name="source" value={chosen?.id ?? ''} bind:this={gate} />
-<!-- Mirrors the client-side gate so the server can enforce it too. -->
-<input type="hidden" name="ready" value={ready ? '1' : ''} />
+<!-- Mirrors the client-side gate so the server can enforce it too, and the
+     element the effect above reaches the form through. -->
+<input type="hidden" name="ready" value={ready ? '1' : ''} bind:this={gate} />
 
 <section class="step">
   <h2 class="step-h"><span class="step-n">1</span> Which source?</h2>
-
-  {#if chosen}
-    <div class="picked">
-      <span class="picked-name">{chosen.name}</span>
-      <button class="btn btn-ghost" type="button" onclick={clear}>Change</button>
-    </div>
-  {:else}
-    <div class="wrap">
-      <input
-        class="input"
-        type="search"
-        autocomplete="off"
-        bind:this={input}
-        bind:value={q}
-        onkeydown={onKey}
-        placeholder="Start typing a source name…"
-        aria-label="Search for the source"
-        role="combobox"
-        aria-expanded={hits.length > 0}
-        aria-autocomplete="list"
-      />
-      {#if q.trim().length >= 2}
-        <ul class="results" role="listbox">
-          {#each hits as s, i (s.id)}
-            <li role="option" aria-selected={i === active}>
-              <button type="button" class="hit" class:active={i === active} onclick={() => pick(s)}>
-                <span>{s.name}</span>
-                <span class="lang">{langLabels[s.lang] ?? s.lang}</span>
-              </button>
-            </li>
-          {:else}
-            <li class="none">
-              Not in this repo.
-              <a href={`/request?name=${encodeURIComponent(q)}`}>Request it</a> instead.
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    </div>
-  {/if}
+  <SourcePicker {sources} {langLabels} bind:chosen />
 </section>
 
 <section class="step">
@@ -299,43 +221,6 @@
     font-size: var(--text-sm);
     color: var(--text-tertiary);
   }
-
-  .wrap { position: relative; }
-  .results {
-    position: absolute;
-    inset-inline: 0;
-    inset-block-start: calc(100% + 4px);
-    z-index: var(--z-dropdown);
-    background: var(--surface-overlay);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-  }
-  .hit {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    inline-size: 100%;
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--text-sm);
-    text-align: start;
-  }
-  .hit:hover, .hit.active { background: var(--surface-active); }
-  .none { padding: var(--space-3); font-size: var(--text-sm); color: var(--text-tertiary); }
-  .none a { color: var(--signal-ink); text-decoration: underline; }
-
-  .picked {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-md);
-    background: var(--surface-inset);
-  }
-  .picked-name { font-weight: var(--weight-medium); }
 
   /* Two columns at every width. `auto-fit` used to squeeze four fields onto
      one line on desktop, which is what made the labels and placeholders
