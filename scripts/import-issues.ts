@@ -29,6 +29,7 @@ import {
   norm,
   nsfwFor,
   problemOf,
+  requestedName,
   stageOf,
 } from '../src/lib/github';
 import { problemKeyFor } from '../src/lib/problems';
@@ -81,9 +82,13 @@ for (const iss of issues) {
   const kind = kindOf(iss.labels);
   const sourceId = kind === 'request' ? undefined : matchSource(iss.title);
   const lang = langOf(iss.title, sourceId);
-  // A request's title is the source's name, so say what's being asked for.
+  /* One string behind both the name and the title, and for a request it is the
+     title with the ask taken out of it — see requestedName. "Add PirateXplay"
+     as a name made a title of "Add Add PirateXplay". */
+  const head = headOf(iss.title);
+  const named = (kind === 'request' ? requestedName(head) : null) ?? head;
   const problemText =
-    kind === 'request' ? `Add ${headOf(iss.title).slice(0, 70) || 'this source'}` : problemOf(iss.title);
+    kind === 'request' ? `Add ${named.slice(0, 70) || 'this source'}` : problemOf(iss.title);
   const cause =
     kind === 'bug' || kind === 'domain' || kind === 'dead' ? causeOf(iss.labels, problemText) : null;
   const stage = cause ? stageOf(problemText, cause) : null;
@@ -107,7 +112,10 @@ for (const iss of issues) {
   // Respect the partial unique index: one open row per source, kind *and*
   // problem. Deduping on kind alone collapsed five distinct failures into one,
   // which is what made a source's second broken thing unfileable.
-  const dedupeKey = `${sourceId ?? 'req:' + norm(headOf(iss.title))}|${kind}|${problemKey ?? ''}`;
+  /* Keyed on the cleaned name, not the raw head: "Add Braflix" and "Braflix"
+     are one request, and keying on the title kept both as open rows splitting
+     one vote count. */
+  const dedupeKey = `${sourceId ?? 'req:' + norm(named)}|${kind}|${problemKey ?? ''}`;
   const isOpen = status !== 'fixed';
   if (isOpen) {
     if (seenOpen.has(dedupeKey)) status = 'duplicate';
@@ -125,7 +133,7 @@ for (const iss of issues) {
         esc(kind),
         nul(sourceId ?? null),
         // Requests have no source; unmatched bugs still need a display name.
-        !sourceId ? esc(headOf(iss.title).slice(0, 80) || 'Unknown') : 'NULL',
+        !sourceId ? esc(named.slice(0, 80) || 'Unknown') : 'NULL',
         // The address the request form asked for, out of the issue body. It
         // used to be hardcoded NULL here, which is what left every imported
         // request naming a site it could not identify.

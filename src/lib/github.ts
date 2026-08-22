@@ -181,6 +181,52 @@ export function headOf(title: string) {
   return (cut === -1 ? title : title.slice(0, cut)).trim();
 }
 
+/* The three shapes a request title takes around the name of the site.
+   Applied in order — filler, ask, filler — and once each, never in a loop:
+   stripping generic words repeatedly would eat real names ("The Anime Place"
+   becoming "Anime Place"). "new" only counts as filler in front of a filler
+   noun for the same reason, so a site actually called "New Anime Site" keeps
+   its name while a title of "New Source" is recognised as saying nothing.
+
+   Each pattern has to end at whitespace, a separator or the end of the string.
+   Without that, "Request to add New Source/extension for movie" had "New
+   Source" taken out of the middle of a name and became "/extension for
+   movie" — the slash is a word boundary, but it is not the end of a word. */
+const FILLER =
+  /^(?:new\s+)?(?:sources?|extensions?|sites?|websites?)(?:\s+request)?(?:\s+for)?(?=$|[\s:,\-–])[\s:,\-–]*/i;
+const ASK =
+  /^(?:(?:please|pls|plz|kindly)\s+)?(?:requests?(?:ing)?(?:\s+to\s+add)?|add(?:ing)?)(?=$|[\s:,\-–])[\s:,\-–]*/i;
+const THANKS = /[\s,]*\b(?:please|pls|plz|thanks|thank\s+you|thx)\b[.!\s]*$/i;
+
+/**
+ * The site a source request is actually asking for, out of its issue title.
+ *
+ * Requests are titled by hand, so a good few of the 198 say the ask as well as
+ * the name: "Add PirateXplay", "Source request for movie box", "Add LaMovie
+ * please". Both the row's name and its headline are built from this string, and
+ * the headline prefixes "Add" — so those rows read "Add PirateXplay · Add Add
+ * PirateXplay", with the word said twice in one line and the site named once.
+ *
+ * Returns null for anything it cannot improve: a title that was already just a
+ * name ("AnimeFire"), and a title with nothing but the ask in it ("Source
+ * request", "New Source", "Adding source request"). Neither is a failure, and
+ * both mean the same thing to a caller — keep the raw title. The issue in the
+ * second case genuinely does not name a site, and "Unknown" is a worse thing to
+ * print than the words somebody actually wrote.
+ */
+export function requestedName(head: string): string | null {
+  let v = head.trim().replace(/\s+/g, ' ');
+  v = v.replace(FILLER, '');
+  v = v.replace(ASK, '');
+  v = v.replace(FILLER, '');
+  v = v.replace(THANKS, '');
+  v = v.replace(/^[\s:,\-–]+|[\s:,\-–]+$/g, '');
+  // Nothing recognisable as a name: no letters or digits, or a single stray
+  // character left behind by the stripping above.
+  if (norm(v).length < 2) return null;
+  return v === head.trim().replace(/\s+/g, ' ') ? null : v;
+}
+
 const nameIndex = (() => {
   const index = new Map<string, string>();
   for (const s of SOURCES) {
@@ -372,10 +418,14 @@ export function classifyIssue(issue: IssueSnapshot): Classified {
   const m = kind === 'request' ? { how: 'none' as MatchHow } : matchSourceHow(issue.title);
   const sourceId = m.sourceId ?? null;
   const lang = langOf(issue.title, m.sourceId);
+  /* One string behind both the name and the headline, so they cannot disagree.
+     Only a request gets the ask stripped out of it; on every other kind the
+     head is a source name already and requestedName has no business touching
+     it. */
+  const head = headOf(issue.title);
+  const named = (kind === 'request' ? requestedName(head) : null) ?? head;
   const title =
-    kind === 'request'
-      ? `Add ${headOf(issue.title).slice(0, 70) || 'this source'}`
-      : problemOf(issue.title);
+    kind === 'request' ? `Add ${named.slice(0, 70) || 'this source'}` : problemOf(issue.title);
   const cause =
     kind === 'bug' || kind === 'domain' || kind === 'dead' ? causeOf(issue.labels, title) : null;
   const stage = cause ? stageOf(title, cause) : null;
@@ -396,7 +446,7 @@ export function classifyIssue(issue: IssueSnapshot): Classified {
   return {
     how: m.how,
     sourceId,
-    proposedName: sourceId ? null : headOf(issue.title).slice(0, 80) || 'Unknown',
+    proposedName: sourceId ? null : named.slice(0, 80) || 'Unknown',
     /* Requests only, deliberately: `proposed_url` carries the request dedupe
        index, so putting a link from a bug report's body in it would make that
        report collide with an unrelated source request. A domain change has

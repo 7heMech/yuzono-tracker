@@ -11,6 +11,7 @@ import {
   promoteTitle,
   type PromotableReport,
   reportIdFromBody,
+  requestedName,
   sourceLinkFromBody,
   transitionFor,
   type IssueSnapshot,
@@ -75,6 +76,8 @@ export interface SyncResult {
   reflagged: number;
   /** Requests that gained the address their issue always carried. */
   addressed: number;
+  /** Requests whose name stopped repeating the ask. See reconcileRequestNames. */
+  renamed: number;
 }
 
 export async function syncIssues(
@@ -103,6 +106,7 @@ export async function syncIssues(
     announced: 0,
     reflagged: 0,
     addressed: 0,
+    renamed: 0,
   };
 
   /* Read once per pass, not once per issue. A reconcile carries every upstream
@@ -242,8 +246,78 @@ export async function syncIssues(
   }
 
   result.reflagged = await reconcileNsfw(SYNC_ACTOR);
+  result.renamed = await reconcileRequestNames(SYNC_ACTOR);
   result.announced = await drainAnnouncements(opts.origin, cfg);
   return result;
+}
+
+/* --- request names -------------------------------------------------------- */
+
+/**
+ * Takes the ask back out of the names the import read off issue titles, and
+ * returns how many rows moved.
+ *
+ * A request's name and its headline are both built from the issue title, and
+ * the headline prefixes "Add" — so the fifteen titles that say the ask as well
+ * as the site ("Add PirateXplay", "Source request for movie box") produced rows
+ * reading "Add PirateXplay · Add Add PirateXplay". classifyIssue no longer does
+ * that, but the rows it already wrote are in the database and no later pass
+ * touched a name, so they would have stayed wrong forever.
+ *
+ * Two guards, both about not overwriting somebody's words:
+ *
+ *   - Only rows owned by the two synthetic reporters, so a name a person typed
+ *     into /request is never rewritten. Somebody who calls their site "Add
+ *     Braflix" in that form meant something by it; the importer did not.
+ *   - Only when the stored title is still the one derived from the stored name,
+ *     which is how we know nothing has edited it since. Otherwise the name is
+ *     corrected and the title is left exactly as it is.
+ *
+ * The read is every imported request (198 rows, three short columns) rather
+ * than a pile of LIKE patterns approximating the regex in requestedName. The
+ * loop above spends a query per issue on ~470 issues; one query for all of
+ * these is not the cost worth optimising, and a prefilter that disagreed with
+ * the helper would silently skip rows.
+ */
+export async function reconcileRequestNames(actor: Actor): Promise<number> {
+  const rows = await db()
+    .select({ id: reports.id, name: reports.proposedName, title: reports.title })
+    .from(reports)
+    .where(
+      and(
+        eq(reports.kind, 'request'),
+        isNotNull(reports.proposedName),
+        inArray(reports.reporterId, ['0', SYNC_ACTOR.id]),
+      ),
+    );
+
+  let renamed = 0;
+  for (const row of rows) {
+    const name = row.name;
+    if (!name) continue;
+    const cleaned = requestedName(name);
+    if (!cleaned || cleaned === name) continue;
+
+    // The 70/80 split is classifyIssue's, and it has to be reproduced exactly
+    // or a long name looks edited when it is not.
+    const derived = `Add ${name.slice(0, 70)}`;
+    const [moved] = await db()
+      .update(reports)
+      .set({
+        proposedName: cleaned.slice(0, 80),
+        ...(row.title === derived ? { title: `Add ${cleaned.slice(0, 70)}` } : {}),
+        updatedAt: sql`(unixepoch())`,
+      })
+      .where(eq(reports.id, row.id))
+      .returning({ id: reports.id });
+    if (moved) renamed++;
+  }
+
+  /* Audited like the 18+ reconcile, and for the same reason: a report's name
+     changing under someone is exactly what gets asked about later. Silent when
+     nothing moved, which is every pass after the first. */
+  if (renamed > 0) await logAction(actor, 'sync.request-names', null, `${renamed} renamed`);
+  return renamed;
 }
 
 /* --- the 18+ flag --------------------------------------------------------- */

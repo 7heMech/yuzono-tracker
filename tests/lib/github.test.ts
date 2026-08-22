@@ -8,6 +8,7 @@ import {
   promoteTitle,
   promoteUrl,
   reportIdFromBody,
+  requestedName,
   sign,
   sourceLinkFromBody,
   signatureHex,
@@ -384,5 +385,88 @@ describe('sourceLinkFromBody', () => {
     };
     expect(classifyIssue(base).proposedUrl).toBe('https://www.playvids.com');
     expect(classifyIssue({ ...base, labels: [] }).proposedUrl).toBeNull();
+  });
+});
+
+describe('requestedName', () => {
+  /**
+   * Every string below is a real request title from the backlog. The rows they
+   * produced read "Add PirateXplay · Add Add PirateXplay", because the name and
+   * the headline are built from the same string and the headline prefixes the
+   * verb the title already had in it.
+   */
+  test('takes the ask off the front', () => {
+    expect(requestedName('Add PirateXplay')).toBe('PirateXplay');
+    expect(requestedName('Add Braflix')).toBe('Braflix');
+    expect(requestedName('Add M.Kissa')).toBe('M.Kissa');
+    expect(requestedName('Add Source Crunchyroll')).toBe('Crunchyroll');
+    expect(requestedName('Please add some hindi source also')).toBe('some hindi source also');
+    expect(requestedName('Source request for movie box, anidb')).toBe('movie box, anidb');
+  });
+
+  test('and the manners off the end', () => {
+    expect(requestedName('Add LaMovie please')).toBe('LaMovie');
+    expect(requestedName('Add LaMovie, thanks!')).toBe('LaMovie');
+  });
+
+  test('null when the title is already just a name', () => {
+    // The caller keeps the raw title for null, so these rows are untouched.
+    expect(requestedName('AnimeFire')).toBeNull();
+    expect(requestedName('The Anime Place')).toBeNull();
+    // "add" and "new" inside a word, and in front of one they are not filler
+    // for: three real names that must survive.
+    expect(requestedName('Addic7ed')).toBeNull();
+    expect(requestedName('Adventure Time')).toBeNull();
+    expect(requestedName('New Anime Site')).toBeNull();
+  });
+
+  test('null when the title names no site at all', () => {
+    expect(requestedName('Source request')).toBeNull();
+    expect(requestedName('source request')).toBeNull();
+    expect(requestedName('New Source')).toBeNull();
+    expect(requestedName('Adding source request')).toBeNull();
+    expect(requestedName('')).toBeNull();
+  });
+
+  test('a stripped phrase must end at a word, not mid-name', () => {
+    // "New Source" is filler, but not when it is the first half of
+    // "New Source/extension" — the slash is a word boundary and not a word end.
+    expect(requestedName('Request to add New Source/extension for movie')).toBe(
+      'New Source/extension for movie',
+    );
+  });
+
+  test('the name and the headline are built from one string', () => {
+    const issue: IssueSnapshot = {
+      number: 187,
+      title: 'Add PirateXplay',
+      state: 'open',
+      stateReason: null,
+      body: null,
+      labels: ['Source request'],
+      createdAt: 0,
+      updatedAt: 0,
+      reactions: 0,
+    };
+    const c = classifyIssue(issue);
+    expect(c.proposedName).toBe('PirateXplay');
+    expect(c.title).toBe('Add PirateXplay');
+  });
+
+  test('a bug title is left alone, ask words and all', () => {
+    // requestedName only runs for requests: on every other kind the head is a
+    // source name already, and "Addic7ed: Error 404" must not lose its source.
+    const issue: IssueSnapshot = {
+      number: 1,
+      title: 'Addic7ed [EN]: Error 404 (Search)',
+      state: 'open',
+      stateReason: null,
+      body: null,
+      labels: [],
+      createdAt: 0,
+      updatedAt: 0,
+      reactions: 0,
+    };
+    expect(classifyIssue(issue).proposedName).toBe('Addic7ed');
   });
 });
