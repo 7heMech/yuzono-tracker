@@ -16,13 +16,22 @@ import { hostOf, sameHost } from './host';
  * the client bundle, and is testable on its own — see tests/lib/requests.ts.
  */
 
-/** The two columns the rule reads, whatever else the caller's row carries. */
+/** The columns the rules read, whatever else the caller's row carries. */
 export interface OpenRequest {
   id: number;
   /** `proposed_name`, or the display name in the client payload. */
   name: string | null;
   /** `proposed_url`, or the bare host in the client payload. */
   url: string | null;
+  /**
+   * Anything else worth matching a query against, searched but never compared.
+   *
+   * A feature request has no address; what identifies it is the ask itself
+   * ("Import library from Anime List"), so the board's search box passes it
+   * here. duplicateOf deliberately ignores it: two people asking for the same
+   * *site* is one request, but two asks about one source are two asks.
+   */
+  text?: string | null;
 }
 
 /**
@@ -56,10 +65,12 @@ export function duplicateOf<T extends OpenRequest>(
 /**
  * Open requests worth showing while someone types, nearest first.
  *
- * Both fields are searched from both fields: a name query is tried against
- * stored names *and* stored hosts (typing "animefire" finds a request stored
- * under a different display name), and a typed address is tried the same way.
- * Prefix matches rank above substring matches, as in the source finder.
+ * Every field is searched from every field: a name query is tried against
+ * stored names, stored hosts *and* the `text` a caller supplies (typing
+ * "animefire" finds a request stored under a different display name; typing
+ * "library" finds the feature that asks for one), and a typed address is tried
+ * the same way. Prefix matches rank above substring matches, as in the source
+ * finder.
  *
  * Two characters is the floor. Below that every request in the table matches
  * and the panel is noise.
@@ -76,7 +87,7 @@ export function suggestRequests<T extends OpenRequest>(
   const starts: T[] = [];
   const contains: T[] = [];
   for (const r of open) {
-    const fields = [normName(r.name ?? ''), normName(r.url ?? '')];
+    const fields = [normName(r.name ?? ''), normName(r.url ?? ''), normName(r.text ?? '')];
     if (needles.some((n) => fields.some((f) => f.startsWith(n)))) starts.push(r);
     else if (needles.some((n) => fields.some((f) => f.includes(n)))) contains.push(r);
     if (starts.length >= limit) break;

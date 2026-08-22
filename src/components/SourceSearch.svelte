@@ -115,7 +115,7 @@
   <div class="empty">
     <p class="empty-title">No source matches "{q}"</p>
     <p>It may not be in this repo yet. You can request it.</p>
-    <a class="btn btn-primary" href="/request">Request a source</a>
+    <a class="btn btn-primary" href="/request">Make a request</a>
   </div>
 {/if}
 

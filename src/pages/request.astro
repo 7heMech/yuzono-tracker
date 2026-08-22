@@ -1,12 +1,13 @@
 ---
 import Base from '../layouts/Base.astro';
 import RequestFinder from '../components/RequestFinder.svelte';
+import FeatureAsk from '../components/FeatureAsk.svelte';
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '../lib/db/client';
 import { OPEN_STATUSES, reports } from '../lib/db/schema';
 import { canWriteNow, currentUser } from '../lib/auth';
 import { ensureVote } from '../lib/vote';
-import { languageFacets } from '../lib/sources';
+import { getSource, langLabel, languageFacets, SOURCES } from '../lib/sources';
 import { normaliseUrl } from '../lib/problems';
 import { duplicateOf } from '../lib/requests';
 import { FILING_COOLDOWN_MESSAGE, isReportId, overFilingLimit } from '../lib/writes';
@@ -15,18 +16,29 @@ import { announceFiled } from '../lib/webhook';
 export const prerender = false;
 
 /**
- * Asking for a source that does not exist yet.
+ * Asking for something. Two paths, one page.
  *
- * Separate from /new because none of that page applies: there is no extension
- * to be out of date, no failure stage, and nothing to pick from the catalogue.
- * Requests are 58% of the open backlog, so this is a first-class flow rather
- * than a mode of the report form.
+ *   source — a site that is not in the catalogue yet, which is 198 of the open
+ *            backlog and was all this page did.
+ *   change — something on a source that already exists: "import my library
+ *            from AniList", "add another server". 21 of those are on the board
+ *            already and every one of them arrived through the GitHub import,
+ *            because until now the site had no way to file one. /new cannot
+ *            take them: it demands an app version and an extension version and
+ *            refuses a stale extension, and none of that means anything for a
+ *            feature.
+ *
+ * Both paths land on the requests board, which is why they share a page rather
+ * than being two. The mode is a query parameter so each is a link somebody can
+ * send, and so the chooser works with JavaScript off.
  */
 
 const user = await currentUser(Astro);
 const langs = languageFacets();
 
 type Draft = { name: string; url: string; lang: string; nsfw: boolean };
+/** The change path's draft, kept under its own key so the two never collide. */
+type ChangeDraft = { sourceId: string; title: string; detail: string };
 
 let error: string | null = null;
 let resumed = false;
@@ -36,8 +48,28 @@ let url = '';
 let lang = '';
 let nsfw = false;
 
+/* The change path's fields. */
+let sourceId = '';
+let askTitle = '';
+let detail = '';
+
+let postedMode = '';
+
+/** Which path is on screen. The form posts back to the same URL, so this
+    survives a submit; the hidden field below is the belt to that braces. */
+const wantsChange = () =>
+  Astro.url.searchParams.get('for') === 'change' ||
+  (Astro.request.method === 'POST' && postedMode === 'change');
+
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
+  postedMode = String(form.get('mode') ?? '').trim().slice(0, 8);
+  sourceId = String(form.get('source') ?? '').trim().slice(0, 32);
+  // Raw title kept uncapped for validation so a 200-char pasted value is
+  // refused rather than silently stored as its first 120 characters.
+  const rawTitle = String(form.get('title') ?? '').trim();
+  askTitle = rawTitle.slice(0, 120);
+  detail = String(form.get('detail') ?? '').trim().slice(0, 2000);
   name = String(form.get('name') ?? '').trim().slice(0, 80);
   url = String(form.get('url') ?? '').trim().slice(0, 200);
   // Capped like the other two, and capped *here* rather than at validation:
@@ -53,10 +85,10 @@ if (Astro.request.method === 'POST') {
      any validation because none of it applies: joining needs no language, no
      address and no name — only a request that is still open.
 
-     The id is not trusted. It is re-read here as an open request of kind
-     `request`, which is both an authorisation check (nothing else on the board
-     can be joined through this form) and what makes the anonymous branch below
-     safe to remember. */
+     The id is not trusted. It is re-read here as an open row of one of the two
+     kinds this page files, which is both an authorisation check (nothing else
+     on the board can be joined through this form) and what makes the anonymous
+     branch below safe to remember. */
   const joinId = Number(form.get('join') ?? 0);
   if (isReportId(joinId)) {
     const [target] = await db()
@@ -65,7 +97,7 @@ if (Astro.request.method === 'POST') {
       .where(
         and(
           eq(reports.id, joinId),
-          eq(reports.kind, 'request'),
+          inArray(reports.kind, ['request', 'feature']),
           inArray(reports.status, [...OPEN_STATUSES]),
         ),
       );
@@ -91,70 +123,55 @@ if (Astro.request.method === 'POST') {
        through and treat it as an ordinary filing rather than explaining that. */
   }
 
-  if (!user) {
-    Astro.session?.set('pending_request', { name, url, lang, nsfw } satisfies Draft);
-    return Astro.redirect('/auth/discord?next=/request', 302);
-  }
-  // Re-derived on every write instead of trusted from the session: see
-  // canWriteNow in lib/auth.
-  if (!(await canWriteNow(user))) return Astro.redirect('/cant-post', 302);
-
-  const link = normaliseUrl(url);
-
-  if (name.length < 2) {
-    error = "What's the site called?";
-  } else if (!link) {
-    error = url.trim()
-      ? "That doesn't look like a web address. Paste the full link, e.g. https://example.com"
-      : 'Add the address. A request without a link cannot be built from.';
-  } else if (!lang) {
-    error = 'Pick the language the site is in.';
-  } else if (!langs.some((l) => l.code === lang)) {
-    // The select only offers the catalogue's languages, so anything else was
-    // not typed by a person using this form. It was stored unchecked and then
-    // rendered on /requests as if it were a language.
-    error = 'Pick the language from the list.';
-  } else {
-    const d = db();
-    // Small table (~130 open requests), so match in memory: same link *or* the
-    // same name, because the point is that filing again upvotes rather than
-    // duplicating, and people reach the same site by different URLs.
-    const open = await d
-      .select({ id: reports.id, name: reports.proposedName, url: reports.proposedUrl })
-      .from(reports)
-      .where(and(eq(reports.kind, 'request'), inArray(reports.status, [...OPEN_STATUSES])));
-
-    /* One rule, two surfaces: duplicateOf in lib/requests is what the form's
-       type-ahead warns with as well, so the panel cannot promise a merge the
-       server then declines to make. Hosts compared for equality, never
-       containment — see hostOf for what the substring test let through. */
-    const existing = duplicateOf(open, name, link);
-
-    if (existing) {
-      // Joining an existing request is a vote, so it is deliberately outside
-      // the cooldown below: being asked to wait before agreeing with someone
-      // would be the one thing this board most wants people to do.
-      await ensureVote(existing.id, user.id);
-      return Astro.redirect(`/report/${existing.id}?joined=1`, 303);
+  if (wantsChange()) {
+    /* --- a change to a source that already exists ------------------------ */
+    if (!user) {
+      // Preserve the raw title so an over-length paste still fails validation
+      // after the OAuth round trip, rather than being silently truncated to 120.
+      Astro.session?.set(
+        'pending_change',
+        { sourceId, title: rawTitle.slice(0, 500), detail } satisfies ChangeDraft,
+      );
+      return Astro.redirect('/auth/discord?next=/request%3Ffor%3Dchange', 302);
     }
+    if (!(await canWriteNow(user))) return Astro.redirect('/cant-post', 302);
 
-    if (await overFilingLimit(user.id)) {
+    // The catalogue is the authority for the source, exactly as on /new: an id
+    // that is not in it is not a source, whatever the form said.
+    const source = getSource(sourceId);
+
+    if (!source) {
+      error = 'Pick which source this is about first.';
+    } else if (askTitle.length < 6) {
+      error = "Say what you want in a sentence. \"Add login\" is enough; a word is not.";
+    } else if (rawTitle.length > 120) {
+      error = 'Keep it to one sentence — 120 characters at most.';
+    } else if (await overFilingLimit(user.id)) {
       error = FILING_COOLDOWN_MESSAGE;
     } else {
-      const [created] = await d
+      const [created] = await db()
         .insert(reports)
         .values({
-          kind: 'request',
-          proposedName: name,
-          proposedUrl: link,
-          lang,
-          nsfw,
-          title: `Add ${name}`,
+          kind: 'feature',
+          sourceId: source.id,
+          // Both denormalised from the catalogue, as /new does it: the board
+          // filters on them, and the catalogue is what answers for a source
+          // that exists. A person is never asked either question here.
+          lang: source.lang,
+          nsfw: source.nsfw,
+          title: askTitle,
+          body: detail || null,
           reporterId: user.id,
-          // No `votes: 1` seed. The counter and the vote row are one fact, and
-          // seeding it here meant ensureVote below found no row of its own,
-          // inserted one and incremented again — so every request was born
-          // claiming two people wanted it and only one had said so.
+          /* `problem` is deliberately left null.
+
+             It is the third column of reports_open_per_source_problem, and
+             problemKeyFor hands a source-bearing non-bug kind 'other' — so
+             writing it would allow exactly one open feature request per source
+             and turn the second person's "add login" into a duplicate of the
+             first person's "import my library". SQLite lets nulls repeat in a
+             unique index, which is what keeps two different asks about one
+             source two rows. The panel on the form is what prevents the real
+             duplicates; see FeatureAsk.svelte. */
         })
         .returning({
           id: reports.id,
@@ -164,7 +181,6 @@ if (Astro.request.method === 'POST') {
           cause: reports.cause,
           sourceId: reports.sourceId,
           proposedName: reports.proposedName,
-          // For the announcement's Address field — see announceFiled.
           proposedUrl: reports.proposedUrl,
           reporterId: reports.reporterId,
         });
@@ -178,27 +194,159 @@ if (Astro.request.method === 'POST') {
         return Astro.redirect(`/report/${created.id}?filed=1`, 303);
       }
     }
+  } else {
+    /* --- a source that is not in the catalogue yet ---------------------- */
+    if (!user) {
+      Astro.session?.set('pending_request', { name, url, lang, nsfw } satisfies Draft);
+      return Astro.redirect('/auth/discord?next=/request', 302);
+    }
+    // Re-derived on every write instead of trusted from the session: see
+    // canWriteNow in lib/auth.
+    if (!(await canWriteNow(user))) return Astro.redirect('/cant-post', 302);
+
+    const link = normaliseUrl(url);
+
+    if (name.length < 2) {
+      error = "What's the site called?";
+    } else if (!link) {
+      error = url.trim()
+        ? "That doesn't look like a web address. Paste the full link, e.g. https://example.com"
+        : 'Add the address. A request without a link cannot be built from.';
+    } else if (!lang) {
+      error = 'Pick the language the site is in.';
+    } else if (!langs.some((l) => l.code === lang)) {
+      // The select only offers the catalogue's languages, so anything else was
+      // not typed by a person using this form. It was stored unchecked and then
+      // rendered on /requests as if it were a language.
+      error = 'Pick the language from the list.';
+    } else {
+      const d = db();
+      // Small table (~130 open requests), so match in memory: same link *or* the
+      // same name, because the point is that filing again upvotes rather than
+      // duplicating, and people reach the same site by different URLs.
+      const open = await d
+        .select({ id: reports.id, name: reports.proposedName, url: reports.proposedUrl })
+        .from(reports)
+        .where(and(eq(reports.kind, 'request'), inArray(reports.status, [...OPEN_STATUSES])));
+
+      /* One rule, two surfaces: duplicateOf in lib/requests is what the form's
+         type-ahead warns with as well, so the panel cannot promise a merge the
+         server then declines to make. Hosts compared for equality, never
+         containment — see hostOf for what the substring test let through. */
+      const existing = duplicateOf(open, name, link);
+
+      if (existing) {
+        // Joining an existing request is a vote, so it is deliberately outside
+        // the cooldown below: being asked to wait before agreeing with someone
+        // would be the one thing this board most wants people to do.
+        await ensureVote(existing.id, user.id);
+        return Astro.redirect(`/report/${existing.id}?joined=1`, 303);
+      }
+
+      if (await overFilingLimit(user.id)) {
+        error = FILING_COOLDOWN_MESSAGE;
+      } else {
+        const [created] = await d
+          .insert(reports)
+          .values({
+            kind: 'request',
+            proposedName: name,
+            proposedUrl: link,
+            lang,
+            nsfw,
+            title: `Add ${name}`,
+            reporterId: user.id,
+            // No `votes: 1` seed. The counter and the vote row are one fact, and
+            // seeding it here meant ensureVote below found no row of its own,
+            // inserted one and incremented again — so every request was born
+            // claiming two people wanted it and only one had said so.
+          })
+          .returning({
+            id: reports.id,
+            kind: reports.kind,
+            title: reports.title,
+            stage: reports.stage,
+            cause: reports.cause,
+            sourceId: reports.sourceId,
+            proposedName: reports.proposedName,
+            // For the announcement's Address field — see announceFiled.
+            proposedUrl: reports.proposedUrl,
+            reporterId: reports.reporterId,
+          });
+
+        if (created) {
+          await ensureVote(created.id, user.id);
+          const after: Promise<unknown>[] = [announceFiled(created, Astro.url.origin)];
+          const cf = Astro.locals.cfContext;
+          if (cf) for (const task of after) cf.waitUntil(task);
+          else await Promise.all(after);
+          return Astro.redirect(`/report/${created.id}?filed=1`, 303);
+        }
+      }
+    }
   }
 }
 
 if (Astro.request.method === 'GET') {
-  const draft = (await Astro.session?.get('pending_request')) as Draft | undefined;
-  if (draft) {
-    Astro.session?.delete('pending_request');
-    resumed = true;
-    ({ name, url, lang, nsfw } = draft);
+  if (wantsChange()) {
+    const draft = (await Astro.session?.get('pending_change')) as ChangeDraft | undefined;
+    if (draft) {
+      Astro.session?.delete('pending_change');
+      resumed = true;
+      ({ sourceId, title: askTitle, detail } = draft);
+    }
   } else {
-    name = Astro.url.searchParams.get('name')?.trim().slice(0, 80) ?? '';
+    const draft = (await Astro.session?.get('pending_request')) as Draft | undefined;
+    if (draft) {
+      Astro.session?.delete('pending_request');
+      resumed = true;
+      ({ name, url, lang, nsfw } = draft);
+    } else {
+      name = Astro.url.searchParams.get('name')?.trim().slice(0, 80) ?? '';
+    }
   }
 }
+
+const change = wantsChange();
+
+/* Trimmed to what the picker reads, as on /new: the whole catalogue as island
+   props would be 8.4 KB gzipped on a page most people reach for the other
+   path. */
+const pickerRows = SOURCES.map((s) => ({
+  id: s.id,
+  name: s.name,
+  lang: s.lang,
+  nsfw: s.nsfw,
+  extName: s.extName,
+  extVersion: s.extVersion,
+}));
+const pickerLangs = Object.fromEntries(
+  [...new Set(SOURCES.map((s) => s.lang))].map((code) => [code, langLabel(code)]),
+);
+const picked = sourceId ? getSource(sourceId) : undefined;
 ---
 
-<Base title="Request a source" narrow>
-  <h1>Request a source</h1>
+<Base title="Make a request" narrow>
+  <h1>Make a request</h1>
   <p class="lede">
-    Name, address, language. If someone already asked for this site you'll be
-    added to their request instead of making a second one.
+    {
+      change
+        ? "Something the extension should do that it doesn't. Pick the source, say what you want."
+        : "A site that isn't in the list yet. Name, address, language."
+    }
   </p>
+
+  {/* Two links, not a control: each path is a page somebody can send, and the
+      chooser works with JavaScript off. aria-current says which one you are on
+      without relying on the colour to carry it. */}
+  <nav class="modes" aria-label="What are you asking for?">
+    <a class="chip" href="/request" aria-current={change ? undefined : 'page'}>
+      A source that isn't listed
+    </a>
+    <a class="chip" href="/request?for=change" aria-current={change ? 'page' : undefined}>
+      A change to one that is
+    </a>
+  </nav>
 
   {
     !user && (
@@ -209,6 +357,10 @@ if (Astro.request.method === 'GET') {
   }
 
   <form method="POST" class="flow">
+    {/* The mode the server acts on. The form posts back to this same URL, so the
+        query string would answer too, but only this survives a changed action. */}
+    <input type="hidden" name="mode" value={change ? 'change' : 'source'} />
+
     {
       resumed && !error && (
         <p class="note" role="status">Welcome back. Your request is still here. Send it.</p>
@@ -216,43 +368,104 @@ if (Astro.request.method === 'GET') {
     }
     {error && <p class="error" role="alert">{error}</p>}
 
-    {/* Name and address, and — once they say something recognisable — the open
-        requests that look like the same site, each with a button that joins it.
-        client:load because the whole value is in answering before the form is
-        sent; with JavaScript off these are two plain fields and the server
-        still merges a duplicate on submit. */}
-    <RequestFinder name={name} url={url} client:load />
+    {
+      change ? (
+        <>
+          {/* The source, and every open ask already filed against it once one is
+              picked. client:load because the panel is the only thing standing
+              between two people and a duplicate — the index cannot do it here,
+              see the insert above. */}
+          <FeatureAsk
+            sources={pickerRows}
+            langLabels={pickerLangs}
+            selectedId={sourceId}
+            selectedName={picked?.name ?? ''}
+            client:load
+          />
 
-    <div class="field">
-      <label class="label" for="lang">Language</label>
-      <select class="select" id="lang" name="lang" required>
-        <option value="" disabled selected={!lang}>Pick one…</option>
-        {
-          langs.map((l) => (
-            <option value={l.code} selected={l.code === lang}>
-              {l.label}
-            </option>
-          ))
-        }
-      </select>
-      <p class="field-hint">
-        The language the site is in. It's the main filter on the requests board.
-      </p>
-    </div>
+          <div class="field">
+            <label class="label" for="title">What should it do?</label>
+            <input
+              class="input"
+              id="title"
+              name="title"
+              value={askTitle}
+              placeholder="e.g. Import my library from AniList"
+              autocomplete="off"
+              minlength="6"
+              maxlength="120"
+              required
+            />
+            <p class="field-hint">
+              One sentence. This is the line the board shows, so it is worth
+              being specific.
+            </p>
+          </div>
 
-    <label class="check">
-      <input type="checkbox" name="nsfw" value="1" checked={nsfw} />
-      <span>It's an 18+ site</span>
-    </label>
+          <div class="field">
+            <label class="label" for="detail">Anything else worth knowing?</label>
+            <textarea class="textarea" id="detail" name="detail" rows="3"
+              placeholder="Optional. Where it should appear, what you'd expect to happen, anything you've tried."
+              >{detail}</textarea>
+          </div>
 
-    <div>
-      <button class="btn btn-primary btn-lg" type="submit">Send request</button>
-    </div>
+          <div>
+            {/* Said in words, and revealed by the island — a dimmed button with
+                no reason beside it leaves the reason to be guessed, which is the
+                same call /new makes with its problem cards. Hidden until the
+                island confirms no source is picked, so with JavaScript off the
+                button stays live and the server does the refusing. */}
+            <p class="needs-source" role="status">Pick the source first.</p>
+            {/* data-gate: FeatureAsk disables this until a source is picked, so
+                an anonymous visitor cannot spend a Discord round trip on a
+                submission the server was always going to refuse. */}
+            <button class="btn btn-primary btn-lg" type="submit" data-gate="source">
+              Send request
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Name and address, and — once they say something recognisable — the
+              open requests that look like the same site, each with a button that
+              joins it. client:load because the whole value is in answering
+              before the form is sent; with JavaScript off these are two plain
+              fields and the server still merges a duplicate on submit. */}
+          <RequestFinder name={name} url={url} client:load />
+
+          <div class="field">
+            <label class="label" for="lang">Language</label>
+            <select class="select" id="lang" name="lang" required>
+              <option value="" disabled selected={!lang}>Pick one…</option>
+              {
+                langs.map((l) => (
+                  <option value={l.code} selected={l.code === lang}>
+                    {l.label}
+                  </option>
+                ))
+              }
+            </select>
+            <p class="field-hint">
+              The language the site is in. It's the main filter on the requests board.
+            </p>
+          </div>
+
+          <label class="check">
+            <input type="checkbox" name="nsfw" value="1" checked={nsfw} />
+            <span>It's an 18+ site</span>
+          </label>
+
+          <div>
+            <button class="btn btn-primary btn-lg" type="submit">Send request</button>
+          </div>
+        </>
+      )
+    }
   </form>
 
   <p class="foot-note">
-    Requests are ranked by how many people ask for the same site, so voting on an
-    existing one counts for as much as filing a new one.
+    Requests are ranked by how many people ask for the same thing, so voting on
+    an existing one counts for as much as filing a new one.
   </p>
 </Base>
 
@@ -261,9 +474,31 @@ if (Astro.request.method === 'GET') {
   .lede {
     max-inline-size: 56ch;
     color: var(--text-tertiary);
-    margin-block: var(--space-1) var(--space-6);
+    margin-block: var(--space-1) var(--space-4);
+  }
+  /* The segmented shape the filter bar uses, built out of links. */
+  .modes {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    margin-block-end: var(--space-6);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+  }
+  .modes .chip { border-color: transparent; }
+  .modes .chip[aria-current='page'] {
+    background: var(--signal-fill);
+    border-color: var(--signal-dim);
+    color: var(--signal-ink);
+    font-weight: var(--weight-medium);
+  }
+  @media (max-width: 560px) {
+    /* Two lines of label at 390px, so let each take the height it needs rather
+       than truncating the words that say what the choice is. */
+    .modes .chip { flex: 1; text-align: center; block-size: auto; padding-block: var(--space-2); }
   }
   .note {
+    margin-block-end: var(--space-4);
     padding: var(--space-2) var(--space-3);
     border: 1px solid var(--border-default);
     border-inline-start: 2px solid var(--signal);
@@ -272,6 +507,15 @@ if (Astro.request.method === 'GET') {
     color: var(--text-secondary);
   }
   .flow { display: flex; flex-direction: column; gap: var(--space-5); }
+  .flow .note { margin-block-end: 0; }
+  /* Same mechanism as the problem cards on /new: the island reveals it. */
+  .needs-source {
+    display: none;
+    margin-block-end: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+  .flow[data-needs-source] .needs-source { display: block; }
   .flow .field + .field { margin-block-start: 0; }
   .error {
     padding: var(--space-3);

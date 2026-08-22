@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import FilterBar from '../components/FilterBar.astro';
+import RequestSearch from '../components/RequestSearch.svelte';
 import ReportRow from '../components/ReportRow.astro';
 import { currentUser } from '../lib/auth';
 import {
@@ -78,10 +79,10 @@ Astro.response.headers.set(
 );
 ---
 
-<Base title="Requested sources">
+<Base title={state === 'fixed' ? 'Requests that got built' : 'Requests'}>
   <header class="head">
     <div>
-      <h1>{state === 'fixed' ? 'Sources that got added' : 'Requested sources'}</h1>
+      <h1>{state === 'fixed' ? 'Requests that got built' : 'Requests'}</h1>
       <p class="sub">
         {state === 'fixed' ? (
           <>
@@ -90,28 +91,28 @@ Astro.response.headers.set(
           </>
         ) : (
           <>
-            Sources people want added, ranked by demand. This is the larger half
-            of the backlog, {counts.wanted} open requests against {counts.broken}{' '}
-            broken sources, so votes here decide what gets built next.
+            Sources people want added, and changes they want to sources that
+            already exist, ranked by demand. This is the larger half of the
+            backlog, {counts.wanted} open against {counts.broken} broken sources,
+            so votes here decide what gets built next.
           </>
         )}
       </p>
     </div>
   </header>
 
-  {/* The one thing this board is for that the board cannot do itself.
-      Filing a request used to be reachable only by typing a name the catalogue
-      does not have into the finder on the home page — so the page that lists
-      every request never offered to take another, and half the people who got
-      here by tapping "Requests" had no way on. Same shape and same place as the
-      finder block on /, so the two boards offer their action in the same spot. */}
+  {/* The same block the broken board opens with, over this board's own
+      contents: the first question anyone arrives with is whether the thing they
+      want is already here, and the answer to "no" is the link beside it. This
+      was a full-width primary button, which had to shout because it was the
+      only way on to /request at all. */}
   {
     state === 'open' && (
-      <section class="ask">
-        <a class="btn btn-primary btn-lg" href="/request">Request a source</a>
-        <p class="ask-hint">
-          Name, address, language. If someone has already asked for the same site
-          you'll be added to their request instead of making a second one.
+      <section class="finder-block">
+        <RequestSearch client:load />
+        <p class="finder-hint">
+          Don't find the extension or the feature you want?{' '}
+          <a href="/request">Make a request</a>.
         </p>
       </section>
     )
@@ -136,7 +137,7 @@ Astro.response.headers.set(
         {state === 'fixed' ? (
           <a class="btn" href="/requests">See what people are asking for</a>
         ) : (
-          <a class="btn btn-primary" href="/request">Request a source</a>
+          <a class="btn btn-primary" href="/request">Make a request</a>
         )}
       </div>
     ) : (
@@ -188,21 +189,26 @@ Astro.response.headers.set(
     color: var(--text-tertiary);
   }
 
-  /* Mirrors .finder-block on the broken board: the action on the left, one line
-     saying what it costs beside it. */
-  .ask {
+  /* Verbatim from the broken board, so the two are one design and not two that
+     resemble each other. */
+  .finder-block {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: var(--space-4);
     flex-wrap: wrap;
     padding-block: var(--space-5) var(--space-1);
   }
-  .ask-hint {
-    flex: 1;
-    min-inline-size: 18rem;
-    max-inline-size: 46ch;
+  .finder-block :global(.finder) { flex: 1; min-inline-size: 18rem; max-inline-size: 30rem; }
+  .finder-hint {
+    flex: 1 1 20rem;
     font-size: var(--text-sm);
     color: var(--text-tertiary);
+    padding-block-end: var(--space-2);
+  }
+  .finder-hint a {
+    color: var(--signal-ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   /* --- pager --- */
@@ -228,10 +234,9 @@ Astro.response.headers.set(
        width: at 390px a right-aligned "Next 60" is a thumb-stretch. */
     .pager { flex-direction: column; align-items: stretch; }
     .pager-links .btn { flex: 1; }
-    /* The button spans the width and the line sits under it, because at 390px
-       the two side by side leave the button too narrow to read as the action. */
-    .ask { flex-direction: column; align-items: stretch; gap: var(--space-2); }
-    .ask .btn { justify-content: center; }
-    .ask-hint { min-inline-size: 0; max-inline-size: none; }
+    /* The box takes the width and the line sits under it: at 390px the two
+       side by side leave neither enough room to read. */
+    .finder-block { flex-direction: column; align-items: stretch; gap: var(--space-2); }
+    .finder-hint { min-inline-size: 0; max-inline-size: none; padding-block-end: 0; }
   }
 </style>
