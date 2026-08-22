@@ -85,6 +85,20 @@ Astro.response.headers.set(
     </div>
   </header>
 
+  {/* The one thing this board is for that the board cannot do itself.
+      Filing a request used to be reachable only by typing a name the catalogue
+      does not have into the finder on the home page — so the page that lists
+      every request never offered to take another, and half the people who got
+      here by tapping "Requests" had no way on. Same shape and same place as the
+      finder block on /, so the two boards offer their action in the same spot. */}
+  <section class="ask">
+    <a class="btn btn-primary btn-lg" href="/request">Request a source</a>
+    <p class="ask-hint">
+      Name, address, language. If someone has already asked for the same site
+      you'll be added to their request instead of making a second one.
+    </p>
+  </section>
+
   <FilterBar family="wanted" lang={lang} nsfw={nsfw} sort={sort} />
 
   {
@@ -141,6 +155,23 @@ Astro.response.headers.set(
     color: var(--text-tertiary);
   }
 
+  /* Mirrors .finder-block on the broken board: the action on the left, one line
+     saying what it costs beside it. */
+  .ask {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    padding-block: var(--space-5) var(--space-1);
+  }
+  .ask-hint {
+    flex: 1;
+    min-inline-size: 18rem;
+    max-inline-size: 46ch;
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+  }
+
   /* --- pager --- */
   .pager {
     display: flex;
@@ -164,5 +195,10 @@ Astro.response.headers.set(
        width: at 390px a right-aligned "Next 60" is a thumb-stretch. */
     .pager { flex-direction: column; align-items: stretch; }
     .pager-links .btn { flex: 1; }
+    /* The button spans the width and the line sits under it, because at 390px
+       the two side by side leave the button too narrow to read as the action. */
+    .ask { flex-direction: column; align-items: stretch; gap: var(--space-2); }
+    .ask .btn { justify-content: center; }
+    .ask-hint { min-inline-size: 0; max-inline-size: none; }
   }
 </style>

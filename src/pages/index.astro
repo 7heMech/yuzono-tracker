@@ -119,9 +119,15 @@ Astro.response.headers.set(
 
   <section class="finder-block">
     <SourceFinder client:load />
+    {/* Both actions, not just the one this board collects. Reporting was the
+        only thing the home page offered in words; asking for a source that does
+        not exist yet was reachable only by searching for it here and reading the
+        "not in this repo" line, which nobody sees who does not search first.
+        Requests are the larger half of the backlog. */}
     <p class="finder-hint">
       Or <a href="/new">report a problem</a>. Under a minute, once you know
-      your app and extension versions.
+      your app and extension versions. Not in the list at all?{' '}
+      <a href="/request">Request a source</a>.
     </p>
   </section>
 
