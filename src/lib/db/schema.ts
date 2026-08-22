@@ -208,6 +208,11 @@ export const reports = sqliteTable(
       .on(t.proposedUrl)
       .where(sql`status IN ('open', 'confirmed', 'in_progress') AND proposed_url IS NOT NULL`),
 
+    /** One open feature per source per title. Prevents duplicate asks splitting votes. */
+    uniqueIndex('reports_open_feature_per_source_title')
+      .on(t.sourceId, t.title)
+      .where(sql`kind = 'feature' AND status IN ('open', 'confirmed', 'in_progress')`),
+
     /**
      * Column order is the board's query, in order: both boards filter
      * `status IN (...)` and (unless NSFW is on) `nsfw = 0`, then sort by votes

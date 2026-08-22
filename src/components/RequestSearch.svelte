@@ -110,6 +110,7 @@
       aria-expanded={panel}
       aria-controls="request-results"
       aria-autocomplete="list"
+      aria-activedescendant={panel && hits.length ? `request-result-${active}` : undefined}
     />
   </div>
 
@@ -128,8 +129,16 @@
         </li>
       {:else if hits.length}
         {#each hits as r, i (r.id)}
-          <li role="option" aria-selected={i === active}>
-            <button type="button" class="hit" class:active={i === active} onclick={() => go(r)}>
+          <li role="presentation">
+            <button
+              type="button"
+              role="option"
+              id={`request-result-${i}`}
+              aria-selected={i === active}
+              class="hit"
+              class:active={i === active}
+              onclick={() => go(r)}
+            >
               <span class="hit-name">
                 <b>{r.name}</b>
                 {#if detailOf(r)}<span class="hit-detail">{detailOf(r)}</span>{/if}

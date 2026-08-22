@@ -1,6 +1,6 @@
 import { CAUSES, KINDS, STAGES, STATUSES } from './db/schema';
 import { normaliseUrl, problemKeyFor, type ProblemKey } from './problems';
-import { SOURCES } from './sources';
+import { langLabel, SOURCES } from './sources';
 import { reportHeadline } from './format';
 
 /**
@@ -489,6 +489,18 @@ export interface PromotableReport {
   proposedName: string | null;
   stage: Stage | null;
   cause: Cause | null;
+  /** Address for a source request (02) or removal (07). */
+  proposedUrl?: string | null;
+  /** New address for a domain change (03). */
+  newUrl?: string | null;
+  /** Free-form detail from the report form, prefilled into other-details or feature-description. */
+  body?: string | null;
+  /** Whether the reporter marked a request 18+. Mirrored into other-details as `18+/NSFW = yes`. */
+  nsfw?: boolean | null;
+  /** Versions and app for bug/domain reports. */
+  extVersion?: string | null;
+  appName?: string | null;
+  appVersion?: string | null;
 }
 
 /**
@@ -510,17 +522,230 @@ export function promoteTitle(r: PromotableReport): string {
  * submits the form; the next sync pass recognises the new issue and links it,
  * so nobody ever pastes an issue number back by hand.
  *
- * Unknown query parameters are ignored by GitHub's issue forms, so the `body`
- * hint below is safe to send whether or not the template happens to expose a
- * matching field id. It carries the tracker backlink, which is the strong way
- * to recognise the issue later; `promoteTitle` is the fallback when it does not
- * survive into the issue body.
+ * GitHub issue *forms* (YAML) are prefilled via query parameters keyed by the
+ * field `id` — e.g. `?name=AniWaves&link=https://…&language=English` for
+ * `02_request_source.yml`. The generic `body` parameter is for markdown
+ * templates and is ignored by forms, so each kind maps its report columns onto
+ * the ids its template actually exposes. The tracker backlink is written into
+ * `other-details` (present on every template) so it survives into the rendered
+ * issue body where `reportIdFromBody` can find it; `body` is kept as well for
+ * the fallback path and for older templates. `promoteTitle` remains the
+ * fallback when the backlink does not survive.
  */
 export function promoteUrl(r: PromotableReport, repo: string, origin: string): string {
   const u = new URL(`https://github.com/${repo}/issues/new`);
   u.searchParams.set('template', TEMPLATES[r.kind]);
   u.searchParams.set('title', promoteTitle(r));
-  u.searchParams.set('body', `Tracked at ${origin}/report/${r.id}`);
+
+  const backlink = `Tracked at ${origin}/report/${r.id}`;
+  // Keep `body` for the generic fallback; forms ignore unknown params, so this
+  // is harmless when `other-details` is the one that actually shows.
+  u.searchParams.set('body', backlink);
+
+  const source = r.sourceId ? SOURCES.find((s) => s.id === r.sourceId) : undefined;
+  const sourceName = source?.name ?? r.proposedName ?? 'Unknown';
+  const langName = r.lang ? langLabel(r.lang) : '';
+
+  // Shared builder for `other-details` — every template has it. The report's
+  // own `body` (detail field) comes first so a maintainer sees the user's
+  // words before the tracker bookkeeping. 1500 *encoded* chars keeps the whole
+  // URL well under GitHub's ~8192 limit after percent-encoding. The backlink is
+  // always kept; a very long body is truncated to make room for it rather than
+  // pushing it out, because `reportIdFromBody` needs it to link the issue back.
+  // LIMIT is a budget on encodeURIComponent(...) length, not UTF-16 code units,
+  // so non-ASCII (e.g. 9 bytes per CJK char after encoding) cannot overflow the URL.
+  const LIMIT = 1500;
+  const fitEncoded = (s: string, budget: number) => {
+    let out = s;
+    while (out.length > 0) {
+      let encLen: number;
+      try {
+        encLen = encodeURIComponent(out).length;
+      } catch {
+        // Slice landed inside a surrogate pair — drop the dangling high surrogate.
+        out = out.slice(0, -1);
+        continue;
+      }
+      if (encLen <= budget) break;
+      let nextLen = Math.max(0, Math.floor(out.length * 0.9) - 1);
+      // Avoid splitting a surrogate pair (emoji) which would throw on encode.
+      if (nextLen > 0 && nextLen < out.length) {
+        const prev = out.charCodeAt(nextLen - 1);
+        const next = out.charCodeAt(nextLen);
+        if (prev >= 0xd800 && prev <= 0xdbff && next >= 0xdc00 && next <= 0xdfff) nextLen -= 1;
+      }
+      // Ensure progress even when 0.9 rounding stalls on tiny strings.
+      if (nextLen >= out.length) nextLen = out.length - 1;
+      out = out.slice(0, nextLen);
+    }
+    return out;
+  };
+  const truncate = (s: string) => fitEncoded(s, LIMIT);
+  const buildOtherDetails = () => {
+    const nsfwPart = r.nsfw ? '18+/NSFW = yes' : '';
+    let bodyPart = r.body ?? '';
+    const sep = '\n\n';
+    const encodedBacklink = encodeURIComponent(backlink).length;
+    const sepLen = encodeURIComponent(sep).length;
+    const nsfwEncoded = nsfwPart ? encodeURIComponent(nsfwPart).length : 0;
+    // Reserve encoded budget for backlink, separators and nsfwPart first.
+    // Body is the only part that can be arbitrarily long, so it shrinks.
+    let bodyBudget = LIMIT - encodedBacklink;
+    if (nsfwPart) bodyBudget -= nsfwEncoded + sepLen;
+    if (bodyPart) bodyBudget -= sepLen;
+    if (bodyPart) {
+      if (bodyBudget <= 0) {
+        bodyPart = '';
+      } else {
+        bodyPart = fitEncoded(bodyPart, bodyBudget);
+        // Re-shrink if rounding left us just over (double-check total).
+        while (
+          bodyPart.length > 0 &&
+          encodeURIComponent(bodyPart).length + sepLen + encodedBacklink + (nsfwPart ? nsfwEncoded + sepLen : 0) > LIMIT
+        ) {
+          bodyPart = fitEncoded(bodyPart, encodeURIComponent(bodyPart).length - 1);
+        }
+      }
+    }
+    const parts: string[] = [];
+    if (bodyPart) parts.push(bodyPart);
+    if (nsfwPart) parts.push(nsfwPart);
+    parts.push(backlink);
+    return parts.join(sep);
+  };
+
+  switch (r.kind) {
+    case 'request': {
+      // 02_request_source.yml: name, link, language, other-details
+      const name = r.proposedName ?? sourceName;
+      if (name && name !== 'Unknown') u.searchParams.set('name', name);
+      if (r.proposedUrl) u.searchParams.set('link', r.proposedUrl);
+      if (langName) u.searchParams.set('language', langName);
+      u.searchParams.set('other-details', buildOtherDetails());
+      break;
+    }
+    case 'bug': {
+      // 01_report_issue.yml: source, language, which-app, app-version, other-details
+      // Source information placeholder is "AnimePahe 14.19 (English)"
+      const ver = r.extVersion || source?.extVersion || '';
+      const srcInfo = ver
+        ? `${sourceName} ${ver} (${langName || r.lang})`
+        : langName
+          ? `${sourceName} (${langName})`
+          : sourceName;
+      u.searchParams.set('source', srcInfo);
+      if (langName) u.searchParams.set('language', langName);
+      if (r.appName) u.searchParams.set('which-app', r.appName);
+      if (r.appVersion) u.searchParams.set('app-version', r.appVersion);
+      u.searchParams.set('other-details', buildOtherDetails());
+      break;
+    }
+    case 'domain': {
+      // 03_report_url_change.yml: source, language, link (new URL), other-details
+      const ver = r.extVersion || source?.extVersion || '';
+      const srcInfo = ver ? `${sourceName} ${ver}` : sourceName;
+      u.searchParams.set('source', srcInfo);
+      if (langName) u.searchParams.set('language', langName);
+      if (r.newUrl) u.searchParams.set('link', r.newUrl);
+      u.searchParams.set('other-details', buildOtherDetails());
+      break;
+    }
+    case 'dead': {
+      // 04_report_dead_source.yml: source (name), language, link, other-details
+      u.searchParams.set('source', sourceName);
+      if (langName) u.searchParams.set('language', langName);
+      const link = r.proposedUrl || source?.baseUrl || r.newUrl || null;
+      if (link) u.searchParams.set('link', link);
+      u.searchParams.set('other-details', buildOtherDetails());
+      break;
+    }
+    case 'feature': {
+      // 05_request_feature.yml: source, language, feature-description, other-details
+      u.searchParams.set('source', sourceName);
+      if (langName) u.searchParams.set('language', langName);
+      // The user's ask lives in `body` (detail) and `title` (one-line headline).
+      // Prefer the longer detail, fall back to the title so the field is never
+      // left empty for a row that genuinely has a description.
+      const feat = r.body?.trim() ? r.body : r.title;
+      if (feat) u.searchParams.set('feature-description', truncate(feat));
+      u.searchParams.set('other-details', backlink);
+      break;
+    }
+    case 'meta': {
+      // 06_request_meta.yml: feature-description, other-details
+      const feat = r.body?.trim() ? r.body : r.title;
+      if (feat) u.searchParams.set('feature-description', truncate(feat));
+      u.searchParams.set('other-details', backlink);
+      break;
+    }
+    case 'removal': {
+      // 07_request_removal.yml: link, other-details
+      const link = r.proposedUrl || source?.baseUrl || r.newUrl || null;
+      if (link) u.searchParams.set('link', link);
+      u.searchParams.set('other-details', buildOtherDetails());
+      break;
+    }
+    default: {
+      const _exhaustive: never = r.kind;
+      void _exhaustive;
+    }
+  }
+
+  const TOTAL_LIMIT = 8000;
+  let guardAttempts = 0;
+  while (u.toString().length > TOTAL_LIMIT && guardAttempts < 7) {
+    guardAttempts++;
+    const od = u.searchParams.get('other-details');
+    if (od && od !== backlink && od.length > backlink.length) {
+      u.searchParams.set('other-details', backlink);
+      continue;
+    }
+    const fd = u.searchParams.get('feature-description');
+    if (fd) {
+      const overflow = u.toString().length - TOTAL_LIMIT;
+      const currentEncoded = encodeURIComponent(fd).length;
+      const newBudget = Math.max(10, currentEncoded - overflow - 50);
+      const trimmed = fitEncoded(fd, newBudget);
+      if (trimmed && trimmed.length < fd.length) u.searchParams.set('feature-description', trimmed);
+      else u.searchParams.delete('feature-description');
+      continue;
+    }
+    const link = u.searchParams.get('link');
+    if (link) {
+      u.searchParams.delete('link');
+      continue;
+    }
+    const nm = u.searchParams.get('name');
+    if (nm) {
+      const overflow = u.toString().length - TOTAL_LIMIT;
+      const currentEncoded = encodeURIComponent(nm).length;
+      const newBudget = Math.max(10, currentEncoded - overflow - 20);
+      const trimmed = fitEncoded(nm, newBudget);
+      if (trimmed && trimmed.length < nm.length) u.searchParams.set('name', trimmed);
+      else u.searchParams.delete('name');
+      continue;
+    }
+    const src = u.searchParams.get('source');
+    if (src) {
+      const overflow = u.toString().length - TOTAL_LIMIT;
+      const currentEncoded = encodeURIComponent(src).length;
+      const newBudget = Math.max(10, currentEncoded - overflow - 20);
+      const trimmed = fitEncoded(src, newBudget);
+      if (trimmed && trimmed.length < src.length) u.searchParams.set('source', trimmed);
+      else u.searchParams.delete('source');
+      continue;
+    }
+    const title = u.searchParams.get('title');
+    if (title && title.length > 30) {
+      const overflow = u.toString().length - TOTAL_LIMIT;
+      const currentEncoded = encodeURIComponent(title).length;
+      const newBudget = Math.max(10, currentEncoded - overflow - 20);
+      u.searchParams.set('title', fitEncoded(title, newBudget));
+      continue;
+    }
+    break;
+  }
+
   return u.toString();
 }
 

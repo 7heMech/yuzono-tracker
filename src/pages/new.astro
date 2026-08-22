@@ -6,7 +6,7 @@ import { db } from '../lib/db/client';
 import { OPEN_STATUSES, reports } from '../lib/db/schema';
 import { canWriteNow, currentUser } from '../lib/auth';
 import { ensureVote } from '../lib/vote';
-import { getSource, langLabel, SOURCES } from '../lib/sources';
+import { getSource, PICKER_LANGS, PICKER_ROWS } from '../lib/sources';
 import { normaliseUrl, problemByKey, problemNeedsDetail, problemNeedsUrl, PROBLEMS } from '../lib/problems';
 import { APP_OTHER, isOutdated, isUnreadableVersion } from '../lib/version';
 import { FILING_COOLDOWN_MESSAGE, overFilingLimit } from '../lib/writes';
@@ -255,17 +255,8 @@ const shown = {
 
 const preselected = getSource(shown.sourceId);
 
-const formRows = SOURCES.map((s) => ({
-  id: s.id,
-  name: s.name,
-  lang: s.lang,
-  nsfw: s.nsfw,
-  extName: s.extName,
-  extVersion: s.extVersion,
-}));
-const langLabels = Object.fromEntries(
-  [...new Set(SOURCES.map((s) => s.lang))].map((c) => [c, langLabel(c)]),
-);
+const formRows = PICKER_ROWS;
+const langLabels = PICKER_LANGS;
 ---
 
 <Base title="Report a problem" narrow>

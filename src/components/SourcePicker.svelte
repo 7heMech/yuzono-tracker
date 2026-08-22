@@ -76,7 +76,7 @@
   // Keep the highlight in bounds when the query changes: typing narrows the
   // list, and without this a stale index can point past the end.
   $effect(() => {
-    void hits.length;
+    void hits;
     active = 0;
   });
 
@@ -111,25 +111,39 @@
       {placeholder}
       aria-label={label}
       role="combobox"
-      aria-expanded={hits.length > 0}
+      aria-expanded={q.trim().length >= 2}
       aria-autocomplete="list"
+      aria-controls={q.trim().length >= 2 ? 'source-picker-list' : undefined}
+      aria-activedescendant={hits.length ? `source-picker-opt-${active}` : undefined}
     />
     {#if q.trim().length >= 2}
-      <ul class="results" role="listbox">
-        {#each hits as s, i (s.id)}
-          <li role="option" aria-selected={i === active}>
-            <button type="button" class="hit" class:active={i === active} onclick={() => pick(s)}>
-              <span>{s.name}</span>
-              <span class="lang">{langLabels[s.lang] ?? s.lang}</span>
-            </button>
-          </li>
-        {:else}
-          <li class="none">
+      {#if hits.length}
+        <ul class="results" role="listbox" id="source-picker-list">
+          {#each hits as s, i (s.id)}
+            <li role="presentation">
+              <button
+                type="button"
+                role="option"
+                id={`source-picker-opt-${i}`}
+                aria-selected={i === active}
+                class="hit"
+                class:active={i === active}
+                onclick={() => pick(s)}
+              >
+                <span>{s.name}</span>
+                <span class="lang">{langLabels[s.lang] ?? s.lang}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <div class="results" id="source-picker-list">
+          <p class="none">
             Not in this repo.
             <a href={`/request?name=${encodeURIComponent(q)}`}>Request it</a> instead.
-          </li>
-        {/each}
-      </ul>
+          </p>
+        </div>
+      {/if}
     {/if}
   </div>
 {/if}
