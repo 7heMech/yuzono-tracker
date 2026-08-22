@@ -6,6 +6,7 @@ import { safeReturnTo } from '../lib/redirect';
 import { myBacked, myReports, myUpdates, markRead } from '../lib/notify';
 import { getSource } from '../lib/sources';
 import { relativeAge, reportHeadline, STATUS_LABELS } from '../lib/format';
+import { STATUSES } from '../lib/db/schema';
 
 export const prerender = false;
 
@@ -99,7 +100,15 @@ Astro.response.headers.set('Cache-Control', 'private, no-store');
       ) : (
         <ol class="updates">
           {updates.map((u) => {
-            const note = u.detail && u.detail.includes(':') ? u.detail.split(':').slice(1).join(':').trim() : null;
+            const note = (() => {
+              if (u.kind !== 'status_changed' || !u.detail) return null;
+              const idx = u.detail.indexOf(':');
+              if (idx === -1) return null;
+              const prefix = u.detail.slice(0, idx).trim();
+              if (!(STATUSES as readonly string[]).includes(prefix)) return null;
+              const rest = u.detail.slice(idx + 1).trim();
+              return rest || null;
+            })();
             return (
             <li class:list={['update', { fresh: u.readAt === null }]}>
               <a href={`/report/${u.reportId}`}>

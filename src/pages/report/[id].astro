@@ -55,6 +55,7 @@ if (Astro.request.method === 'POST') {
     const status = wanted as (typeof STATUSES)[number];
     const rawNote = String(form.get('note') ?? '').trim().slice(0, 500);
     const statusNote = rawNote || null;
+    // status_changed detail is "status: note" — me.astro splits on first colon and validates the status
     const detail = statusNote ? `${status}: ${statusNote}` : status;
     const [updated] = await db()
       .update(reports)
