@@ -98,7 +98,9 @@ Astro.response.headers.set('Cache-Control', 'private, no-store');
         </p>
       ) : (
         <ol class="updates">
-          {updates.map((u) => (
+          {updates.map((u) => {
+            const note = u.detail && u.detail.includes(':') ? u.detail.split(':').slice(1).join(':').trim() : null;
+            return (
             <li class:list={['update', { fresh: u.readAt === null }]}>
               <a href={`/report/${u.reportId}`}>
                 <span class="u-what">
@@ -107,6 +109,7 @@ Astro.response.headers.set('Cache-Control', 'private, no-store');
                   <span class="u-mid">
                     {WHAT_HAPPENED[u.kind]} {STATUS_LABELS[u.reportStatus]}
                   </span>
+                  {note && <span class="u-note"> — {note}</span>}
                 </span>
                 <span class="u-meta">
                   <span class="u-title">
@@ -120,7 +123,7 @@ Astro.response.headers.set('Cache-Control', 'private, no-store');
                 </span>
               </a>
             </li>
-          ))}
+          )})}
         </ol>
       )
     }
@@ -251,6 +254,7 @@ Astro.response.headers.set('Cache-Control', 'private, no-store');
     margin-inline-start: var(--space-1);
     color: var(--text-secondary);
   }
+  .u-note { color: var(--text-tertiary); font-style: italic; }
   .u-meta {
     display: flex;
     align-items: baseline;

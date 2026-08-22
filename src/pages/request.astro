@@ -500,6 +500,9 @@ const picked = sourceId ? getSource(sourceId) : undefined;
     font-weight: var(--weight-medium);
   }
   @media (max-width: 560px) {
+    .lede { margin-block-end: var(--space-3); }
+    .modes { margin-block-end: var(--space-4); }
+    .flow { gap: var(--space-4); }
     /* Two lines of label at 390px, so let each take the height it needs rather
        than truncating the words that say what the choice is. */
     .modes .chip { flex: 1; text-align: center; block-size: auto; padding-block: var(--space-2); }

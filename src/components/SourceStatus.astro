@@ -6,13 +6,17 @@ import { OPEN_STATUSES } from '../lib/db/schema';
 
 interface Props {
   sourceId: string;
+  sort?: 'demand' | 'recent';
 }
 const { sourceId } = Astro.props;
+const qs = Astro.url.searchParams.get('sort');
+const sort = (Astro.props as Props).sort ?? (qs === 'recent' ? 'recent' : 'demand');
+const basePath = Astro.url.pathname;
 
 // A server island: the page around it is prerendered and edge-cached, while
 // this fragment renders on demand with live data. SvelteKit has no equivalent —
 // showing a live count there would force the whole page to be dynamic.
-const all = await reportsForSource(sourceId);
+const all = await reportsForSource(sourceId, sort);
 
 /* Being an island is exactly what lets this read the session, and it has to:
    without `mine` every row on a source page rendered un-backed, so tapping the
@@ -39,7 +43,13 @@ const closed = all.filter((r) => !(OPEN_STATUSES as readonly string[]).includes(
     </div>
   ) : (
     <section>
-      <h2 class="label">Open problems</h2>
+      <div class="sort-row">
+        <h2 class="label">Open problems</h2>
+        <div class="segmented">
+          <a class="chip" href={basePath} aria-pressed={sort === 'demand'}>Most wanted</a>
+          <a class="chip" href={`${basePath}?sort=recent`} aria-pressed={sort === 'recent'}>Newest</a>
+        </div>
+      </div>
       <ol class="rows">
         {open.map((r) => (
           <ReportRow report={r} mine={backed.has(r.id)} />
@@ -66,6 +76,15 @@ const closed = all.filter((r) => !(OPEN_STATUSES as readonly string[]).includes(
 }
 
 <style>
+  .sort-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    margin-block-end: var(--space-2);
+  }
+  .sort-row .label { margin-block-end: 0; }
   /* Not `section + section`: the empty state is a div, so the history section
      ended up flush against it. */
   .history { margin-block-start: var(--space-8); }

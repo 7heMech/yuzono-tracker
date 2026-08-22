@@ -171,13 +171,17 @@ export async function board(f: BoardFilter) {
  * open, so 40 is a cap that cannot bite in practice while still bounding the
  * query if one source ever collects a decade of history.
  */
-export async function reportsForSource(sourceId: string) {
+export async function reportsForSource(sourceId: string, sort: 'demand' | 'recent' = 'demand') {
   const openFirst = sql`case when ${inArray(reports.status, [...OPEN_STATUSES])} then 0 else 1 end`;
+  const order =
+    sort === 'recent'
+      ? [openFirst, desc(reports.createdAt)]
+      : [openFirst, desc(reports.votes), desc(reports.createdAt)];
   const rows = await db()
     .select(ROW_COLUMNS)
     .from(reports)
     .where(eq(reports.sourceId, sourceId))
-    .orderBy(openFirst, desc(reports.votes), desc(reports.createdAt))
+    .orderBy(...order)
     .limit(40);
   return rows as Report[];
 }

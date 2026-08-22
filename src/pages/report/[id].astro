@@ -22,6 +22,7 @@ import {
   STATUS_LABELS,
 } from '../../lib/format';
 import { STATUSES } from '../../lib/db/schema';
+import { isOutdated } from '../../lib/version';
 
 export const prerender = false;
 
@@ -52,13 +53,16 @@ if (Astro.request.method === 'POST') {
 
   if ((STATUSES as readonly string[]).includes(wanted)) {
     const status = wanted as (typeof STATUSES)[number];
+    const rawNote = String(form.get('note') ?? '').trim().slice(0, 500);
+    const statusNote = rawNote || null;
+    const detail = statusNote ? `${status}: ${statusNote}` : status;
     const [updated] = await db()
       .update(reports)
-      .set({ status, statusChangedAt: sql`(unixepoch())`, updatedAt: sql`(unixepoch())` })
+      .set({ status, statusNote, statusChangedAt: sql`(unixepoch())`, updatedAt: sql`(unixepoch())` })
       .where(eq(reports.id, id))
       .returning();
     if (updated) {
-      await logAction(gate.user, 'report.status', String(id), status);
+      await logAction(gate.user, 'report.status', String(id), detail);
 
       /* Two side effects, neither of which the moderator should wait for: the
          Discord post costs 200-500ms of somebody else's network, and the
@@ -70,7 +74,7 @@ if (Astro.request.method === 'POST') {
          the reporter and everyone who backed the report each get a row they can
          read on /me. */
       const after: Promise<unknown>[] = [
-        notifyWatchers(id, 'status_changed', status, gate.user.id),
+        notifyWatchers(id, 'status_changed', detail, gate.user.id),
       ];
       if (status === 'fixed') after.push(announceFixed(updated, Astro.url.origin));
 
@@ -298,6 +302,9 @@ Astro.response.headers.set(
         <dt class="label">Status</dt>
         <dd class="status" data-status={report.status}>{STATUS_LABELS[report.status]}</dd>
       </div>
+      {report.statusNote && (
+        <div class="wide"><dt class="label">Note</dt><dd>{report.statusNote}</dd></div>
+      )}
       {askKind && (
         <div><dt class="label">Kind</dt><dd>{askKind} request</dd></div>
       )}
@@ -344,7 +351,7 @@ Astro.response.headers.set(
           <dt class="label">Extension</dt>
           <dd class="num">
             v{report.extVersion}
-            {source && report.extVersion !== source.extVersion && (
+            {source && isOutdated(report.extVersion, source.extVersion) && (
               <span class="behind"> · v{source.extVersion} is current</span>
             )}
           </dd>
@@ -376,6 +383,10 @@ Astro.response.headers.set(
       canModerate && (
         <form method="POST" class="mod">
           <p class="mod-label">Move this report</p>
+          <div class="field">
+            <label class="label" for="note">Reason</label>
+            <textarea id="note" name="note" class="textarea" rows="2" maxlength="500" placeholder="Optional — shown on the report and in notifications"></textarea>
+          </div>
           <div class="mod-row">
             {STATUSES.filter((st) => st !== report.status).map((st) => (
               <button class="btn" type="submit" name="status" value={st}>
@@ -510,6 +521,8 @@ Astro.response.headers.set(
     flex-wrap: wrap;
     margin-block: var(--space-2);
   }
+  .mod .field { margin-block: var(--space-2); }
+  .mod .textarea { min-block-size: 0; }
   .mod-hint { font-size: var(--text-sm); color: var(--text-muted); }
   /* Same panel, second control: a rule keeps it from reading as another
      status, which is the one thing it must not be mistaken for. */

@@ -191,6 +191,8 @@ export const reports = sqliteTable(
      * otherwise file two issues for one report.
      */
     promotedAt: integer('promoted_at'),
+
+    statusNote: text('status_note'),
   },
   (t) => [
     /**
