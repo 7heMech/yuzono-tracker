@@ -691,13 +691,9 @@ export function promoteUrl(r: PromotableReport, repo: string, origin: string): s
     }
   }
 
-  // Enforce total serialized URL budget. LIMIT above bounds individual
-  // fields, but combined params (title, link, source, etc.) could still push
-  // the whole URL past GitHub's ~8192 limit. Trim lowest-priority prefill
-  // values first, always keeping the backlink.
   const TOTAL_LIMIT = 8000;
   let guardAttempts = 0;
-  while (u.toString().length > TOTAL_LIMIT && guardAttempts < 5) {
+  while (u.toString().length > TOTAL_LIMIT && guardAttempts < 7) {
     guardAttempts++;
     const od = u.searchParams.get('other-details');
     if (od && od !== backlink && od.length > backlink.length) {
@@ -717,6 +713,26 @@ export function promoteUrl(r: PromotableReport, repo: string, origin: string): s
     const link = u.searchParams.get('link');
     if (link) {
       u.searchParams.delete('link');
+      continue;
+    }
+    const nm = u.searchParams.get('name');
+    if (nm) {
+      const overflow = u.toString().length - TOTAL_LIMIT;
+      const currentEncoded = encodeURIComponent(nm).length;
+      const newBudget = Math.max(10, currentEncoded - overflow - 20);
+      const trimmed = fitEncoded(nm, newBudget);
+      if (trimmed && trimmed.length < nm.length) u.searchParams.set('name', trimmed);
+      else u.searchParams.delete('name');
+      continue;
+    }
+    const src = u.searchParams.get('source');
+    if (src) {
+      const overflow = u.toString().length - TOTAL_LIMIT;
+      const currentEncoded = encodeURIComponent(src).length;
+      const newBudget = Math.max(10, currentEncoded - overflow - 20);
+      const trimmed = fitEncoded(src, newBudget);
+      if (trimmed && trimmed.length < src.length) u.searchParams.set('source', trimmed);
+      else u.searchParams.delete('source');
       continue;
     }
     const title = u.searchParams.get('title');

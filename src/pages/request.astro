@@ -149,6 +149,23 @@ if (Astro.request.method === 'POST') {
     } else if (await overFilingLimit(user.id)) {
       error = FILING_COOLDOWN_MESSAGE;
     } else {
+      const [existing] = await db()
+        .select({ id: reports.id })
+        .from(reports)
+        .where(
+          and(
+            eq(reports.kind, 'feature'),
+            eq(reports.sourceId, source.id),
+            eq(reports.title, askTitle),
+            inArray(reports.status, [...OPEN_STATUSES]),
+          ),
+        )
+        .limit(1);
+      if (existing) {
+        await ensureVote(existing.id, user.id);
+        return Astro.redirect(`/report/${existing.id}?joined=1`, 303);
+      }
+
       const [created] = await db()
         .insert(reports)
         .values({
@@ -173,6 +190,7 @@ if (Astro.request.method === 'POST') {
              source two rows. The panel on the form is what prevents the real
              duplicates; see FeatureAsk.svelte. */
         })
+        .onConflictDoNothing()
         .returning({
           id: reports.id,
           kind: reports.kind,
@@ -185,7 +203,25 @@ if (Astro.request.method === 'POST') {
           reporterId: reports.reporterId,
         });
 
-      if (created) {
+      if (!created) {
+        const [existingAfter] = await db()
+          .select({ id: reports.id })
+          .from(reports)
+          .where(
+            and(
+              eq(reports.kind, 'feature'),
+              eq(reports.sourceId, source.id),
+              eq(reports.title, askTitle),
+              inArray(reports.status, [...OPEN_STATUSES]),
+            ),
+          )
+          .limit(1);
+        if (existingAfter) {
+          await ensureVote(existingAfter.id, user.id);
+          return Astro.redirect(`/report/${existingAfter.id}?joined=1`, 303);
+        }
+        error = 'Could not create request. Try again.';
+      } else {
         await ensureVote(created.id, user.id);
         const after: Promise<unknown>[] = [announceFiled(created, Astro.url.origin)];
         const cf = Astro.locals.cfContext;

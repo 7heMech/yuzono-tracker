@@ -447,6 +447,47 @@ describe('promotion', () => {
     const other = parsed.searchParams.get('other-details') ?? parsed.searchParams.get('body') ?? '';
     expect(other).toContain('Tracked at https://t/report/102');
   });
+
+  test('oversized name and source are trimmed to fit', () => {
+    const req: PromotableReport = {
+      id: 103,
+      kind: 'request' as const,
+      title: 'Add ' + 'A'.repeat(10000),
+      lang: 'en',
+      sourceId: null,
+      proposedName: 'A'.repeat(10000),
+      stage: null,
+      cause: null,
+      proposedUrl: 'https://example.com/' + 'p/'.repeat(500),
+      body: 'x'.repeat(500),
+      nsfw: false,
+    };
+    const url = promoteUrl(req, 'a/b', 'https://t');
+    expect(url.length).toBeLessThanOrEqual(8000);
+    const parsed = new URL(url);
+    const name = parsed.searchParams.get('name') ?? '';
+    const other = parsed.searchParams.get('other-details') ?? '';
+    expect(other).toContain('Tracked at https://t/report/103');
+    expect(encodeURIComponent(name).length).toBeLessThan(8000);
+
+    const bug: PromotableReport = {
+      id: 104,
+      kind: 'bug' as const,
+      title: 'Bug ' + 'B'.repeat(10000),
+      lang: 'en',
+      sourceId: '3556703948634317295',
+      proposedName: null,
+      stage: 'browse' as const,
+      cause: 'down' as const,
+      body: 'y'.repeat(500),
+      extVersion: '1.0',
+      appName: 'App',
+      appVersion: '1.0',
+    };
+    const url2 = promoteUrl(bug, 'a/b', 'https://t');
+    expect(url2.length).toBeLessThanOrEqual(8000);
+    expect(new URL(url2).searchParams.get('other-details')).toContain('Tracked at https://t/report/104');
+  });
 });
 
 describe('nsfwFor', () => {

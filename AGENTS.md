@@ -65,10 +65,10 @@ bun test
 
 Apply `cursor/plugins/pstack/skills/unslop` to all prose. Source: https://github.com/cursor/plugins/blob/main/pstack/skills/unslop/SKILL.md. Always apply. Self-audit before sending.
 
----
+```yaml
 name: unslop
 description: Cut AI tells from any writing. Must always apply.
----
+```
 
 # Unslop
 
@@ -79,7 +79,7 @@ Edit text to remove AI patterns and add human voice.
 1. Scan for the patterns below.
 2. Rewrite. Preserve meaning, match intended tone.
 3. Add soul (see next section).
-4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+4. Self-audit: "What makes this obviously AI-generated?" Fix remaining tells.
 
 ## Adding soul
 

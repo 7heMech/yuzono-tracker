@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `reports_open_feature_per_source_title` ON `reports` (`source_id`,`title`) WHERE kind = 'feature' AND status IN ('open', 'confirmed', 'in_progress');
