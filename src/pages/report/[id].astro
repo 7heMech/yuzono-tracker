@@ -55,7 +55,11 @@ if (Astro.request.method === 'POST') {
     const status = wanted as (typeof STATUSES)[number];
     const rawNote = String(form.get('note') ?? '').trim().slice(0, 500);
     const statusNote = rawNote || null;
-    // status_changed detail is "status: note" — me.astro splits on first colon and validates the status
+    // status_changed detail contract: either "status" or "status: note".
+    // Only this handler packs a note; github-sync sends bare status, other
+    // notification kinds (promoted/duplicate) use null. me.astro renders a note
+    // only when kind==='status_changed', splitting on the first ':' and
+    // requiring the prefix to be a known STATUSES value.
     const detail = statusNote ? `${status}: ${statusNote}` : status;
     const [updated] = await db()
       .update(reports)
