@@ -37,7 +37,7 @@ const STALLED_AFTER = 7_776_000;
  *
  * `.select()` with no argument pulls all 26, `body` — the entire report text —
  * included, for rows that never show it, and the ORDER BY sorter then carries
- * that payload through a temp B-tree. These eleven are exactly what
+ * that payload through a temp B-tree. These twelve are exactly what
  * ReportRow.astro touches, `reportHeadline` (title, stage, cause) and `nsfw`
  * included.
  *
@@ -53,6 +53,11 @@ const ROW_COLUMNS = {
   // page or from a pasted link is not, and it used to give no indication at all.
   nsfw: reports.nsfw,
   proposedName: reports.proposedName,
+  /* A request's address, which the row now prints as a host. A name alone does
+     not say which site is being asked for, and /requests is 58% of the
+     backlog — so scanning the board meant opening reports one at a time to
+     find out. Only requests have it; on every other row it is null. */
+  proposedUrl: reports.proposedUrl,
   lang: reports.lang,
   stage: reports.stage,
   cause: reports.cause,

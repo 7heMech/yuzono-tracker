@@ -7,7 +7,9 @@
  * signal this board replaces, so nothing is invented.
  *
  *   gh api -X GET repos/yuzono/anime-extensions/issues -f state=all -f per_page=100 \
- *     --paginate --jq '[...]' > issues_full.json
+ *     --paginate --jq '[.[] | {number, title, state, createdAt: .created_at,
+ *       closedAt: .closed_at, body, labels: [.labels[].name],
+ *       up: .reactions["+1"], comments}]' > issues_full.json
  *   bun scripts/import-issues.ts issues_full.json > seeds/seed.sql
  */
 
@@ -21,6 +23,7 @@ import {
   causeOf,
   headOf,
   kindOf,
+  sourceLinkFromBody,
   langOf,
   matchSource,
   norm,
@@ -40,6 +43,13 @@ type Issue = {
   labels: string[];
   up: number;
   comments: number;
+  /**
+   * Optional, because the first exports of this file did not include it — and
+   * that omission is why every imported request lost the site's address. The
+   * `--jq` above now asks for it; an older export still imports, just without
+   * the addresses.
+   */
+  body?: string | null;
 };
 
 const file = process.argv[2];
@@ -116,7 +126,10 @@ for (const iss of issues) {
         nul(sourceId ?? null),
         // Requests have no source; unmatched bugs still need a display name.
         !sourceId ? esc(headOf(iss.title).slice(0, 80) || 'Unknown') : 'NULL',
-        'NULL',
+        // The address the request form asked for, out of the issue body. It
+        // used to be hardcoded NULL here, which is what left every imported
+        // request naming a site it could not identify.
+        kind === 'request' ? nul(sourceLinkFromBody(iss.body ?? null)) : 'NULL',
         esc(lang),
         nsfw ? 1 : 0,
         nul(stage),

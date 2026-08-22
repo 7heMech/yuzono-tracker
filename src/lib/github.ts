@@ -1,5 +1,5 @@
 import { CAUSES, KINDS, STAGES, STATUSES } from './db/schema';
-import { problemKeyFor, type ProblemKey } from './problems';
+import { normaliseUrl, problemKeyFor, type ProblemKey } from './problems';
 import { SOURCES } from './sources';
 import { reportHeadline } from './format';
 
@@ -283,6 +283,8 @@ export interface Classified {
   sourceId: string | null;
   /** Display name when nothing matched, so an unmatched row still reads. */
   proposedName: string | null;
+  /** The site a source request names, read out of the issue body. Requests only. */
+  proposedUrl: string | null;
   kind: Kind;
   lang: string;
   nsfw: boolean;
@@ -333,6 +335,38 @@ export function nsfwFor(
   return source ? source.nsfw : labels.includes('18+');
 }
 
+/**
+ * The address a source request gives, out of the issue body.
+ *
+ * 02_request_source.yml has asked for it under `### Source link` since issue #9,
+ * so this is reading a form field rather than guessing at prose — and it is the
+ * only place the address exists. The original backlog import never captured it,
+ * which is why 198 requests on the board named a site without saying which site:
+ * the name alone does not identify one, and half of them are a word plus a TLD
+ * somebody has to guess at.
+ *
+ * A missing or unfilled section answers null. `_No response_` — GitHub's
+ * placeholder for a skipped optional field — has no dot in it, so normaliseUrl
+ * refuses it along with the other things that are not addresses.
+ */
+export function sourceLinkFromBody(body: string | null): string | null {
+  if (!body) return null;
+  const heading = /^[ \t]*#{1,6}[ \t]*Source link[ \t]*$/im.exec(body);
+  if (!heading) return null;
+
+  for (const raw of body.slice(heading.index + heading[0].length).split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    // The next section started, so this one was left empty.
+    if (/^#{1,6}\s/.test(line)) return null;
+    // People paste a bare URL, but a markdown link happens often enough to be
+    // worth the one regex — the target, not the words wrapped around it.
+    const md = /\((https?:\/\/[^)\s]+)\)/.exec(line);
+    return normaliseUrl(md ? md[1] : line.split(/\s+/)[0]);
+  }
+  return null;
+}
+
 export function classifyIssue(issue: IssueSnapshot): Classified {
   const kind = kindOf(issue.labels);
   const m = kind === 'request' ? { how: 'none' as MatchHow } : matchSourceHow(issue.title);
@@ -363,6 +397,11 @@ export function classifyIssue(issue: IssueSnapshot): Classified {
     how: m.how,
     sourceId,
     proposedName: sourceId ? null : headOf(issue.title).slice(0, 80) || 'Unknown',
+    /* Requests only, deliberately: `proposed_url` carries the request dedupe
+       index, so putting a link from a bug report's body in it would make that
+       report collide with an unrelated source request. A domain change has
+       `new_url` for the same reason. */
+    proposedUrl: kind === 'request' ? sourceLinkFromBody(issue.body) : null,
     kind,
     lang,
     nsfw: nsfwFor(source, issue.labels),

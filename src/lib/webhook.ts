@@ -4,7 +4,9 @@ import { reports, type Report } from './db/schema';
 import { readConfig, type Config } from './settings';
 import { getSource } from './sources';
 import { reportHeadline } from './format';
-import { reporterMeta } from './reporter';
+import { reporterName } from './reporter';
+import { dbUser } from './auth';
+import { hostOf } from './host';
 
 /**
  * Outbound Discord announcements.
@@ -115,7 +117,18 @@ export async function announceDemand(reportId: number, origin: string) {
  * says what the board says.
  */
 export async function announceFiled(
-  report: Pick<Report, 'id' | 'kind' | 'title' | 'stage' | 'cause' | 'sourceId' | 'proposedName' | 'reporterId'>,
+  report: Pick<
+    Report,
+    | 'id'
+    | 'kind'
+    | 'title'
+    | 'stage'
+    | 'cause'
+    | 'sourceId'
+    | 'proposedName'
+    | 'proposedUrl'
+    | 'reporterId'
+  >,
   origin: string,
   cfg?: Config,
 ) {
@@ -125,13 +138,23 @@ export async function announceFiled(
   if (gate !== '1') return null;
 
   const headline = reportHeadline(report);
-  const who = reporterMeta(report.reporterId).mention;
+  // The username, not `<@id>`: these posts ping nobody, so Discord had nothing
+  // to resolve the mention against and printed the snowflake. See lib/reporter.
+  const who = await reporterName(report.reporterId, dbUser);
+
+  const fields = [{ name: 'Filed by', value: who, inline: true }];
+  /* The address is the whole content of a source request — the name alone does
+     not say which site, and two sites share a name often enough that a
+     maintainer reading the channel could not tell. Only requests carry it;
+     `new_url` on a domain-change report is a different column on purpose. */
+  const host = report.proposedUrl ? hostOf(report.proposedUrl) : null;
+  if (host) fields.push({ name: 'Address', value: host, inline: true });
 
   return send(c.webhook_url, {
     title: headline,
     description: `on ${subject(report)}`,
     url: `${origin}/report/${report.id}`,
-    fields: [{ name: 'Filed by', value: who, inline: true }],
+    fields,
   });
 }
 

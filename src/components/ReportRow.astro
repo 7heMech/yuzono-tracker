@@ -1,5 +1,6 @@
 ---
 import VoteButton from './VoteButton.astro';
+import { hostOf } from '../lib/host';
 import { getSource, langDir, langLabel } from '../lib/sources';
 import {
   CAUSE_LABELS,
@@ -52,6 +53,12 @@ const whatBroke = !rebuilt && r.stage && !redundant ? STAGE_FAILURE[r.stage] : n
    toggle: /me, a source page and a pasted link all show rows unfiltered, and
    until now none of them gave any indication. */
 const adult = source ? source.nsfw : r.nsfw;
+
+/* A source request's address, which is the one fact the row was missing: every
+   request headline reads "Add <name>", so the row said the name twice and the
+   site not at all. Plain text, in the data face, because it is a value. Only
+   requests carry `proposed_url`, so this is null on every other row. */
+const host = r.proposedUrl ? hostOf(r.proposedUrl) : null;
 ---
 
 <li class="row">
@@ -68,6 +75,7 @@ const adult = source ? source.nsfw : r.nsfw;
           {STATUS_LABELS[r.status]}
         </span>
       )}
+      {host && <span class="host">{host}</span>}
       {whatBroke && <span class="tag">{whatBroke}</span>}
       {why && <span class="tag">{why}</span>}
       <span>{langLabel(r.lang)}</span>
@@ -120,6 +128,17 @@ const adult = source ? source.nsfw : r.nsfw;
   }
   /* Says what it means in words. */
   .stalled { color: var(--stalled); font-weight: var(--weight-medium); }
+  /* The domain a request names. Plain text, no colour to decode; it truncates
+     rather than pushing the language and the age off the row. */
+  .host {
+    font-family: var(--font-data);
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-inline-size: 22ch;
+  }
   .gh { font-family: var(--font-data); font-size: var(--text-xs); color: var(--text-muted); }
 
   @media (max-width: 640px) {

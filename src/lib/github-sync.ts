@@ -11,6 +11,7 @@ import {
   promoteTitle,
   type PromotableReport,
   reportIdFromBody,
+  sourceLinkFromBody,
   transitionFor,
   type IssueSnapshot,
   type Status,
@@ -72,6 +73,8 @@ export interface SyncResult {
   announced: number;
   /** Rows whose 18+ flag was corrected this pass. See reconcileNsfw. */
   reflagged: number;
+  /** Requests that gained the address their issue always carried. */
+  addressed: number;
 }
 
 export async function syncIssues(
@@ -99,6 +102,7 @@ export async function syncIssues(
     review: 0,
     announced: 0,
     reflagged: 0,
+    addressed: 0,
   };
 
   /* Read once per pass, not once per issue. A reconcile carries every upstream
@@ -118,6 +122,27 @@ export async function syncIssues(
     })
     .from(reports)
     .where(and(isNotNull(reports.promotedAt), isNull(reports.githubIssue)));
+
+  /* Requests that never got the address their issue asked for.
+     
+     The original backlog import read titles and labels only, so all 198
+     imported requests name a site without saying which site — and the name
+     alone does not identify one. The address is in the issue body, which a
+     reconcile carries for every issue, so the repair belongs here rather than
+     in a one-off script: it is the same shape as reconcileNsfw, and it fixes
+     the rows adopted from /review too, where snapshotOf has no body to read.
+
+     Read once per pass, like awaitingIssue above — a reconcile carries ~470
+     issues, and a query inside the loop would be paid for all of them. */
+  const missingAddress = new Map<number, number>();
+  for (const row of await db()
+    .select({ id: reports.id, issue: reports.githubIssue })
+    .from(reports)
+    .where(
+      and(eq(reports.kind, 'request'), isNull(reports.proposedUrl), isNotNull(reports.githubIssue)),
+    )) {
+    if (row.issue !== null) missingAddress.set(row.issue, row.id);
+  }
 
   for (const issue of snapshots) {
     result.seen++;
@@ -144,6 +169,32 @@ export async function syncIssues(
     if (reportId !== null && wanted) {
       const applied = await applyStatus(reportId, wanted, opts);
       if (applied) result.changed++;
+    }
+
+    /* Fill the address in, if this issue is one of the requests missing it.
+       Above the `unchanged` check below on purpose: an old imported issue has
+       not changed upstream in months, and skipping it is exactly what would
+       leave it without an address forever. */
+    const needsAddress = missingAddress.get(issue.number);
+    if (needsAddress !== undefined) {
+      const link = sourceLinkFromBody(issue.body);
+      if (link) {
+        missingAddress.delete(issue.number);
+        try {
+          const [filled] = await db()
+            .update(reports)
+            .set({ proposedUrl: link })
+            .where(and(eq(reports.id, needsAddress), isNull(reports.proposedUrl)))
+            .returning({ id: reports.id });
+          if (filled) result.addressed++;
+        } catch {
+          /* reports_open_per_proposed_url: another open request already claims
+             this address, which means these two are the same site asked for
+             twice. Leaving this one blank is the honest outcome — the index is
+             what stops the board from double-counting demand, and a moderator
+             marking one a duplicate is the fix, not a wider write here. */
+        }
+      }
     }
 
     /* Written last, so a crash before this point leaves the same transition
@@ -386,6 +437,11 @@ async function adopt(
         kind: c.kind,
         sourceId: c.sourceId,
         proposedName: c.proposedName,
+        /* Null on everything but a request, and null on a request whose issue
+           body we do not have — /review rebuilds a snapshot from the stored row
+           and cannot carry one (see snapshotOf). The backfill in syncIssues
+           picks those up on the next reconcile. */
+        proposedUrl: c.proposedUrl,
         lang: c.lang,
         nsfw: c.nsfw,
         stage: c.stage,

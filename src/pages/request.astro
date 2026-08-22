@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import RequestFinder from '../components/RequestFinder.svelte';
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '../lib/db/client';
 import { OPEN_STATUSES, reports } from '../lib/db/schema';
@@ -7,7 +8,8 @@ import { canWriteNow, currentUser } from '../lib/auth';
 import { ensureVote } from '../lib/vote';
 import { languageFacets } from '../lib/sources';
 import { normaliseUrl } from '../lib/problems';
-import { FILING_COOLDOWN_MESSAGE, overFilingLimit, sameHost } from '../lib/writes';
+import { duplicateOf } from '../lib/requests';
+import { FILING_COOLDOWN_MESSAGE, isReportId, overFilingLimit } from '../lib/writes';
 import { announceFiled } from '../lib/webhook';
 
 export const prerender = false;
@@ -29,8 +31,6 @@ type Draft = { name: string; url: string; lang: string; nsfw: boolean };
 let error: string | null = null;
 let resumed = false;
 
-const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g, '');
-
 let name = '';
 let url = '';
 let lang = '';
@@ -46,6 +46,50 @@ if (Astro.request.method === 'POST') {
   // it. The whitelist further down is what makes it a language.
   lang = String(form.get('lang') ?? '').trim().slice(0, 16);
   nsfw = form.get('nsfw') === '1';
+
+  /* --- joining an existing request --------------------------------------
+     The form's type-ahead offers the open requests that look like the one being
+     typed, and its Add my vote button submits this field. It is handled before
+     any validation because none of it applies: joining needs no language, no
+     address and no name — only a request that is still open.
+
+     The id is not trusted. It is re-read here as an open request of kind
+     `request`, which is both an authorisation check (nothing else on the board
+     can be joined through this form) and what makes the anonymous branch below
+     safe to remember. */
+  const joinId = Number(form.get('join') ?? 0);
+  if (isReportId(joinId)) {
+    const [target] = await db()
+      .select({ id: reports.id })
+      .from(reports)
+      .where(
+        and(
+          eq(reports.id, joinId),
+          eq(reports.kind, 'request'),
+          inArray(reports.status, [...OPEN_STATUSES]),
+        ),
+      );
+
+    if (target) {
+      const to = `/report/${target.id}?joined=1`;
+      if (!user) {
+        /* The same session key /vote uses, replayed by /auth/callback — so the
+           click survives the sign-in detour instead of being discarded. Set
+           only for an id the query above has just proved votable, which is the
+           rule that keeps a poisoned session out of every later sign-in. */
+        Astro.session?.set('pending_vote', target.id);
+        return Astro.redirect(`/auth/discord?next=${encodeURIComponent(to)}`, 302);
+      }
+      if (!(await canWriteNow(user))) return Astro.redirect('/cant-post', 302);
+      // Outside the filing cooldown, like the dedupe path below: being asked to
+      // wait before agreeing with someone is the one thing this board least
+      // wants to say.
+      await ensureVote(target.id, user.id);
+      return Astro.redirect(to, 303);
+    }
+    /* The suggestion went stale — fixed or closed while the form sat open. Fall
+       through and treat it as an ordinary filing rather than explaining that. */
+  }
 
   if (!user) {
     Astro.session?.set('pending_request', { name, url, lang, nsfw } satisfies Draft);
@@ -76,21 +120,15 @@ if (Astro.request.method === 'POST') {
     // same name, because the point is that filing again upvotes rather than
     // duplicating, and people reach the same site by different URLs.
     const open = await d
-      .select({
-        id: reports.id,
-        proposedName: reports.proposedName,
-        proposedUrl: reports.proposedUrl,
-      })
+      .select({ id: reports.id, name: reports.proposedName, url: reports.proposedUrl })
       .from(reports)
       .where(and(eq(reports.kind, 'request'), inArray(reports.status, [...OPEN_STATUSES])));
 
-    // Hosts compared for equality, never containment — see sameHost in
-    // lib/writes for what the substring test let through.
-    const existing = open.find(
-      (r) =>
-        (r.proposedUrl && sameHost(r.proposedUrl, link)) ||
-        (r.proposedName && norm(r.proposedName) === norm(name)),
-    );
+    /* One rule, two surfaces: duplicateOf in lib/requests is what the form's
+       type-ahead warns with as well, so the panel cannot promise a merge the
+       server then declines to make. Hosts compared for equality, never
+       containment — see hostOf for what the substring test let through. */
+    const existing = duplicateOf(open, name, link);
 
     if (existing) {
       // Joining an existing request is a vote, so it is deliberately outside
@@ -126,6 +164,8 @@ if (Astro.request.method === 'POST') {
           cause: reports.cause,
           sourceId: reports.sourceId,
           proposedName: reports.proposedName,
+          // For the announcement's Address field — see announceFiled.
+          proposedUrl: reports.proposedUrl,
           reporterId: reports.reporterId,
         });
 
@@ -176,35 +216,12 @@ if (Astro.request.method === 'GET') {
     }
     {error && <p class="error" role="alert">{error}</p>}
 
-    <div class="field">
-      <label class="label" for="name">Site name</label>
-      <input
-        class="input"
-        id="name"
-        name="name"
-        value={name}
-        placeholder="e.g. AnimeFire"
-        autocomplete="off"
-        required
-      />
-    </div>
-
-    <div class="field">
-      <label class="label" for="url">Address</label>
-      <input
-        class="input"
-        id="url"
-        name="url"
-        type="url"
-        inputmode="url"
-        value={url}
-        placeholder="animefire.plus"
-        autocomplete="off"
-        spellcheck="false"
-        required
-      />
-      <p class="field-hint">Just the domain is fine.</p>
-    </div>
+    {/* Name and address, and — once they say something recognisable — the open
+        requests that look like the same site, each with a button that joins it.
+        client:load because the whole value is in answering before the form is
+        sent; with JavaScript off these are two plain fields and the server
+        still merges a duplicate on submit. */}
+    <RequestFinder name={name} url={url} client:load />
 
     <div class="field">
       <label class="label" for="lang">Language</label>

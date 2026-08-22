@@ -208,6 +208,9 @@ if (Astro.request.method === 'POST') {
         cause: reports.cause,
         sourceId: reports.sourceId,
         proposedName: reports.proposedName,
+        // Always null on this path; announceFiled's Pick asks for it because a
+        // source request carries the site's address and says so in the channel.
+        proposedUrl: reports.proposedUrl,
         reporterId: reports.reporterId,
       });
 

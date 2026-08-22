@@ -279,6 +279,27 @@ Astro.response.headers.set(
         <dt class="label">Status</dt>
         <dd class="status" data-status={report.status}>{STATUS_LABELS[report.status]}</dd>
       </div>
+      {
+        /* The address is the request. Until now the page named the site and
+           never said which site it meant — two sites share a name often
+           enough, and a maintainer deciding whether to build a source has
+           nothing to look at without it. Only requests carry `proposed_url`;
+           `new_url` below is the different fact a domain-change report
+           carries. */
+        report.proposedUrl && (
+          <div class="wide">
+            <dt class="label">Address</dt>
+            <dd>
+              <a
+                class="new-url"
+                href={report.proposedUrl}
+                rel="nofollow noopener noreferrer external">
+                {report.proposedUrl.replace(/^https?:\/\//, '')}
+              </a>
+            </dd>
+          </div>
+        )
+      }
       {report.stage && (
         <div><dt class="label">Fails at</dt><dd>{STAGE_FAILURE[report.stage]}</dd></div>
       )}

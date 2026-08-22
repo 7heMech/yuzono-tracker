@@ -9,6 +9,7 @@ import {
   promoteUrl,
   reportIdFromBody,
   sign,
+  sourceLinkFromBody,
   signatureHex,
   transitionFor,
   verifySignature,
@@ -314,5 +315,74 @@ describe('nsfwFor', () => {
     expect(nsfwFor(null, ['NSFW'])).toBe(false);
     expect(nsfwFor(null, ['not-18+'])).toBe(false);
     expect(nsfwFor(null, ['18+ '])).toBe(false);
+  });
+});
+
+describe('sourceLinkFromBody', () => {
+  /** What 02_request_source.yml actually produces, verbatim from issue #796. */
+  const REQUEST = [
+    '### Source name',
+    '',
+    'Playvids',
+    '',
+    '### Source link',
+    '',
+    'https://www.playvids.com/',
+    '',
+    '### Source language',
+    '',
+    'English ',
+  ].join('\n');
+
+  test('reads the address the form asked for', () => {
+    // normaliseUrl keeps the origin and drops the trailing slash, so this is
+    // the same string /request would have stored for the same site.
+    expect(sourceLinkFromBody(REQUEST)).toBe('https://www.playvids.com');
+  });
+
+  test('a bare host is still an address', () => {
+    // People type the domain, and the form does not stop them.
+    expect(sourceLinkFromBody('### Source link\n\nanimefire.plus\n')).toBe(
+      'https://animefire.plus',
+    );
+  });
+
+  test('a markdown link gives up its target', () => {
+    expect(sourceLinkFromBody('### Source link\n\n[AnimeFire](https://animefire.plus/en)')).toBe(
+      'https://animefire.plus/en',
+    );
+  });
+
+  test('an unfilled section is not an address', () => {
+    // `_No response_` is what GitHub writes for a skipped field, and the next
+    // heading is what an emptied one leaves behind. Neither is a site.
+    expect(sourceLinkFromBody('### Source link\n\n_No response_\n')).toBeNull();
+    expect(sourceLinkFromBody('### Source link\n\n### Source language\n\nEnglish')).toBeNull();
+  });
+
+  test('a body with no such section, and no body at all', () => {
+    // Bug reports have no address, and /review rebuilds snapshots with no body
+    // — see snapshotOf in lib/github-sync.ts.
+    expect(sourceLinkFromBody('### Source information\n\nTorrentio 14.6')).toBeNull();
+    expect(sourceLinkFromBody(null)).toBeNull();
+    expect(sourceLinkFromBody('')).toBeNull();
+  });
+
+  test('only requests are classified with an address', () => {
+    // proposed_url carries the request dedupe index, so a link in a bug
+    // report's body must never land in it.
+    const base: IssueSnapshot = {
+      number: 1,
+      title: 'Playvids [EN]: Source Request',
+      state: 'open',
+      stateReason: null,
+      body: REQUEST,
+      labels: ['Source request'],
+      createdAt: 0,
+      updatedAt: 0,
+      reactions: 0,
+    };
+    expect(classifyIssue(base).proposedUrl).toBe('https://www.playvids.com');
+    expect(classifyIssue({ ...base, labels: [] }).proposedUrl).toBeNull();
   });
 });
