@@ -1,0 +1,47 @@
+# Keeps the static source catalogue fresh.
+#
+# The catalogue is deliberately not in D1 — see src/lib/db/schema.ts — so it
+# lives in src/data/sources.json and is baked into the build at deploy time.
+# That keeps source pages edge-cached and free, but it means the Worker cannot
+# update itself; only a commit can. This workflow polls the upstream index and
+# commits only when it actually changed.
+#
+# Public repos have free Actions minutes, so every 5 min is cheaper than
+# serving stale versions. The job is ~3s of fetch + sort; the commit only
+# happens when src/data/sources.json diffs.
+name: Sync sources
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+# One at a time — two overlapping polls would race to commit the same file.
+concurrency:
+  group: sync-sources
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+      - run: bun run sync:sources
+      - name: Commit catalogue if changed
+        run: |
+          if git diff --quiet -- src/data/sources.json; then
+            echo "No catalogue change."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/data/sources.json
+          git commit -m "chore: sync sources catalogue"
+          git push
