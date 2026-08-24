@@ -39,8 +39,8 @@
     "baseUrl": "https://anikototv.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anikoto",
     "extName": "Anikoto",
-    "extVersion": "14.4",
-    "extVersionCode": 4,
+    "extVersion": "14.5",
+    "extVersionCode": 5,
     "nsfw": false
   },
   {
@@ -281,8 +281,8 @@
     "baseUrl": "https://animesonline.io",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.animeito",
     "extName": "AnimeIto",
-    "extVersion": "14.13",
-    "extVersionCode": 13,
+    "extVersion": "14.14",
+    "extVersionCode": 14,
     "nsfw": false
   },
   {
@@ -303,8 +303,8 @@
     "baseUrl": "https://animekaitv.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.kotokai",
     "extName": "AnimeKai (Unoriginal)",
-    "extVersion": "14.4",
-    "extVersionCode": 4,
+    "extVersion": "14.5",
+    "extVersionCode": 5,
     "nsfw": false
   },
   {
@@ -589,8 +589,8 @@
     "baseUrl": "https://animesogo.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animesogo",
     "extName": "AnimeSogo",
-    "extVersion": "14.4",
-    "extVersionCode": 4,
+    "extVersion": "14.5",
+    "extVersionCode": 5,
     "nsfw": false
   },
   {
@@ -853,8 +853,8 @@
     "baseUrl": "https://animewave.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.aniwave",
     "extName": "AniWave (Unoriginal)",
-    "extVersion": "14.6",
-    "extVersionCode": 6,
+    "extVersion": "14.7",
+    "extVersionCode": 7,
     "nsfw": false
   },
   {
@@ -1447,8 +1447,8 @@
     "baseUrl": "https://hentaihaven.xxx",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.hentaihaven",
     "extName": "HentaiHaven",
-    "extVersion": "14.6",
-    "extVersionCode": 6,
+    "extVersion": "14.7",
+    "extVersionCode": 7,
     "nsfw": true
   },
   {
@@ -1920,8 +1920,8 @@
     "baseUrl": "https://www.miruro.tv",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.miruro",
     "extName": "Miruro.tv",
-    "extVersion": "14.9",
-    "extVersionCode": 9,
+    "extVersion": "14.10",
+    "extVersionCode": 10,
     "nsfw": true
   },
   {
@@ -1931,8 +1931,8 @@
     "baseUrl": "https://missav.live",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.missav",
     "extName": "MissAV",
-    "extVersion": "14.29",
-    "extVersionCode": 29,
+    "extVersion": "14.30",
+    "extVersionCode": 30,
     "nsfw": true
   },
   {
