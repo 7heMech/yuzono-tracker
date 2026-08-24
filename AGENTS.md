@@ -50,6 +50,8 @@ Cache gotcha: `caches.default` persists to `.wrangler/state/v3/cache`. If boards
 
 ## Scripts
 
+Migrations are not a step you have to remember: `predev`/`prepreview` apply them to local D1 before the server starts, `bun run deploy` applies them to remote after pushing the Worker, and `.github/workflows/migrate.yml` applies them on a repo-connected deploy. `tests/consistency/migrations.test.ts` fails if the Drizzle schema has anything the migrations do not create.
+
 All via `bun`: `dev`, `build`, `check` (`astro check`), `types` (`bunx wrangler types`), `test` and `test:watch`, `sync:sources`, `db:generate`, `db:local`, `db:remote`, `db:seed`, `deploy`, `shot` and `shot:desktop`. See `package.json`.
 
 ## Verification
