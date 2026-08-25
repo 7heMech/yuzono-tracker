@@ -2705,7 +2705,8 @@
     "extName": "ShabakatyCinemana",
     "extVersion": "14.3",
     "extVersionCode": 3,
-    "nsfw": false
+    "nsfw": false,
+    "removed": "2026-08-25"
   },
   {
     "id": "7160915998368939090",
