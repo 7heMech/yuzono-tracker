@@ -121,6 +121,18 @@ const text = await res.text();
 if (!res.ok) throw new Error(`tracker rejected it: ${res.status} ${text.slice(0, 300)}`);
 console.error(`tracker       ${text}`);
 
+/* A 200 can still name reconcile steps that threw — see SyncResult.failures.
+   The response body says what happened either way; this turns it into a red
+   run on the schedule instead of nicer scrollback nobody reads. */
+let result: { failures?: string[] } | null = null;
+try {
+  result = JSON.parse(text);
+} catch {}
+if (result?.failures?.length) {
+  console.error(`tracker       reconcile failures: ${result.failures.join(', ')}`);
+  process.exit(1);
+}
+
 function unix(iso: string) {
   return Math.floor(new Date(iso).getTime() / 1000);
 }

@@ -1,6 +1,7 @@
 import type { AstroGlobal } from 'astro';
 import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from './db/client';
+import { inIds } from './db/sql';
 import { OPEN_STATUSES, reports, votes, type Report } from './db/schema';
 
 export type Sort = 'demand' | 'stalled' | 'recent' | 'fixed';
@@ -189,10 +190,12 @@ export async function reportsForSource(sourceId: string, sort: 'demand' | 'recen
 /** Which of these reports has the viewer already backed? */
 export async function myVotes(discordId: string, reportIds: number[]) {
   if (!reportIds.length) return new Set<number>();
+  // inIds, not inArray: the list is page-size dependent, so its length is a
+  // runtime fact rather than something short by construction.
   const rows = await db()
     .select({ reportId: votes.reportId })
     .from(votes)
-    .where(and(eq(votes.discordId, discordId), inArray(votes.reportId, reportIds)));
+    .where(and(eq(votes.discordId, discordId), inIds(votes.reportId, reportIds)));
   return new Set(rows.map((r) => r.reportId));
 }
 
