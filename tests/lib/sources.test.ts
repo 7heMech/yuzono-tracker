@@ -1,12 +1,18 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  ALL_SOURCES,
+  PICKER_ROWS,
+  REMOVED_SOURCES,
   SOURCES,
   getSource,
+  getLiveSource,
   getSourceByRef,
   langDir,
   langLabel,
   languageFacets,
   sourcePath,
+  withSlugs,
+  type SourceRow,
 } from '../../src/lib/sources';
 
 /**
@@ -16,31 +22,68 @@ import {
  * the sitemap and every Discord link already published depend on.
  */
 describe('slug derivation', () => {
-  test('every slug is unique', () => {
+  test('every slug is unique across live and removed entries', () => {
     // A collision does not throw anywhere — it makes `bySlug` silently resolve
-    // one of the two entries and orphans the other's page.
-    const slugs = SOURCES.map((s) => s.slug);
+    // one of the two entries and orphans the other's page. Asserted over
+    // ALL_SOURCES because slugging the two partitions separately would let a
+    // tombstone claim a slug a live source also holds.
+    const slugs = ALL_SOURCES.map((s) => s.slug);
     const seen = new Map<string, string[]>();
-    for (const s of SOURCES) {
+    for (const s of ALL_SOURCES) {
       seen.set(s.slug, [...(seen.get(s.slug) ?? []), s.name]);
     }
     const collisions = [...seen].filter(([, names]) => names.length > 1);
     expect(collisions).toEqual([]);
-    expect(new Set(slugs).size).toBe(SOURCES.length);
+    expect(new Set(slugs).size).toBe(ALL_SOURCES.length);
   });
 
   test('no slug is empty', () => {
     // `slugify` returns '' for a name with no romanisable characters, and an
     // empty slug builds the path `/source//` — which routes nowhere.
-    expect(SOURCES.filter((s) => !s.slug)).toEqual([]);
+    expect(ALL_SOURCES.filter((s) => !s.slug)).toEqual([]);
   });
 
   test('no slug is a bare numeric id', () => {
     // `base()` falls back to `s.id` as a last resort. That fallback firing means
     // the name *and* the package failed to romanise, and the reader gets a
     // snowflake in the URL bar instead of a name. It should never happen.
-    const numeric = SOURCES.filter((s) => /^\d+$/.test(s.slug)).map((s) => [s.name, s.slug]);
+    const numeric = ALL_SOURCES.filter((s) => /^\d+$/.test(s.slug)).map((s) => [s.name, s.slug]);
     expect(numeric).toEqual([]);
+  });
+
+  test('a tombstone never displaces its live namesake', () => {
+    // A source delisted and re-added under a fresh id: same name, same lang,
+    // two ids. Both computed the same qualified slug while both existed, so
+    // the live one keeps publishing it — a URL already in the wild must not
+    // move because another source died — and the tombstone moves aside.
+    const rows: SourceRow[] = [
+      {
+        id: '1',
+        name: 'Same Name',
+        lang: 'en',
+        baseUrl: 'https://a.example',
+        extPkg: 'pkg.a',
+        extName: 'Same Name',
+        extVersion: '1.0',
+        extVersionCode: 1,
+        nsfw: false,
+      },
+      {
+        id: '2',
+        name: 'Same Name',
+        lang: 'en',
+        baseUrl: 'https://b.example',
+        extPkg: 'pkg.b',
+        extName: 'Same Name',
+        extVersion: '2.0',
+        extVersionCode: 2,
+        nsfw: false,
+        removed: '2026-08-24',
+      },
+    ];
+    const slugged = withSlugs(rows);
+    expect(slugged.find((s) => !s.removed)?.slug).toBe('same-name-en');
+    expect(slugged.find((s) => s.removed)?.slug).toBe('same-name-en-removed');
   });
 
   test('the 32 "MyReadingManga" entries each get their own slug', () => {
@@ -178,5 +221,49 @@ describe('languageFacets', () => {
     const counts = facets.map((f) => f.count);
     expect([...counts].sort((a, b) => b - a)).toEqual(counts);
     for (const f of facets) expect(f.label).toBe(langLabel(f.code));
+  });
+});
+
+describe('tombstones', () => {
+  /**
+   * NoobSubs left the upstream index on 2026-08-24 and report 18 lost its
+   * name, its source page 404'd, and the row's 18+ flag froze out of
+   * reconcileNsfw's reach. These pin the partition: resolution covers
+   * tombstones, every picker/facet/count surface stays live-only.
+   */
+  test('SOURCES is exactly the live half of ALL_SOURCES', () => {
+    expect(SOURCES.every((s) => !s.removed)).toBe(true);
+    expect(REMOVED_SOURCES.every((s) => !!s.removed)).toBe(true);
+    expect(ALL_SOURCES.length).toBe(SOURCES.length + REMOVED_SOURCES.length);
+    const liveIds = new Set(SOURCES.map((s) => s.id));
+    expect(REMOVED_SOURCES.some((s) => liveIds.has(s.id))).toBe(false);
+  });
+
+  test('every removed source still resolves by id and slug, never as live', () => {
+    for (const s of REMOVED_SOURCES) {
+      expect(getSource(s.id)).toBe(s);
+      expect(getSourceByRef(s.slug)).toBe(s);
+      expect(getLiveSource(s.id)).toBeUndefined();
+    }
+  });
+
+  test.skipIf(REMOVED_SOURCES.length === 0)(
+    'the NoobSubs report-18 id resolves with its removal day',
+    () => {
+      const noobsubs = getSource('5343978110335507456');
+      expect(noobsubs?.name).toBe('NoobSubs');
+      expect(noobsubs?.removed).toBe('2026-08-24');
+      expect(getSourceByRef('noobsubs')).toBe(noobsubs);
+      expect(getLiveSource('5343978110335507456')).toBeUndefined();
+    },
+  );
+
+  test('live-only surfaces never offer a removed source', () => {
+    // The picker feeds /new and /request; the facet counts feed /request's
+    // language select and FilterBar. Either listing a tombstone invites a
+    // submission the server then refuses.
+    const removedIds = new Set(REMOVED_SOURCES.map((s) => s.id));
+    expect(PICKER_ROWS.some((r) => removedIds.has(r.id))).toBe(false);
+    expect(languageFacets().reduce((n, f) => n + f.count, 0)).toBe(SOURCES.length);
   });
 });

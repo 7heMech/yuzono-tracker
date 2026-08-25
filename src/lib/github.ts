@@ -1,7 +1,7 @@
 import { CAUSES, KINDS, STAGES, STATUSES } from './db/schema';
 import { normaliseUrl, problemKeyFor, type ProblemKey } from './problems';
-import { langLabel, SOURCES } from './sources';
-import { reportHeadline } from './format';
+import { langLabel, getSource, SOURCES, REMOVED_SOURCES } from './sources';
+import { absoluteDate, reportHeadline } from './format';
 
 /**
  * Everything the GitHub sync needs that does not touch the database.
@@ -229,7 +229,11 @@ export function requestedName(head: string): string | null {
 
 const nameIndex = (() => {
   const index = new Map<string, string>();
-  for (const s of SOURCES) {
+  // Live first: `if (!index.has(k))` means iteration order decides the winner
+  // on a name tie, and catalogue order says nothing about liveness. A source
+  // delisted and re-added under a fresh id must not let its tombstone claim
+  // the match.
+  for (const s of [...SOURCES, ...REMOVED_SOURCES]) {
     const k = norm(s.name);
     if (!index.has(k)) index.set(k, s.id);
   }
@@ -271,7 +275,7 @@ const LANG_TAG: Record<string, string> = {
 export function langOf(title: string, sourceId?: string) {
   const tag = title.match(/\[([A-Za-z-]{2,6})\]/)?.[1]?.toLowerCase();
   if (tag && LANG_TAG[tag]) return LANG_TAG[tag];
-  if (sourceId) return SOURCES.find((s) => s.id === sourceId)?.lang ?? 'all';
+  if (sourceId) return getSource(sourceId)?.lang ?? 'all';
   return 'all';
 }
 
@@ -430,18 +434,24 @@ export function classifyIssue(issue: IssueSnapshot): Classified {
     kind === 'bug' || kind === 'domain' || kind === 'dead' ? causeOf(issue.labels, title) : null;
   const stage = cause ? stageOf(title, cause) : null;
   const problem = problemKeyFor(kind, stage, cause, !!sourceId);
-  const source = sourceId ? SOURCES.find((s) => s.id === sourceId) : undefined;
+  const source = sourceId ? getSource(sourceId) : undefined;
 
   const cleanProblem = problem !== null && problem !== 'other';
   const confident = m.how === 'exact' && cleanProblem;
+  // A tombstoned match is a live trap for the auto-adoption path: confident,
+  // yet pointing at a source nobody can file against any more. /review needs
+  // to see why.
+  const goneNote = source?.removed
+    ? ` That source was removed from the catalogue on ${absoluteDate(source.removed)}.`
+    : '';
   const why =
     m.how === 'none'
       ? `No catalogue source matches "${headOf(issue.title) || issue.title}".`
       : m.how === 'prefix'
-        ? `Matched ${source?.name ?? 'a source'} by name prefix, not exactly.`
+        ? `Matched ${source?.name ?? 'a source'} by name prefix, not exactly.${goneNote}`
         : cleanProblem
-          ? `Matched ${source?.name ?? 'a source'} exactly.`
-          : `Matched ${source?.name ?? 'a source'} exactly, but the problem is unclear from the labels.`;
+          ? `Matched ${source?.name ?? 'a source'} exactly.${goneNote}`
+          : `Matched ${source?.name ?? 'a source'} exactly, but the problem is unclear from the labels.${goneNote}`;
 
   return {
     how: m.how,
@@ -510,7 +520,7 @@ export interface PromotableReport {
  */
 export function promoteTitle(r: PromotableReport): string {
   const name = r.sourceId
-    ? (SOURCES.find((s) => s.id === r.sourceId)?.name ?? r.proposedName ?? 'Unknown')
+    ? (getSource(r.sourceId)?.name ?? r.proposedName ?? 'Unknown')
     : (r.proposedName ?? 'Unknown');
   const tag = r.lang && r.lang !== 'all' ? ` [${r.lang.toUpperCase()}]` : '';
   return `${name}${tag}: ${reportHeadline(r)}`;
@@ -542,7 +552,7 @@ export function promoteUrl(r: PromotableReport, repo: string, origin: string): s
   // is harmless when `other-details` is the one that actually shows.
   u.searchParams.set('body', backlink);
 
-  const source = r.sourceId ? SOURCES.find((s) => s.id === r.sourceId) : undefined;
+  const source = r.sourceId ? getSource(r.sourceId) : undefined;
   const sourceName = source?.name ?? r.proposedName ?? 'Unknown';
   const langName = r.lang ? langLabel(r.lang) : '';
 

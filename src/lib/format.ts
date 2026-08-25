@@ -10,6 +10,32 @@ export function relativeAge(createdAt: number, now = Date.now() / 1000): string 
   return `${Math.floor(d / 365)}y`;
 }
 
+/**
+ * A fixed day, said once: "24 August 2026".
+ *
+ * The relative formatters above are wrong for anything baked into a
+ * prerendered page. /source/<slug>/ rebuilds only on deploy, so a "removed two
+ * days ago" rendered at build time would freeze there and lie a little more
+ * every day after. Assembled from formatToParts rather than formatted whole,
+ * because plain 'en' orders month-first ("August 24, 2026") and this reads as
+ * a day. timeZone is pinned to UTC because an ISO-only date parses to midnight
+ * UTC — left to the machine's zone, a build in the Americas would print the
+ * previous day.
+ */
+export function absoluteDate(iso: string): string {
+  const parts = new Map(
+    new Intl.DateTimeFormat('en', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    })
+      .formatToParts(new Date(iso))
+      .map((p) => [p.type, p.value] as const),
+  );
+  return `${parts.get('day')} ${parts.get('month')} ${parts.get('year')}`;
+}
+
 export const STAGE_LABELS = {
   browse: 'Browse',
   episodes: 'Episodes',

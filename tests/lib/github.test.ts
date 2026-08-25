@@ -17,6 +17,7 @@ import {
   type IssueSnapshot,
   type PromotableReport,
 } from '../../src/lib/github';
+import { REMOVED_SOURCES } from '../../src/lib/sources';
 
 /**
  * No `mock.module('cloudflare:workers')` here, unlike tests/lib/writes.test.ts.
@@ -677,3 +678,63 @@ describe('requestedName', () => {
     expect(classifyIssue(issue).proposedName).toBe('Addic7ed');
   });
 });
+
+describe('tombstoned sources', () => {
+  /**
+   * NoobSubs is the source behind report 18. It left the upstream index on
+   * 2026-08-24; without a tombstone its name vanished from every surface at
+   * once and a new upstream issue about it would have spawned an orphan
+   * instead of joining the existing report.
+   */
+  const NOOBSUBS = '5343978110335507456';
+
+  test.skipIf(REMOVED_SOURCES.length === 0)('an upstream issue still lands on it', () => {
+    expect(matchSourceHow('NoobSubs: source is down')).toEqual({
+      sourceId: NOOBSUBS,
+      how: 'exact',
+    });
+  });
+
+  test.skipIf(REMOVED_SOURCES.length === 0)(
+    'classifyIssue explains the removal to /review',
+    () => {
+      const c = classifyIssue(issue({ title: 'NoobSubs: source is down' }));
+      expect(c.how).toBe('exact');
+      expect(c.sourceId).toBe(NOOBSUBS);
+      expect(c.why).toBe(
+        'Matched NoobSubs exactly. That source was removed from the catalogue on 24 August 2026.',
+      );
+    },
+  );
+
+  test.skipIf(REMOVED_SOURCES.length === 0)(
+    'promoteTitle renders the tombstoned name rather than Unknown',
+    () => {
+      expect(
+        promoteTitle({
+          id: 18,
+          kind: 'dead',
+          title: 'Error 404 (Search)',
+          lang: 'en',
+          sourceId: NOOBSUBS,
+          proposedName: null,
+          stage: 'browse',
+          cause: 'down',
+        }),
+      ).toBe("NoobSubs [EN]: Can't browse, the site is down");
+    },
+  );
+
+  test.skipIf(REMOVED_SOURCES.length === 0)(
+    'the nsfw flag comes from the last known catalogue value',
+    () => {
+      const dead = getSourceTombstone();
+      expect(dead?.nsfw).toBeDefined();
+      expect(nsfwFor(dead, [])).toBe(dead!.nsfw);
+    },
+  );
+});
+
+function getSourceTombstone() {
+  return REMOVED_SOURCES.find((s) => s.id === '5343978110335507456');
+}

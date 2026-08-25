@@ -4,18 +4,19 @@ import { getSourceByRef, sourcePath } from '../../lib/sources';
 /**
  * Keeps old `/source/<snowflake>` links alive.
  *
- * The 310 source pages moved from the numeric id to a slug, and those numeric
+ * The source pages moved from the numeric id to a slug, and those numeric
  * URLs are not disposable: every report row in the database names its source by
  * id, and any tab open across the deploy is holding one. So this answers the old
  * shape with a 301 to the new one rather than a 404.
  *
  * Why a route and not `redirects` in astro.config.mjs: that config takes a
- * literal map, so it would mean 310 hand-written entries becoming 310 routes in
- * the manifest, and a list that goes stale the moment a source is renamed or
- * `sync:sources` adds one. This resolves through the id map src/lib/sources.ts
- * already builds, so it cannot drift out of step with the slugs.
+ * literal map, so it would mean one hand-written entry per source becoming as
+ * many routes in the manifest — a list that goes stale the moment a source is
+ * renamed or `sync:sources` adds one. This resolves through the id map
+ * src/lib/sources.ts already builds (tombstones included), so it cannot drift
+ * out of step with the slugs.
  *
- * It does not shadow the 310 prerendered pages, and that was checked rather
+ * It does not shadow the prerendered pages, and that was checked rather
  * than assumed. Astro sorts routes with `routeComparator`
  * (astro/dist/core/routing/priority.js): for two routes whose segments are
  * otherwise equal it puts the one *without* a spread part first. Run against

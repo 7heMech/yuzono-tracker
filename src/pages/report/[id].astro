@@ -16,6 +16,7 @@ import { getSource, langLabel, sourcePath } from '../../lib/sources';
 import {
   CAUSE_LABELS,
   KIND_LABELS,
+  absoluteDate,
   relativeAge,
   reportHeadline,
   STAGE_FAILURE,
@@ -246,12 +247,25 @@ Astro.response.headers.set(
     adult && (
       <p class="adult">
         {source
-          ? 'This source is marked 18+ in the extension catalogue.'
+          ? source.removed
+            ? 'This source was marked 18+ while it was in the catalogue.'
+            : 'This source is marked 18+ in the extension catalogue.'
           : 'Whoever asked for this site marked it 18+.'}{' '}
         <span class="adult-why">
           Reports on 18+ sources are hidden from the boards unless a visitor asks
           for them.
         </span>
+      </p>
+    )
+  }
+
+  {
+    /* A removed source keeps its reports, but nothing new can land on it: the
+       forms refuse it and the pickers no longer offer it. Said here because
+       the report is the page people arrive at from old links. */
+    source?.removed && (
+      <p class="removed">
+        {`${source.name} left the extension catalogue on ${absoluteDate(source.removed)}. This report is kept, but the source can't be reported on any more.`}
       </p>
     )
   }
@@ -453,8 +467,11 @@ Astro.response.headers.set(
 <style>
   /* Same shape as the notice on a source page, so the two surfaces agree about
      what an 18+ warning looks like. A quiet box with a coloured edge and plain
-     words in it, not a badge to decode. */
-  .adult {
+     words in it, not a badge to decode. The removal notice below shares the
+     box: same job, telling a visitor something about the source before they
+     read the report. */
+  .adult,
+  .removed {
     padding: var(--space-2) var(--space-3);
     margin-block-end: var(--space-5);
     border: 1px solid var(--border-default);

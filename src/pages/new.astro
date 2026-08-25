@@ -6,7 +6,7 @@ import { db } from '../lib/db/client';
 import { OPEN_STATUSES, reports } from '../lib/db/schema';
 import { canWriteNow, currentUser } from '../lib/auth';
 import { ensureVote } from '../lib/vote';
-import { getSource, PICKER_LANGS, PICKER_ROWS } from '../lib/sources';
+import { getLiveSource, getSource, PICKER_LANGS, PICKER_ROWS } from '../lib/sources';
 import { normaliseUrl, problemByKey, problemNeedsDetail, problemNeedsUrl, PROBLEMS } from '../lib/problems';
 import { APP_OTHER, isOutdated, isUnreadableVersion } from '../lib/version';
 import { FILING_COOLDOWN_MESSAGE, overFilingLimit } from '../lib/writes';
@@ -70,7 +70,11 @@ if (Astro.request.method === 'POST') {
   // Capped like every other field, because it is stashed in the session on the
   // anonymous path before anything has validated it.
   const rawNewUrl = String(form.get('newUrl') ?? '').slice(0, 200);
-  const source = getSource(sourceId);
+  /* Live-only: this is a raw POSTed form value, so an id the pickers never
+     offered must not file. getSource still resolves a tombstone — that is what
+     tells the rejection below apart from a junk id. */
+  const source = getLiveSource(sourceId);
+  const tombstone = source ? undefined : getSource(sourceId);
 
   const submitted: Draft = {
     sourceId,
@@ -98,7 +102,9 @@ if (Astro.request.method === 'POST') {
   let newUrl: string | null = null;
 
   if (!source) {
-    error = 'Pick which source this is about first.';
+    error = tombstone
+      ? "That source was removed from the catalogue, so it can't be reported on any more."
+      : 'Pick which source this is about first.';
   } else if (appChoice === APP_OTHER && appName.length < 2) {
     error = 'Type the name of the app you use.';
   } else if (!appName || !appVersion || !extVersion) {
@@ -249,7 +255,7 @@ const shown = {
   problem: posted?.problem || (draft as any)?.problem || '',
 };
 
-const preselected = getSource(shown.sourceId);
+const preselected = getLiveSource(shown.sourceId);
 
 const formRows = PICKER_ROWS;
 const langLabels = PICKER_LANGS;
