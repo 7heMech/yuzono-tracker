@@ -687,15 +687,20 @@ describe('tombstoned sources', () => {
    * instead of joining the existing report.
    */
   const NOOBSUBS = '5343978110335507456';
+  // Gate on this exact tombstone, not on any tombstone existing: if NoobSubs
+  // returns upstream, these assertions describe a live source again and must
+  // skip rather than fail.
+  const noobsubsGone =
+    REMOVED_SOURCES.some((s) => s.id === NOOBSUBS && s.removed !== undefined);
 
-  test.skipIf(REMOVED_SOURCES.length === 0)('an upstream issue still lands on it', () => {
+  test.skipIf(!noobsubsGone)('an upstream issue still lands on it', () => {
     expect(matchSourceHow('NoobSubs: source is down')).toEqual({
       sourceId: NOOBSUBS,
       how: 'exact',
     });
   });
 
-  test.skipIf(REMOVED_SOURCES.length === 0)(
+  test.skipIf(!noobsubsGone)(
     'classifyIssue explains the removal to /review',
     () => {
       const c = classifyIssue(issue({ title: 'NoobSubs: source is down' }));
@@ -707,7 +712,7 @@ describe('tombstoned sources', () => {
     },
   );
 
-  test.skipIf(REMOVED_SOURCES.length === 0)(
+  test.skipIf(!noobsubsGone)(
     'promoteTitle renders the tombstoned name rather than Unknown',
     () => {
       expect(
@@ -725,16 +730,11 @@ describe('tombstoned sources', () => {
     },
   );
 
-  test.skipIf(REMOVED_SOURCES.length === 0)(
+  test.skipIf(!noobsubsGone)(
     'the nsfw flag comes from the last known catalogue value',
     () => {
-      const dead = getSourceTombstone();
-      expect(dead?.nsfw).toBeDefined();
-      expect(nsfwFor(dead, [])).toBe(dead!.nsfw);
+      const dead = REMOVED_SOURCES.find((s) => s.id === NOOBSUBS)!;
+      expect(nsfwFor(dead, [])).toBe(dead.nsfw);
     },
   );
 });
-
-function getSourceTombstone() {
-  return REMOVED_SOURCES.find((s) => s.id === '5343978110335507456');
-}

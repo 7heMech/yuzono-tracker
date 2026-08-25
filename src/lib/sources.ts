@@ -69,14 +69,19 @@ export function withSlugs(rows: SourceRow[]): Source[] {
 
   /* A source delisted and later re-added under a fresh id leaves a tombstone
      that computed the same slug as the new row — same name, same lang. The
-     live entry keeps the slug it published; the tombstone moves aside. Live
-     wins because a `/source/<slug>/` URL already in the wild must never move
-     because a different source died. */
+     live entry keeps the slug it published; each tombstone moves aside with a
+     numbered suffix, so two tombstones in one clash group cannot collide with
+     each other either. Live wins because a `/source/<slug>/` URL already in
+     the wild must never move because a different source died. */
   const clash = new Map<string, number>();
   for (const s of out) clash.set(s.slug, (clash.get(s.slug) ?? 0) + 1);
-  return out.map((s) =>
-    s.removed && (clash.get(s.slug) ?? 0) > 1 ? { ...s, slug: `${s.slug}-removed` } : s,
-  );
+  const nth = new Map<string, number>();
+  return out.map((s) => {
+    if (!s.removed || (clash.get(s.slug) ?? 0) <= 1) return s;
+    const n = (nth.get(s.slug) ?? 0) + 1;
+    nth.set(s.slug, n);
+    return { ...s, slug: n === 1 ? `${s.slug}-removed` : `${s.slug}-removed-${n}` };
+  });
 }
 
 const all = withSlugs(catalogue);

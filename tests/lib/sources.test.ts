@@ -51,39 +51,30 @@ describe('slug derivation', () => {
     expect(numeric).toEqual([]);
   });
 
-  test('a tombstone never displaces its live namesake', () => {
+  test('a tombstone never displaces its live namesake, or another tombstone', () => {
     // A source delisted and re-added under a fresh id: same name, same lang,
     // two ids. Both computed the same qualified slug while both existed, so
     // the live one keeps publishing it — a URL already in the wild must not
-    // move because another source died — and the tombstone moves aside.
+    // move because another source died — and each tombstone gets a unique
+    // suffix, so two delistings cannot collide with each other either.
+    const base = {
+      name: 'Same Name',
+      lang: 'en',
+      baseUrl: 'https://a.example',
+      extPkg: 'pkg.a',
+      extName: 'Same Name',
+      nsfw: false,
+    };
     const rows: SourceRow[] = [
-      {
-        id: '1',
-        name: 'Same Name',
-        lang: 'en',
-        baseUrl: 'https://a.example',
-        extPkg: 'pkg.a',
-        extName: 'Same Name',
-        extVersion: '1.0',
-        extVersionCode: 1,
-        nsfw: false,
-      },
-      {
-        id: '2',
-        name: 'Same Name',
-        lang: 'en',
-        baseUrl: 'https://b.example',
-        extPkg: 'pkg.b',
-        extName: 'Same Name',
-        extVersion: '2.0',
-        extVersionCode: 2,
-        nsfw: false,
-        removed: '2026-08-24',
-      },
+      { ...base, id: '1', extVersion: '1.0', extVersionCode: 1 },
+      { ...base, id: '2', extVersion: '2.0', extVersionCode: 2, removed: '2026-08-24' },
+      { ...base, id: '3', extVersion: '3.0', extVersionCode: 3, removed: '2026-07-01' },
     ];
     const slugged = withSlugs(rows);
-    expect(slugged.find((s) => !s.removed)?.slug).toBe('same-name-en');
-    expect(slugged.find((s) => s.removed)?.slug).toBe('same-name-en-removed');
+    expect(slugged.find((s) => s.id === '1')?.slug).toBe('same-name-en');
+    expect(slugged.find((s) => s.id === '2')?.slug).toBe('same-name-en-removed');
+    expect(slugged.find((s) => s.id === '3')?.slug).toBe('same-name-en-removed-2');
+    expect(new Set(slugged.map((s) => s.slug)).size).toBe(slugged.length);
   });
 
   test('the 32 "MyReadingManga" entries each get their own slug', () => {
@@ -247,7 +238,7 @@ describe('tombstones', () => {
     }
   });
 
-  test.skipIf(REMOVED_SOURCES.length === 0)(
+  test.skipIf(getSource('5343978110335507456')?.removed === undefined)(
     'the NoobSubs report-18 id resolves with its removal day',
     () => {
       const noobsubs = getSource('5343978110335507456');

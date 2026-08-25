@@ -108,11 +108,16 @@ const asked = r.kind === 'feature' ? KIND_LABELS.feature : null;
       {source && <span class="data">v{source.extVersion}</span>}
       {
         /* The closing date has already been said above, so the filing date
-           would be a second date on the row with nothing to distinguish it. */
+           would be a second date on the row with nothing to distinguish it.
+           A closed row whose status_changed_at was never set gets the age
+           labelled: bare, "Fixed" followed by a number reads as the closing
+           date. */
         stalled ? (
           <span class="stalled">{stalled}</span>
-        ) : closed ? null : (
+        ) : closed ? null : live ? (
           <span>{relativeAge(r.createdAt)} ago</span>
+        ) : (
+          <span>Filed {relativeAge(r.createdAt)} ago</span>
         )
       }
       {adult && <span class="adult">18+</span>}

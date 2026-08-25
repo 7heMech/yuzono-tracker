@@ -125,15 +125,25 @@ console.error(`tracker       ${text}`);
    The response body says what happened either way; this turns it into a red
    run on the schedule instead of nicer scrollback nobody reads. A body that
    does not parse at all is a red run too: a truncated 200 is not a confirmed
-   sync. */
-let result: { failures?: string[] } | null = null;
+   sync. JSON.parse also accepts {}, [] and bare primitives, none of which
+   carry a failure list, so the shape is checked before it is trusted —
+   otherwise each of them reads as a successful run. */
+let result: { failures: string[] };
 try {
-  result = JSON.parse(text);
+  const parsed: unknown = JSON.parse(text);
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    !Array.isArray((parsed as { failures?: unknown }).failures)
+  ) {
+    throw new Error('invalid sync response shape');
+  }
+  result = parsed as { failures: string[] };
 } catch {
   console.error('tracker       invalid sync response');
   process.exit(1);
 }
-if (result?.failures?.length) {
+if (result.failures.length) {
   console.error(`tracker       reconcile failures: ${result.failures.join(', ')}`);
   process.exit(1);
 }

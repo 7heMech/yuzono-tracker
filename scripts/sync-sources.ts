@@ -97,8 +97,11 @@ if (import.meta.main) {
   let previous: SourceRow[] = [];
   try {
     previous = (await Bun.file(OUT).json()) as SourceRow[];
-  } catch {
-    /* A checkout with no catalogue yet — there is nothing to carry over. */
+  } catch (err) {
+    /* Only a missing file means "first run". A catalogue that exists but
+       cannot be read or parsed must stop the sync: falling back to [] here
+       would write an upstream-only file and silently drop every tombstone. */
+    if ((err as { code?: string })?.code !== 'ENOENT') throw err;
   }
 
   const sorted = mergeCatalogue(previous, rows, new Date().toISOString().slice(0, 10));
