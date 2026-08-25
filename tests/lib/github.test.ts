@@ -17,7 +17,7 @@ import {
   type IssueSnapshot,
   type PromotableReport,
 } from '../../src/lib/github';
-import { REMOVED_SOURCES } from '../../src/lib/sources';
+import { getSource, REMOVED_SOURCES } from '../../src/lib/sources';
 
 /**
  * No `mock.module('cloudflare:workers')` here, unlike tests/lib/writes.test.ts.
@@ -687,11 +687,13 @@ describe('tombstoned sources', () => {
    * instead of joining the existing report.
    */
   const NOOBSUBS = '5343978110335507456';
-  // Gate on this exact tombstone, not on any tombstone existing: if NoobSubs
-  // returns upstream, these assertions describe a live source again and must
-  // skip rather than fail.
-  const noobsubsGone =
-    REMOVED_SOURCES.some((s) => s.id === NOOBSUBS && s.removed !== undefined);
+  // Gate on this exact tombstone. A live NoobSubs means the source came back
+  // and these assertions describe a dead row that no longer is one — skip.
+  // Absent entirely means the backfill was deleted, which must fail, not skip.
+  const noobsubsGone = (() => {
+    const s = getSource(NOOBSUBS);
+    return s === undefined || s.removed !== undefined;
+  })();
 
   test.skipIf(!noobsubsGone)('an upstream issue still lands on it', () => {
     expect(matchSourceHow('NoobSubs: source is down')).toEqual({

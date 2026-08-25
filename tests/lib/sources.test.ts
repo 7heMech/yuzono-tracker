@@ -294,13 +294,16 @@ describe('tombstones', () => {
     }
   });
 
-  test.skipIf(getSource('5343978110335507456')?.removed === undefined)(
+  // Skips only on a genuine resurrection: the row came back live, so these
+  // assertions describe a dead source that no longer exists. Absent entirely
+  // means the backfill was deleted, which must fail here rather than skip.
+  const noobsubs = getSource('5343978110335507456');
+  test.skipIf(noobsubs !== undefined && noobsubs.removed === undefined)(
     'the NoobSubs report-18 id resolves with its removal day',
     () => {
-      const noobsubs = getSource('5343978110335507456');
-      expect(noobsubs?.name).toBe('NoobSubs');
-      expect(noobsubs?.removed).toBe('2026-08-24');
-      expect(getSourceByRef('noobsubs')).toBe(noobsubs);
+      expect(getSource('5343978110335507456')?.name).toBe('NoobSubs');
+      expect(getSource('5343978110335507456')?.removed).toBe('2026-08-24');
+      expect(getSourceByRef('noobsubs')).toBe(getSource('5343978110335507456'));
       expect(getLiveSource('5343978110335507456')).toBeUndefined();
     },
   );
