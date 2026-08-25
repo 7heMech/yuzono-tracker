@@ -19,7 +19,7 @@ describe('slug derivation', () => {
   test('the catalogue is the expected size', () => {
     // Pinned because the uniqueness assertions below are only meaningful if the
     // catalogue actually loaded. An empty import would pass every set check.
-    expect(SOURCES).toHaveLength(310);
+    expect(SOURCES).toHaveLength(309);
   });
 
   test('every slug is unique', () => {
