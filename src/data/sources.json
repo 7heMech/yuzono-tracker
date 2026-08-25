@@ -1680,7 +1680,8 @@
     "extName": "JPFilms",
     "extVersion": "14.6",
     "extVersionCode": 6,
-    "nsfw": true
+    "nsfw": true,
+    "removed": "2026-08-25"
   },
   {
     "id": "2564532783405004779",
