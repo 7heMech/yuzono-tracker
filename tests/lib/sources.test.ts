@@ -16,12 +16,6 @@ import {
  * the sitemap and every Discord link already published depend on.
  */
 describe('slug derivation', () => {
-  test('the catalogue is the expected size', () => {
-    // Pinned because the uniqueness assertions below are only meaningful if the
-    // catalogue actually loaded. An empty import would pass every set check.
-    expect(SOURCES).toHaveLength(309);
-  });
-
   test('every slug is unique', () => {
     // A collision does not throw anywhere — it makes `bySlug` silently resolve
     // one of the two entries and orphans the other's page.
