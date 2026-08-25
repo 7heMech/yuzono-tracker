@@ -1,0 +1,51 @@
+# Applies pending D1 migrations to the production database.
+#
+# Deployment is a Cloudflare repo connection: a push to main builds and ships
+# the Worker, and nothing in that path touches D1. So a migration generated
+# alongside a schema change shipped as code without ever reaching the database,
+# and the first user to hit the one statement naming the new column got a 500.
+# That is how `status_note` broke marking a report fixed.
+#
+# Migrations run while the Cloudflare build is still going, which is the safe
+# order: every migration here so far only adds columns and indexes, so the
+# currently deployed Worker keeps working against the migrated database.
+#
+# Needs CLOUDFLARE_API_TOKEN (D1 edit scope) and CLOUDFLARE_ACCOUNT_ID. Until
+# they are set the job says what is missing and stops, the same way the issue
+# sync waits quietly until it is configured.
+name: Migrate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'drizzle/**'
+      - '.github/workflows/migrate.yml'
+  workflow_dispatch:
+
+# Two runs applying the same migration would race on d1_migrations.
+concurrency:
+  group: migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+      - run: bun install --frozen-lockfile
+      - name: Apply migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are not set; skipping."
+            echo "Run 'bun run db:remote' by hand until they are." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          bun run db:remote

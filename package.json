@@ -8,8 +8,10 @@
     "bun": ">=1.4.0"
   },
   "scripts": {
+    "predev": "bun run db:local",
     "dev": "astro dev",
     "build": "ASTRO_BUILD=1 astro build",
+    "prepreview": "bun run db:local",
     "preview": "astro preview",
     "check": "astro check",
     "test": "bun test",
@@ -18,7 +20,7 @@
     "db:generate": "bunx drizzle-kit generate",
     "db:local": "bunx wrangler d1 migrations apply yuzono-tracker --local",
     "db:remote": "bunx wrangler d1 migrations apply yuzono-tracker --remote",
-    "deploy": "ASTRO_BUILD=1 astro build && bunx wrangler deploy",
+    "deploy": "ASTRO_BUILD=1 astro build && bunx wrangler deploy && bun run db:remote",
     "db:seed": "bunx wrangler d1 execute yuzono-tracker --local --file=seeds/seed.sql",
     "types": "bunx wrangler types",
     "shot": "bun scripts/shot.ts",

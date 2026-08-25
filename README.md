@@ -110,15 +110,26 @@ what stops each deploy from deleting it.
 ### Migrations
 
 A fresh D1 has no tables, and the database does not exist until the first
-deploy creates it. So migrations are a separate, deliberate step rather than
-part of the deploy script:
+deploy creates it — so `bun run deploy` applies migrations *after* pushing the
+Worker, and you can run them alone at any time:
 
 ```sh
-bun run db:remote      # after the first deploy, and after any schema change
+bun run db:remote      # after any schema change
 ```
 
 It addresses the database by name because on a repo-connected deploy the
 generated id never reaches this config.
+
+A repo-connected deploy never runs that script, though: a push to main builds
+and ships the Worker, and nothing in that path touches D1. That is how a schema
+change goes live against a database without the column, and the symptom is a 500
+from the one statement that names it. `.github/workflows/migrate.yml` closes
+that gap on every push that changes `drizzle/`. It needs
+`CLOUDFLARE_API_TOKEN` (D1 edit) and `CLOUDFLARE_ACCOUNT_ID` in the repo
+secrets, and skips with a note until they are set.
+
+Locally the same gap is closed by `predev` and `prepreview`, which apply
+migrations to local D1 before the server starts.
 
 ### Pin the Bun version
 
@@ -170,7 +181,7 @@ bun run db:remote   # then create the tables
 | `bun scripts/sync-issues.ts` | Push upstream issue state into the tracker (`--dry-run`, `--backfill`) |
 | `bun scripts/check-github-sync.ts` | End-to-end check of the sync against a running dev server |
 | `bun run db:generate` | Generate a migration from the Drizzle schema |
-| `bun run db:local` / `db:remote` | Apply migrations |
+| `bun run db:local` / `db:remote` | Apply migrations (local runs automatically before `dev` and `preview`) |
 | `bun run db:seed` | Load `seeds/seed.sql` into local D1 |
 | `bun run types` | Regenerate `worker-configuration.d.ts` from wrangler.jsonc |
 | `bun run check` | Typecheck |

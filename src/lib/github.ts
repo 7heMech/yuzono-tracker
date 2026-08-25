@@ -625,7 +625,7 @@ export function promoteUrl(r: PromotableReport, repo: string, origin: string): s
       break;
     }
     case 'bug': {
-      // 01_report_issue.yml: source, language, which-app, app-version, other-details
+      // 01_report_issue.yml: source, language, which-app, app-version, reproduce-steps, expected-behavior, actual-behavior, android-version, other-details
       // Source information placeholder is "AnimePahe 14.19 (English)"
       const ver = r.extVersion || source?.extVersion || '';
       const srcInfo = ver
@@ -637,6 +637,23 @@ export function promoteUrl(r: PromotableReport, repo: string, origin: string): s
       if (langName) u.searchParams.set('language', langName);
       if (r.appName) u.searchParams.set('which-app', r.appName);
       if (r.appVersion) u.searchParams.set('app-version', r.appVersion);
+      const detail = r.body?.trim() ? r.body.trim() : reportHeadline(r as Parameters<typeof reportHeadline>[0]);
+      u.searchParams.set('reproduce-steps', truncate(detail));
+      u.searchParams.set('actual-behavior', truncate(detail));
+      const expected =
+        r.stage === 'video'
+          ? 'Video should play correctly'
+          : r.stage === 'episodes'
+            ? 'Episodes should be listed correctly'
+            : r.stage === 'browse'
+              ? 'Search and browsing should work correctly'
+              : 'Source should work as expected';
+      u.searchParams.set('expected-behavior', truncate(expected));
+      const androidHint =
+        r.appName && r.appVersion
+          ? `Reported via ${r.appName} ${r.appVersion} — Android version not captured via tracker`
+          : 'Not specified via tracker';
+      u.searchParams.set('android-version', truncate(androidHint));
       u.searchParams.set('other-details', buildOtherDetails());
       break;
     }
@@ -693,7 +710,7 @@ export function promoteUrl(r: PromotableReport, repo: string, origin: string): s
 
   const TOTAL_LIMIT = 8000;
   let guardAttempts = 0;
-  while (u.toString().length > TOTAL_LIMIT && guardAttempts < 7) {
+  while (u.toString().length > TOTAL_LIMIT && guardAttempts < 15) {
     guardAttempts++;
     const od = u.searchParams.get('other-details');
     if (od && od !== backlink && od.length > backlink.length) {
@@ -708,6 +725,46 @@ export function promoteUrl(r: PromotableReport, repo: string, origin: string): s
       const trimmed = fitEncoded(fd, newBudget);
       if (trimmed && trimmed.length < fd.length) u.searchParams.set('feature-description', trimmed);
       else u.searchParams.delete('feature-description');
+      continue;
+    }
+    const rs = u.searchParams.get('reproduce-steps');
+    if (rs) {
+      const overflow = u.toString().length - TOTAL_LIMIT;
+      const currentEncoded = encodeURIComponent(rs).length;
+      const newBudget = Math.max(10, currentEncoded - overflow - 50);
+      const trimmed = fitEncoded(rs, newBudget);
+      if (trimmed && trimmed.length < rs.length) u.searchParams.set('reproduce-steps', trimmed);
+      else u.searchParams.delete('reproduce-steps');
+      continue;
+    }
+    const ab = u.searchParams.get('actual-behavior');
+    if (ab) {
+      const overflow = u.toString().length - TOTAL_LIMIT;
+      const currentEncoded = encodeURIComponent(ab).length;
+      const newBudget = Math.max(10, currentEncoded - overflow - 50);
+      const trimmed = fitEncoded(ab, newBudget);
+      if (trimmed && trimmed.length < ab.length) u.searchParams.set('actual-behavior', trimmed);
+      else u.searchParams.delete('actual-behavior');
+      continue;
+    }
+    const eb = u.searchParams.get('expected-behavior');
+    if (eb) {
+      const overflow = u.toString().length - TOTAL_LIMIT;
+      const currentEncoded = encodeURIComponent(eb).length;
+      const newBudget = Math.max(10, currentEncoded - overflow - 20);
+      const trimmed = fitEncoded(eb, newBudget);
+      if (trimmed && trimmed.length < eb.length) u.searchParams.set('expected-behavior', trimmed);
+      else u.searchParams.delete('expected-behavior');
+      continue;
+    }
+    const av = u.searchParams.get('android-version');
+    if (av) {
+      const overflow = u.toString().length - TOTAL_LIMIT;
+      const currentEncoded = encodeURIComponent(av).length;
+      const newBudget = Math.max(10, currentEncoded - overflow - 20);
+      const trimmed = fitEncoded(av, newBudget);
+      if (trimmed && trimmed.length < av.length) u.searchParams.set('android-version', trimmed);
+      else u.searchParams.delete('android-version');
       continue;
     }
     const link = u.searchParams.get('link');

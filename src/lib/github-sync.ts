@@ -245,9 +245,21 @@ export async function syncIssues(
       });
   }
 
-  result.reflagged = await reconcileNsfw(SYNC_ACTOR);
-  result.renamed = await reconcileRequestNames(SYNC_ACTOR);
-  result.announced = await drainAnnouncements(opts.origin, cfg);
+  try {
+    result.reflagged = await reconcileNsfw(SYNC_ACTOR);
+  } catch {
+    result.reflagged = 0;
+  }
+  try {
+    result.renamed = await reconcileRequestNames(SYNC_ACTOR);
+  } catch {
+    result.renamed = 0;
+  }
+  try {
+    result.announced = await drainAnnouncements(opts.origin, cfg);
+  } catch {
+    result.announced = 0;
+  }
   return result;
 }
 
@@ -363,23 +375,30 @@ export async function reconcileNsfw(actor: Actor): Promise<number> {
   const tame = SOURCES.filter((s) => !s.nsfw).map((s) => s.id);
   const d = db();
 
-  // `inArray` with ~200 ids is one bound parameter each, well inside SQLite's
-  // default limit of 32766, so these stay single statements.
+  const chunk = <T>(arr: T[], size: number): T[][] => {
+    const out: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+  };
+
+  const updateChunked = async (ids: string[], nsfwValue: boolean, matchNsfw: boolean) => {
+    if (ids.length === 0) return [] as { id: number }[];
+    const CHUNK = 80;
+    const results: { id: number }[] = [];
+    for (const part of chunk(ids, CHUNK)) {
+      const rows = await d
+        .update(reports)
+        .set({ nsfw: nsfwValue, updatedAt: sql`(unixepoch())` })
+        .where(and(inArray(reports.sourceId, part), eq(reports.nsfw, matchNsfw)))
+        .returning({ id: reports.id });
+      results.push(...rows);
+    }
+    return results;
+  };
+
   const [on, off] = await Promise.all([
-    adult.length
-      ? d
-          .update(reports)
-          .set({ nsfw: true, updatedAt: sql`(unixepoch())` })
-          .where(and(inArray(reports.sourceId, adult), eq(reports.nsfw, false)))
-          .returning({ id: reports.id })
-      : Promise.resolve([]),
-    tame.length
-      ? d
-          .update(reports)
-          .set({ nsfw: false, updatedAt: sql`(unixepoch())` })
-          .where(and(inArray(reports.sourceId, tame), eq(reports.nsfw, true)))
-          .returning({ id: reports.id })
-      : Promise.resolve([]),
+    updateChunked(adult, true, false),
+    updateChunked(tame, false, true),
   ]);
 
   /* Catalogue-less rows, from the label we already stored. `labels` is a JSON
@@ -658,6 +677,7 @@ export const mismatches = () =>
       title: githubIssues.title,
       reportId: reports.id,
       status: reports.status,
+      kind: reports.kind,
     })
     .from(githubIssues)
     .innerJoin(reports, eq(reports.id, githubIssues.reportId))
