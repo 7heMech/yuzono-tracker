@@ -28,8 +28,8 @@
     "baseUrl": "https://anikage.cc",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anikage",
     "extName": "Anikage",
-    "extVersion": "14.3",
-    "extVersionCode": 3,
+    "extVersion": "14.4",
+    "extVersionCode": 4,
     "nsfw": true
   },
   {
@@ -2805,7 +2805,8 @@
     "extName": "SuperStream",
     "extVersion": "14.11",
     "extVersionCode": 11,
-    "nsfw": true
+    "nsfw": true,
+    "removed": "2026-08-25"
   },
   {
     "id": "4473019365642465410",
