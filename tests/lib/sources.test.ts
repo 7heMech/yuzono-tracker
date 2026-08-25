@@ -77,6 +77,40 @@ describe('slug derivation', () => {
     expect(new Set(slugged.map((s) => s.slug)).size).toBe(slugged.length);
   });
 
+  test('a generated suffix never lands on a slug a live entry already publishes', () => {
+    // A source genuinely called "Same Name En Removed" owns same-name-en-
+    // removed, so the tombstone's first candidate is taken and it advances.
+    const base = {
+      name: 'Same Name',
+      lang: 'en',
+      baseUrl: 'https://a.example',
+      extPkg: 'pkg.a',
+      extName: 'Same Name',
+      nsfw: false,
+    };
+    const rows: SourceRow[] = [
+      { ...base, id: '1', extVersion: '1.0', extVersionCode: 1 },
+      {
+        id: '2',
+        name: 'Same Name En Removed',
+        lang: '',
+        baseUrl: 'https://b.example',
+        extPkg: 'pkg.b',
+        extName: 'Same Name En Removed',
+        extVersion: '1.0',
+        extVersionCode: 1,
+        nsfw: false,
+      },
+      { ...base, id: '3', extVersion: '3.0', extVersionCode: 3, removed: '2026-08-24' },
+    ];
+    const slugged = withSlugs(rows);
+    const byId = new Map(slugged.map((s) => [s.id, s.slug]));
+    expect(byId.get('1')).toBe('same-name-en');
+    expect(byId.get('2')).toBe('same-name-en-removed');
+    expect(byId.get('3')).toBe('same-name-en-removed-2');
+    expect(new Set(slugged.map((s) => s.slug)).size).toBe(slugged.length);
+  });
+
   test('the 32 "MyReadingManga" entries each get their own slug', () => {
     // One entry per language, all with the identical name. The language
     // qualifier is the only thing separating them.

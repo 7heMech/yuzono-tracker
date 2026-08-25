@@ -72,15 +72,23 @@ export function withSlugs(rows: SourceRow[]): Source[] {
      live entry keeps the slug it published; each tombstone moves aside with a
      numbered suffix, so two tombstones in one clash group cannot collide with
      each other either. Live wins because a `/source/<slug>/` URL already in
-     the wild must never move because a different source died. */
+     the wild must never move because a different source died.
+     Every slug pass one produced is reserved before any suffix is chosen: a
+     live entry may legitimately be called "Foo En Removed", and a blind
+     `-removed` must not walk onto its URL. */
   const clash = new Map<string, number>();
   for (const s of out) clash.set(s.slug, (clash.get(s.slug) ?? 0) + 1);
-  const nth = new Map<string, number>();
+  const taken = new Set(out.map((s) => s.slug));
   return out.map((s) => {
     if (!s.removed || (clash.get(s.slug) ?? 0) <= 1) return s;
-    const n = (nth.get(s.slug) ?? 0) + 1;
-    nth.set(s.slug, n);
-    return { ...s, slug: n === 1 ? `${s.slug}-removed` : `${s.slug}-removed-${n}` };
+    let n = 0;
+    let candidate = s.slug;
+    do {
+      n++;
+      candidate = n === 1 ? `${s.slug}-removed` : `${s.slug}-removed-${n}`;
+    } while (taken.has(candidate));
+    taken.add(candidate);
+    return { ...s, slug: candidate };
   });
 }
 
