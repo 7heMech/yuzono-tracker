@@ -1,8 +1,8 @@
-import { Database } from 'bun:sqlite';
-import { beforeAll, describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { is } from 'drizzle-orm';
 import { getTableConfig, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import * as schema from '../../src/lib/db/schema';
+import { schemaDb } from '../helpers/schema-db';
 
 /**
  * src/lib/db/schema.ts against the migrations in drizzle/.
@@ -19,26 +19,9 @@ import * as schema from '../../src/lib/db/schema';
  * query. A forgotten `bun run db:generate` fails here.
  */
 
-const repoFile = (path: string) => Bun.file(new URL(`../../${path}`, import.meta.url));
-
-type Journal = { entries: { idx: number; tag: string }[] };
-
 const tables = Object.values(schema).filter((v) => is(v, SQLiteTable)) as unknown as SQLiteTable[];
 
-const db = new Database(':memory:');
-
-beforeAll(async () => {
-  const journal: Journal = await repoFile('drizzle/meta/_journal.json').json();
-  const order = [...journal.entries].sort((a, b) => a.idx - b.idx);
-
-  for (const entry of order) {
-    const sql = await repoFile(`drizzle/${entry.tag}.sql`).text();
-    for (const statement of sql.split('--> statement-breakpoint')) {
-      const trimmed = statement.trim();
-      if (trimmed) db.run(trimmed);
-    }
-  }
-});
+const db = await schemaDb();
 
 /** Column names the migrations left on a table, in no particular order. */
 const columnsOf = (table: string) =>

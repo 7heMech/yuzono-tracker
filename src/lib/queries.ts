@@ -1,20 +1,31 @@
 import type { AstroGlobal } from 'astro';
 import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from './db/client';
-import { OPEN_STATUSES, reports, votes, type Report } from './db/schema';
+import { inIds } from './db/sql';
+import { OPEN_STATUSES, OTHER_STATUSES, STATUSES, reports, votes, type Report } from './db/schema';
 
 export type Sort = 'demand' | 'stalled' | 'recent' | 'fixed';
 
 /**
- * Which half of the backlog a board is showing: the work outstanding, or the
- * work done.
+ * Which third of the backlog a board is showing.
  *
- * The boards were open-only, with no way to see a fix from the site at all —
- * a report vanished the moment it was dealt with, which is the one moment the
- * person who filed it most wants to see. `fixed` is deliberately just that
- * status: `wont_fix` and `duplicate` are also closed, but neither is news.
+ * The board was open-only at first, and a report vanished the moment it was
+ * dealt with — the one moment the person who filed it most wants to see it. So
+ * `fixed` arrived, and then `other`: `wont_fix` and `duplicate` are also
+ * closed statuses, and leaving them addressable by no URL meant a report that
+ * landed in either disappeared from the site entirely, which is worse than
+ * being unremarkable. The view earns its vague name by naming both statuses in
+ * plain words in its heading — see BOARD_VIEW_COPY in lib/format.ts.
  */
-export type BoardState = 'open' | 'fixed';
+export type BoardState = 'open' | 'fixed' | 'other';
+
+/**
+ * Query string → BoardState. These values arrive from links, so an
+ * unrecognised one falls back to `open` rather than erroring.
+ */
+export function parseBoardState(raw: string | null): BoardState {
+  return raw === 'fixed' || raw === 'other' ? raw : 'open';
+}
 
 /**
  * Rows per page, and the unit the pager counts in — "Next 60".
@@ -28,7 +39,7 @@ export const PAGE_SIZE = 60;
 export interface BoardFilter {
   /** `bug` family (broken sources) or `request` family (wanted sources). */
   family: 'broken' | 'wanted';
-  /** Open work (the default) or fixed. */
+  /** Which third of the backlog is on screen. */
   state?: BoardState;
   lang?: string;
   cause?: string;
@@ -83,6 +94,8 @@ const ROW_COLUMNS = {
   cause: reports.cause,
   title: reports.title,
   status: reports.status,
+  // Selected so a duplicate row can link the report it was merged into.
+  duplicateOf: reports.duplicateOf,
   githubIssue: reports.githubIssue,
   votes: reports.votes,
   createdAt: reports.createdAt,
@@ -92,12 +105,15 @@ export async function board(f: BoardFilter) {
   const kinds = f.family === 'broken' ? BROKEN_KINDS : WANTED_KINDS;
 
   const state = f.state ?? 'open';
-  const where = [
-    inArray(reports.kind, [...kinds]),
+  // The else-branch is the open set, so the `other` arm has to come before the
+  // fallback or that view silently renders the open board.
+  const statusFilter =
     state === 'fixed'
       ? eq(reports.status, 'fixed')
-      : inArray(reports.status, [...OPEN_STATUSES]),
-  ];
+      : state === 'other'
+        ? inArray(reports.status, [...OTHER_STATUSES])
+        : inArray(reports.status, [...OPEN_STATUSES]);
+  const where = [inArray(reports.kind, [...kinds]), statusFilter];
   if (f.lang) where.push(eq(reports.lang, f.lang));
   if (f.cause) where.push(eq(reports.cause, f.cause as never));
   // NSFW is 35% of the catalogue, so this gate is load-bearing, not cosmetic.
@@ -106,24 +122,25 @@ export async function board(f: BoardFilter) {
   // on `status`.
   if (!f.nsfw) where.push(eq(reports.nsfw, false));
 
-  /* Most recently fixed first, which is what the fixed board is for. The
+  /* Most recently fixed first, which is what the closed boards are for. The
      coalesce is because 468 rows came from the issue backlog already closed and
      only some carry a status_changed_at; falling back to updated_at keeps them
      in a sensible place instead of at the very end.
 
-     The two views do not share their default, so a sort carried across in the
+     The views do not share their default, so a sort carried across in the
      query string can name an order the other view has no meaning for: `fixed`
-     on the open board, `stalled` on the fixed board. Each falls back to its own
-     default rather than being refused, since it arrives from a link, not from a
-     control anybody pressed. */
+     on the open board, `stalled` on either closed board — it answers from
+     created_at, which for a closed report is not a waiting time. Each falls
+     back to its own default rather than being refused, since it arrives from a
+     link, not from a control anybody pressed. */
   const sort: Sort =
-    state === 'fixed'
-      ? f.sort === 'demand'
+    state === 'open'
+      ? f.sort === 'fixed'
         ? 'demand'
-        : 'fixed'
-      : f.sort === 'fixed'
+        : (f.sort ?? 'demand')
+      : f.sort === 'demand'
         ? 'demand'
-        : (f.sort ?? 'demand');
+        : 'fixed';
 
   const order =
     sort === 'fixed'
@@ -189,10 +206,12 @@ export async function reportsForSource(sourceId: string, sort: 'demand' | 'recen
 /** Which of these reports has the viewer already backed? */
 export async function myVotes(discordId: string, reportIds: number[]) {
   if (!reportIds.length) return new Set<number>();
+  // inIds, not inArray: the list is page-size dependent, so its length is a
+  // runtime fact rather than something short by construction.
   const rows = await db()
     .select({ reportId: votes.reportId })
     .from(votes)
-    .where(and(eq(votes.discordId, discordId), inArray(votes.reportId, reportIds)));
+    .where(and(eq(votes.discordId, discordId), inIds(votes.reportId, reportIds)));
   return new Set(rows.map((r) => r.reportId));
 }
 
@@ -204,6 +223,9 @@ export interface BoardCounts {
   /** Fixed, per family — the count the boards' Fixed control carries. */
   brokenFixed: number;
   wantedFixed: number;
+  /** Closed without a fix (`wont_fix` + `duplicate`), per family. */
+  brokenOther: number;
+  wantedOther: number;
 }
 
 /**
@@ -226,22 +248,30 @@ export interface BoardCounts {
  * beneath it. Whatever the board is filtering to, these count.
  *
  * Every column referenced here — status, kind, nsfw, created_at — is in
- * reports_board or reports_tallies, so the plan stays a covering index scan and
- * no report row is read to print three numbers.
+ * reports_board or reports_tallies, so the plan stays a covering index read and
+ * no report row is read to print these numbers. Verified with EXPLAIN QUERY
+ * PLAN against local D1: with the six-value filter below the planner runs
+ * `SEARCH … USING COVERING INDEX reports_board (status=? AND nsfw=?)`, six
+ * seeks; drop the filter and it degrades to a full `SCAN` of the same covering
+ * index. Both stay off the table, but the seeks read less of it.
  */
 export async function boardCounts(nsfw = false): Promise<BoardCounts> {
   const broken = sql`kind in ('bug','domain','dead')`;
   const wanted = sql`kind in ('request','feature','meta','removal')`;
   const stalled = sql`created_at < unixepoch() - ${STALLED_AFTER}`;
 
-  /* Open *and* fixed in one pass, split by a case rather than counted twice.
-     Both status sets are a range on the same leading column of reports_board,
-     so this is still one covering scan — and the alternative was a second round
-     trip to D1's single primary region to print one more number. */
+  /* All three boards in one pass, split by a case rather than counted twice.
+     The status sets are ranges on the leading column of reports_board /
+     reports_tallies, so this stays a covering scan — and the alternative was a
+     second round trip to D1's single primary region to print one more number. */
   const isOpen = sql`status in ('open', 'confirmed', 'in_progress')`;
   const isFixed = sql`status = 'fixed'`;
+  const isOther = sql`status in ('wont_fix', 'duplicate')`;
 
-  const where = [inArray(reports.status, ['open', 'confirmed', 'in_progress', 'fixed'])];
+  // All six statuses, not just the four the sums used to read: the other sums
+  // would otherwise be silently zero. Dropping the predicate outright would
+  // still be covering (verified), but a whole-index scan instead of seeks.
+  const where = [inArray(reports.status, [...STATUSES])];
   if (!nsfw) where.push(eq(reports.nsfw, false));
 
   const [row] = await db()
@@ -252,6 +282,8 @@ export async function boardCounts(nsfw = false): Promise<BoardCounts> {
       wantedStalled: sql<number>`sum(case when ${wanted} and ${isOpen} and ${stalled} then 1 else 0 end)`,
       brokenFixed: sql<number>`sum(case when ${broken} and ${isFixed} then 1 else 0 end)`,
       wantedFixed: sql<number>`sum(case when ${wanted} and ${isFixed} then 1 else 0 end)`,
+      brokenOther: sql<number>`sum(case when ${broken} and ${isOther} then 1 else 0 end)`,
+      wantedOther: sql<number>`sum(case when ${wanted} and ${isOther} then 1 else 0 end)`,
     })
     .from(reports)
     .where(and(...where));
@@ -265,6 +297,8 @@ export async function boardCounts(nsfw = false): Promise<BoardCounts> {
     wantedStalled: Number(row?.wantedStalled ?? 0),
     brokenFixed: Number(row?.brokenFixed ?? 0),
     wantedFixed: Number(row?.wantedFixed ?? 0),
+    brokenOther: Number(row?.brokenOther ?? 0),
+    wantedOther: Number(row?.wantedOther ?? 0),
   };
 }
 

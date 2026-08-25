@@ -4,6 +4,7 @@ import FilterBar from '../components/FilterBar.astro';
 import ReportRow from '../components/ReportRow.astro';
 import SourceFinder from '../components/SourceFinder.svelte';
 import { currentUser } from '../lib/auth';
+import { BOARD_VIEW_COPY } from '../lib/format';
 import {
   board,
   boardCounts,
@@ -11,7 +12,7 @@ import {
   FRESH_PARAM,
   myVotes,
   PAGE_SIZE,
-  type BoardState,
+  parseBoardState,
   type Sort,
 } from '../lib/queries';
 
@@ -25,11 +26,11 @@ const q = Astro.url.searchParams;
 const lang = q.get('lang') ?? '';
 const cause = q.get('cause') ?? '';
 const nsfw = q.get('nsfw') === '1';
-const state: BoardState = q.get('state') === 'fixed' ? 'fixed' : 'open';
-/* Each view has its own default order, and board() falls the other one's back:
-   fixed leads with what was fixed most recently, open with what most people
-   are hit by. */
-const sort = (q.get('sort') ?? (state === 'fixed' ? 'fixed' : 'demand')) as Sort;
+const state = parseBoardState(q.get('state'));
+/* Every word the page says about its view comes from one descriptor, so the
+   views cannot borrow each other's titles or empty states. */
+const view = BOARD_VIEW_COPY.broken[state];
+const sort = (q.get('sort') ?? view.defaultSort) as Sort;
 const authFailed = q.get('auth') === 'failed';
 const _retryParams = new URLSearchParams(q);
 _retryParams.delete('auth');
@@ -94,23 +95,11 @@ Astro.response.headers.set(
 );
 ---
 
-<Base title={state === 'fixed' ? 'Fixed sources' : 'Broken sources'}>
+<Base title={view.heading}>
   <header class="head">
     <div class="head-text">
-      <h1>{state === 'fixed' ? 'Fixed sources' : 'Broken sources'}</h1>
-      <p class="sub">
-        {state === 'fixed' ? (
-          <>
-            Reports that have been fixed, most recently closed first. Update the
-            extension and the fix is yours.
-          </>
-        ) : (
-          <>
-            Ranked by how many people are hit. Reporting something already
-            listed just adds you to it.
-          </>
-        )}
-      </p>
+      <h1>{view.heading}</h1>
+      <p class="sub">{view.lede}</p>
     </div>
     <dl class="tallies">
       <div><dt class="label">Open</dt><dd class="num">{counts.broken}</dd></div>
@@ -157,6 +146,7 @@ Astro.response.headers.set(
     state={state}
     openCount={counts.broken}
     fixedCount={counts.brokenFixed}
+    otherCount={counts.brokenOther}
     lang={lang}
     cause={cause}
     nsfw={nsfw}
@@ -166,19 +156,11 @@ Astro.response.headers.set(
   {
     rows.length === 0 ? (
       <div class="empty">
-        <p class="empty-title">
-          {state === 'fixed' ? 'Nothing fixed here yet' : 'Nothing broken here'}
-        </p>
-        <p>
-          {state === 'fixed'
-            ? lang || cause
-              ? 'No fixed reports match these filters. Try widening them.'
-              : 'No report has been marked fixed yet.'
-            : lang || cause
-              ? 'No open reports match these filters. Try widening them.'
-              : 'No open reports yet. If a source is broken for you, be the first to say so.'}
-        </p>
-        <a class="btn btn-primary" href="/new">Report a broken source</a>
+        <p class="empty-title">{view.emptyTitle}</p>
+        <p>{lang || cause ? view.emptyFiltered : view.emptyAlone}</p>
+        <a class:list={['btn', { 'btn-primary': view.cta.primary }]} href={view.cta.href}>
+          {view.cta.label}
+        </a>
       </div>
     ) : (
       <ol class="rows">
@@ -196,8 +178,7 @@ Astro.response.headers.set(
     (shownTo < total || offset > 0) && (
       <nav class="pager" aria-label="More reports">
         <p class="pager-count">
-          Showing {shownFrom}–{shownTo} of {total}{' '}
-          {state === 'fixed' ? 'fixed reports' : 'open reports'}
+          Showing {shownFrom}–{shownTo} of {total} {view.pagerNoun}
         </p>
         <div class="pager-links">
           {offset > 0 && (

@@ -1,3 +1,6 @@
+import { OTHER_STATUSES } from './db/schema';
+import type { BoardState } from './queries';
+
 export function relativeAge(createdAt: number, now = Date.now() / 1000): string {
   const s = Math.max(0, now - createdAt);
   const d = Math.floor(s / 86_400);
@@ -32,22 +35,37 @@ export function stalledLabel(createdAt: number, now = Date.now() / 1000): string
 }
 
 /**
- * When a fixed report was fixed, as one phrase rather than a badge plus a date.
+ * When a closed report was closed, as one phrase rather than a badge plus a
+ * date.
  *
  * The row used to print the "Fixed" pill beside the age of the *report*, which
  * on the fixed board read as "Fixed · 8mo ago" for something fixed last week.
  * And stalledLabel above answers from created_at alone, so a closed report old
  * enough to qualify was labelled "waiting 5 months" after it had been dealt
- * with. Only `fixed` gets a date here: "Won't fix 3mo ago" says nothing useful
- * about when a decision stopped mattering, so those keep the plain word.
+ * with.
+ *
+ * wont_fix and duplicate are covered here too, which reverses the old rule
+ * that only `fixed` got a date. On the Other board those rows sit under a list
+ * ordered by when things closed, so without this they fell back to
+ * relativeAge(createdAt) and dated every row by when it was filed — the same
+ * defect in the other direction. The word comes from statusLabel, so a request
+ * reads "Won't add" where a bug reads "Won't fix"; `kind` therefore trails as
+ * the last parameter, reversing statusLabel's argument order.
+ *
+ * Rows whose status_changed_at was never set return null and keep the plain
+ * status word rather than a fabricated date. updated_at is no substitute:
+ * reconcileNsfw touches it on every pass, so it is not a closing date.
  */
 export function fixedLabel(
   status: string,
   statusChangedAt: number | null,
   now = Date.now() / 1000,
+  kind?: string | null,
 ): string | null {
-  if (status !== 'fixed' || !statusChangedAt) return null;
-  return `Fixed ${relativeAge(statusChangedAt, now)} ago`;
+  if (!statusChangedAt) return null;
+  const closed = status === 'fixed' || (OTHER_STATUSES as readonly string[]).includes(status);
+  if (!closed) return null;
+  return `${statusLabel(status, kind)} ${relativeAge(statusChangedAt, now)} ago`;
 }
 
 export const CAUSE_LABELS = {
@@ -138,3 +156,116 @@ export function statusLabel(status: string, kind?: string | null): string {
   if (status === 'wont_fix' && kind === 'request') return "Won't add";
   return (STATUS_LABELS as Record<string, string>)[status] ?? status;
 }
+
+/* --- board views ---------------------------------------------------------- */
+
+/** Which half of the catalogue a board collects. Matches queries.BoardFilter. */
+export type BoardFamily = 'broken' | 'wanted';
+
+/**
+ * Everything a page says about the view it is showing.
+ *
+ * This used to be sixteen `state === 'fixed' ? … : …` ternaries spread across
+ * two pages, which is how a third view would have ended up titled with the
+ * first one's words: miss one ternary and nothing fails, it just lies. One
+ * descriptor per view, per family, is what makes adding or renaming a view a
+ * data change instead of an audit.
+ */
+export interface BoardViewCopy {
+  /** The chip label in FilterBar's state group. */
+  chip: string;
+  /** The `<title>` and the `<h1>`, which name what is actually listed. */
+  heading: string;
+  /** The sentence under the h1. */
+  lede: string;
+  /** Empty-state headline and body — body split on whether filters narrowed
+      the view or the view is genuinely empty, which the boards word apart. */
+  emptyTitle: string;
+  emptyFiltered: string;
+  emptyAlone: string;
+  /** Where an empty board sends people, and whether that is the page's own
+      ask (`primary`) or a pointer elsewhere. */
+  cta: { href: string; label: string; primary?: boolean };
+  /** The order this view leads with; also the fallback for sorts it cannot
+      honour. Closed views share `'fixed'`: most recently closed first. */
+  defaultSort: 'demand' | 'fixed';
+  /** What the pager counts in — "Showing 1–60 of 137 {pagerNoun}". */
+  pagerNoun: string;
+}
+
+const BROKEN_VIEWS: Record<BoardState, BoardViewCopy> = {
+  open: {
+    chip: 'Open',
+    heading: 'Broken sources',
+    lede: 'Ranked by how many people are hit. Reporting something already listed just adds you to it.',
+    emptyTitle: 'Nothing broken here',
+    emptyFiltered: 'No open reports match these filters. Try widening them.',
+    emptyAlone: 'No open reports yet. If a source is broken for you, be the first to say so.',
+    cta: { href: '/new', label: 'Report a broken source', primary: true },
+    defaultSort: 'demand',
+    pagerNoun: 'open reports',
+  },
+  fixed: {
+    chip: 'Fixed',
+    heading: 'Fixed sources',
+    lede: 'Reports that have been fixed, most recently closed first. Update the extension and the fix is yours.',
+    emptyTitle: 'Nothing fixed here yet',
+    emptyFiltered: 'No fixed reports match these filters. Try widening them.',
+    emptyAlone: 'No report has been marked fixed yet.',
+    cta: { href: '/', label: 'See what is still broken' },
+    defaultSort: 'fixed',
+    pagerNoun: 'fixed reports',
+  },
+  other: {
+    chip: 'Other',
+    heading: "Won't fix and duplicates",
+    lede: 'Reports closed without a fix: decided against, or merged into another report. They stay listed so a filed report never dead-ends.',
+    emptyTitle: 'Nothing here yet',
+    emptyFiltered: 'No closed reports match these filters. Try widening them.',
+    emptyAlone: 'Nothing has been closed without a fix yet.',
+    cta: { href: '/', label: 'See what is still open' },
+    defaultSort: 'fixed',
+    pagerNoun: 'closed without a fix',
+  },
+};
+
+const WANTED_VIEWS: Record<BoardState, BoardViewCopy> = {
+  open: {
+    chip: 'Open',
+    heading: 'Requests',
+    lede: 'Sources people want added, and changes they want to sources that already exist, ranked by demand.',
+    emptyTitle: 'No open requests',
+    emptyFiltered: 'No open requests match these filters. Try widening them.',
+    emptyAlone: 'No open requests yet. If a source you want is missing, be the first to ask.',
+    cta: { href: '/request', label: 'Make a request', primary: true },
+    defaultSort: 'demand',
+    pagerNoun: 'open requests',
+  },
+  fixed: {
+    chip: 'Fixed',
+    heading: 'Requests that got built',
+    lede: 'Requests that have been built, most recently finished first.',
+    emptyTitle: 'Nothing added yet',
+    emptyFiltered: 'No built requests match these filters. Try widening them.',
+    emptyAlone: 'Nothing has been built yet.',
+    cta: { href: '/requests', label: 'See what people are asking for' },
+    defaultSort: 'fixed',
+    pagerNoun: 'added sources',
+  },
+  other: {
+    chip: 'Other',
+    heading: "Won't add and duplicates",
+    lede: 'Requests turned down without being built, or marked as duplicates of another ask.',
+    emptyTitle: 'Nothing here yet',
+    emptyFiltered: 'Nothing here matches these filters. Try widening them.',
+    emptyAlone: 'Nothing has been turned down yet.',
+    cta: { href: '/requests', label: 'See what people are asking for' },
+    defaultSort: 'fixed',
+    pagerNoun: 'closed without being built',
+  },
+};
+
+export const BOARD_VIEW_COPY: Record<BoardFamily, Record<BoardState, BoardViewCopy>> = {
+  broken: BROKEN_VIEWS,
+  wanted: WANTED_VIEWS,
+};

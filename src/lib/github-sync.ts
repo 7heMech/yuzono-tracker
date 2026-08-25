@@ -1,5 +1,6 @@
 import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from './db/client';
+import { inIds } from './db/sql';
 import { githubIssues, reports, users } from './db/schema';
 import { announceFixed } from './webhook';
 import { notifyWatchers } from './notify';
@@ -78,6 +79,8 @@ export interface SyncResult {
   addressed: number;
   /** Requests whose name stopped repeating the ask. See reconcileRequestNames. */
   renamed: number;
+  /** Reconcile steps that threw this pass. Empty on a clean run. */
+  failures: string[];
 }
 
 export async function syncIssues(
@@ -107,6 +110,7 @@ export async function syncIssues(
     reflagged: 0,
     addressed: 0,
     renamed: 0,
+    failures: [],
   };
 
   /* Read once per pass, not once per issue. A reconcile carries every upstream
@@ -247,18 +251,21 @@ export async function syncIssues(
 
   try {
     result.reflagged = await reconcileNsfw(SYNC_ACTOR);
-  } catch {
-    result.reflagged = 0;
+  } catch (err) {
+    console.error('[sync] reconcileNsfw failed:', err);
+    result.failures.push('nsfw');
   }
   try {
     result.renamed = await reconcileRequestNames(SYNC_ACTOR);
-  } catch {
-    result.renamed = 0;
+  } catch (err) {
+    console.error('[sync] reconcileRequestNames failed:', err);
+    result.failures.push('request-names');
   }
   try {
     result.announced = await drainAnnouncements(opts.origin, cfg);
-  } catch {
-    result.announced = 0;
+  } catch (err) {
+    console.error('[sync] drainAnnouncements failed:', err);
+    result.failures.push('announcements');
   }
   return result;
 }
@@ -350,10 +357,10 @@ export async function reconcileRequestNames(actor: Actor): Promise<number> {
  *
  * Deliberately set-based rather than per-issue. The loop above is paid roughly
  * 470 times a pass, and doing this there would mean a read per issue to learn
- * a `source_id` this can get in bulk. These are four statements whose cost does
- * not grow with the number of issues, and because they are driven by the
- * catalogue rather than by the issues in the payload, they also repair rows
- * whose issue was not in this pass at all.
+ * a `source_id` this can get in bulk. These are three statements in one batch,
+ * whose cost does not grow with the number of issues, and because they are
+ * driven by the catalogue rather than by the issues in the payload, they also
+ * repair rows whose issue was not in this pass at all.
  *
  * The rule differs by whether there is a catalogue entry, because the authority
  * differs — see nsfwFor in lib/github.ts:
@@ -375,50 +382,39 @@ export async function reconcileNsfw(actor: Actor): Promise<number> {
   const tame = SOURCES.filter((s) => !s.nsfw).map((s) => s.id);
   const d = db();
 
-  const chunk = <T>(arr: T[], size: number): T[][] => {
-    const out: T[][] = [];
-    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-    return out;
-  };
+  /* The id lists travel as one json_each parameter each, via inIds. D1 caps
+     bound parameters at 100 per statement, and drizzle's `inArray` spends one
+     per element — an `IN` list over the full catalogue has to go through
+     json_each or it is a guaranteed 500. (This shipped once as a hand-rolled
+     chunk-size-80 loop, sized against SQLite's default 32766-parameter limit,
+     which is not the limit that applies on D1.) One batch is also one implicit
+     transaction: a mid-sweep failure can no longer leave half the board
+     reflagged, and three statements cost one round trip instead of six. */
+  const flip = (ids: string[], to: boolean) =>
+    d
+      .update(reports)
+      .set({ nsfw: to, updatedAt: sql`(unixepoch())` })
+      .where(and(inIds(reports.sourceId, ids), eq(reports.nsfw, !to)))
+      .returning({ id: reports.id });
 
-  const updateChunked = async (ids: string[], nsfwValue: boolean, matchNsfw: boolean) => {
-    if (ids.length === 0) return [] as { id: number }[];
-    const CHUNK = 80;
-    const results: { id: number }[] = [];
-    for (const part of chunk(ids, CHUNK)) {
-      const rows = await d
-        .update(reports)
-        .set({ nsfw: nsfwValue, updatedAt: sql`(unixepoch())` })
-        .where(and(inArray(reports.sourceId, part), eq(reports.nsfw, matchNsfw)))
-        .returning({ id: reports.id });
-      results.push(...rows);
-    }
-    return results;
-  };
-
-  const [on, off] = await Promise.all([
-    updateChunked(adult, true, false),
-    updateChunked(tame, false, true),
+  const [on, off, labelled] = await d.batch([
+    flip(adult, true),
+    flip(tame, false),
+    d
+      .update(reports)
+      .set({ nsfw: true, updatedAt: sql`(unixepoch())` })
+      .where(
+        and(
+          isNull(reports.sourceId),
+          eq(reports.nsfw, false),
+          sql`EXISTS (
+            SELECT 1 FROM github_issues gi
+            WHERE gi.report_id = ${reports.id} AND gi.labels LIKE '%"18+"%'
+          )`,
+        ),
+      )
+      .returning({ id: reports.id }),
   ]);
-
-  /* Catalogue-less rows, from the label we already stored. `labels` is a JSON
-     array in a text column, so the test is a substring against the quoted
-     value — `"18+"` cannot appear inside any other label GitHub allows, since
-     the quotes are the JSON delimiters. Only ever sets the flag; see above. */
-  const labelled = await d
-    .update(reports)
-    .set({ nsfw: true, updatedAt: sql`(unixepoch())` })
-    .where(
-      and(
-        isNull(reports.sourceId),
-        eq(reports.nsfw, false),
-        sql`EXISTS (
-          SELECT 1 FROM github_issues gi
-          WHERE gi.report_id = ${reports.id} AND gi.labels LIKE '%"18+"%'
-        )`,
-      ),
-    )
-    .returning({ id: reports.id });
 
   const moved = on.length + off.length + labelled.length;
 

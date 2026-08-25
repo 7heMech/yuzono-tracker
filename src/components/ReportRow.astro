@@ -32,9 +32,10 @@ const stalled = live ? stalledLabel(r.createdAt) : null;
 
 /* One phrase instead of a pill and a date that disagreed: the row used to print
    "Fixed" beside the age of the *report*, so something fixed last week read as
-   "Fixed · 8mo ago". Where there is a fix date, the status and the date are the
-   same fact and are said once. */
-const fixed = fixedLabel(r.status, r.statusChangedAt);
+   "Fixed · 8mo ago". Where there is a closing date, the status and the date are
+   the same fact and are said once — fixed, wont_fix and duplicate alike, word
+   chosen per kind by statusLabel ("Won't add" on requests). */
+const closed = fixedLabel(r.status, r.statusChangedAt, undefined, r.kind);
 
 // 468 of these came over from the GitHub backlog titled in raw HTTP jargon —
 // "Error 503 & Error 444 (Videos)" — and this row is what a search visitor
@@ -90,8 +91,8 @@ const asked = r.kind === 'feature' ? KIND_LABELS.feature : null;
       <span class="what">{headline}</span>
     </span>
     <span class="row-meta">
-      {fixed ? (
-        <span class="status" data-status={r.status}>{fixed}</span>
+      {closed ? (
+        <span class="status" data-status={r.status}>{closed}</span>
       ) : (
         r.status !== 'open' && (
           <span class="status" data-status={r.status}>
@@ -106,11 +107,11 @@ const asked = r.kind === 'feature' ? KIND_LABELS.feature : null;
       <span>{langLabel(r.lang)}</span>
       {source && <span class="data">v{source.extVersion}</span>}
       {
-        /* The fix date has already been said above, so the filing date would be
-           a second date on the row with nothing to distinguish it. */
+        /* The closing date has already been said above, so the filing date
+           would be a second date on the row with nothing to distinguish it. */
         stalled ? (
           <span class="stalled">{stalled}</span>
-        ) : fixed ? null : (
+        ) : closed ? null : (
           <span>{relativeAge(r.createdAt)} ago</span>
         )
       }
@@ -119,6 +120,19 @@ const asked = r.kind === 'feature' ? KIND_LABELS.feature : null;
     </span>
   </a>
 
+  {/* A duplicate's whole point is the report it was merged into, and this row's
+      own link goes to the duplicate — which on Other made half that board a
+      dead end. A sibling anchor, because one inside .row-main is illegal HTML
+      and the parser would break both. */}
+  {r.duplicateOf && (
+    <a
+      class="dup"
+      href={`/report/${r.duplicateOf}`}
+      aria-label={`Merged into report ${r.duplicateOf}`}
+    >
+      → #{r.duplicateOf}
+    </a>
+  )}
 </li>
 
 <style>
@@ -167,6 +181,16 @@ const asked = r.kind === 'feature' ? KIND_LABELS.feature : null;
     max-inline-size: 22ch;
   }
   .gh { font-family: var(--font-data); font-size: var(--text-xs); color: var(--text-muted); }
+  /* The merge target. Same quiet data face as the issue number, but it is a
+     link, so it keeps the interactive colour on hover and never hides. */
+  .dup {
+    align-self: center;
+    font-family: var(--font-data);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .dup:hover { color: var(--signal-ink); }
 
   @media (max-width: 640px) {
     .row-title { flex-wrap: wrap; }

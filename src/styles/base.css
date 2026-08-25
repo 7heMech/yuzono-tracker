@@ -269,6 +269,7 @@
   .status[data-status='in_progress'] { color: var(--signal-ink); }
   .status[data-status='dead']        { color: var(--dead); }
   .status[data-status='wont_fix']    { color: var(--text-muted); }
+  .status[data-status='duplicate']   { color: var(--text-muted); }
 
   /* --- empty + loading -------------------------------------------------- */
   .empty {
