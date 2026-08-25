@@ -177,20 +177,30 @@ describe('fixedLabel', () => {
   test('a fixed report says when it was fixed', () => {
     expect(fixedLabel('fixed', daysAgo(21), now)).toBe('Fixed 21d ago');
     expect(fixedLabel('fixed', daysAgo(400), now)).toBe('Fixed 1y ago');
+    expect(fixedLabel('fixed', daysAgo(21), now, 'request')).toBe('Fixed 21d ago');
   });
 
-  test('only fixed gets a date', () => {
-    // "Won't fix 3mo ago" says nothing useful about when a decision stopped
-    // mattering, and those rows keep the plain label instead.
-    expect(fixedLabel('wont_fix', daysAgo(90), now)).toBeNull();
-    expect(fixedLabel('duplicate', daysAgo(90), now)).toBeNull();
+  test('a wont_fix row is dated too, and a request reads "Won\'t add"', () => {
+    // On the Other board these rows sit under a list ordered by when things
+    // closed; dating them by when they were *filed* — the old fall-through to
+    // relativeAge(createdAt) — was the same defect the Fixed board once had.
+    expect(fixedLabel('wont_fix', daysAgo(90), now)).toBe("Won't fix 3mo ago");
+    expect(fixedLabel('wont_fix', daysAgo(90), now, 'bug')).toBe("Won't fix 3mo ago");
+    expect(fixedLabel('wont_fix', daysAgo(90), now, 'request')).toBe("Won't add 3mo ago");
+    expect(fixedLabel('duplicate', daysAgo(90), now, 'request')).toBe('Duplicate 3mo ago');
+  });
+
+  test('statuses that are not closed get nothing', () => {
     expect(fixedLabel('open', daysAgo(90), now)).toBeNull();
     expect(fixedLabel('confirmed', daysAgo(90), now)).toBeNull();
+    expect(fixedLabel('in_progress', daysAgo(90), now)).toBeNull();
   });
 
-  test('no fix date means no phrase, so the row falls back to the pill', () => {
-    // 468 rows came over from the issue backlog already closed, and not all of
-    // them carry a status_changed_at.
+  test('no closing date means no phrase, so the row falls back to the pill', () => {
+    // Many of the 468 backfilled rows carry no status_changed_at, and those
+    // show the plain status word rather than a fabricated date.
     expect(fixedLabel('fixed', null, now)).toBeNull();
+    expect(fixedLabel('wont_fix', null, now, 'request')).toBeNull();
+    expect(fixedLabel('duplicate', null, now)).toBeNull();
   });
 });

@@ -57,6 +57,13 @@ export const STATUSES = [
 export const OPEN_STATUSES = ['open', 'confirmed', 'in_progress'] as const;
 
 /**
+ * Closed without a fix. With OPEN_STATUSES and `'fixed'` these three name the
+ * whole of STATUSES from one place, so the boards' three views and github.ts's
+ * CLOSED_STATUSES cannot disagree about which status lands where.
+ */
+export const OTHER_STATUSES = ['wont_fix', 'duplicate'] as const;
+
+/**
  * Staff tiers. `mod` moves reports along; `admin` also changes settings and
  * hands out these levels. Ownership is deliberately *not* a tier — it comes
  * from OWNER_DISCORD_ID in the environment, so no dashboard action can grant

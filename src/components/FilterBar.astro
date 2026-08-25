@@ -1,18 +1,20 @@
 ---
 import { languageFacets, SOURCES } from '../lib/sources';
-import { CAUSE_LABELS } from '../lib/format';
+import { BOARD_VIEW_COPY, CAUSE_LABELS, type BoardFamily } from '../lib/format';
+import type { BoardState } from '../lib/queries';
 
 interface Props {
-  family: 'broken' | 'wanted';
+  family: BoardFamily;
   lang?: string;
   cause?: string;
   nsfw: boolean;
   sort: string;
-  /** Which half of the backlog is on screen. */
-  state?: 'open' | 'fixed';
-  /** How many are open, and how many have been fixed, in this family. */
+  /** Which third of the backlog is on screen. */
+  state?: BoardState;
+  /** How many are open, fixed or closed-without-a-fix, in this family. */
   openCount: number;
   fixedCount: number;
+  otherCount: number;
 }
 
 const {
@@ -24,9 +26,10 @@ const {
   state = 'open',
   openCount,
   fixedCount,
+  otherCount,
 } = Astro.props;
 const langs = languageFacets();
-const fixedView = state === 'fixed';
+const views = BOARD_VIEW_COPY[family];
 
 // Counted, not typed. This was hardcoded as "108 of 310 sources are marked
 // 18+", which was true and would have gone quietly wrong the next time
@@ -36,36 +39,40 @@ const adult = SOURCES.filter((s) => s.nsfw).length;
 // 41 languages is past Hick's-law territory for chips, so language is a select
 // while the handful of causes stay as one-tap chips.
 /* Two of the three open sorts mean nothing once a report is closed: "Longest
-   waiting" answers from created_at, which for a fixed report is how long ago it
-   was filed rather than how long anyone waited, and "Newest" is the same
-   question the fixed view already answers better. So the fixed view offers the
-   two orders it can honour, and the labels say which. */
-const sorts = fixedView
-  ? [
-      { key: 'demand', label: 'Most wanted' },
-      { key: 'fixed', label: 'Recently fixed' },
-    ]
-  : [
-      { key: 'demand', label: 'Most wanted' },
-      { key: 'stalled', label: 'Longest waiting' },
-      { key: 'recent', label: 'Newest' },
-    ];
+   waiting" answers from created_at, which for a closed report is how long ago
+   it was filed rather than how long anyone waited, and "Newest" is the same
+   question the closed views already answer better. So both closed views offer
+   the two orders they can honour — the shared 'fixed' key labelled by what the
+   view actually shows. */
+const sorts =
+  state === 'open'
+    ? [
+        { key: 'demand', label: 'Most wanted' },
+        { key: 'stalled', label: 'Longest waiting' },
+        { key: 'recent', label: 'Newest' },
+      ]
+    : [
+        { key: 'demand', label: 'Most wanted' },
+        { key: 'fixed', label: state === 'other' ? 'Recently closed' : 'Recently fixed' },
+      ];
 
 // The sort that is actually in force, so exactly one chip reads as pressed —
 // board() falls the other view's default back to its own, and a chip that
 // disagreed with the list under it is worse than no chip at all.
-const activeSort = fixedView
-  ? sort === 'demand'
-    ? 'demand'
-    : 'fixed'
-  : sort === 'fixed'
-    ? 'demand'
-    : sort || 'demand';
+const activeSort =
+  state === 'open'
+    ? sort === 'fixed'
+      ? 'demand'
+      : sort || 'demand'
+    : sort === 'demand'
+      ? 'demand'
+      : 'fixed';
 
-const states = [
-  { key: 'open', label: 'Open', count: openCount },
-  { key: 'fixed', label: 'Fixed', count: fixedCount },
-];
+const states = (['open', 'fixed', 'other'] as const).map((key) => ({
+  key,
+  label: views[key].chip,
+  count: key === 'open' ? openCount : key === 'fixed' ? fixedCount : otherCount,
+}));
 ---
 
 <form class="filters" method="get" role="search">
@@ -73,7 +80,7 @@ const states = [
     {/* First control on the bar, because it decides what every other one
         filters. Counts on the chips for the same reason the 18+ chip carries
         one: "Fixed" alone does not say that 468 of these exist. */}
-    <div class="segmented states" role="group" aria-label="Open or fixed">
+    <div class="segmented states" role="group" aria-label="Open, fixed or other">
       {
         states.map((v) => (
           <button
@@ -243,9 +250,21 @@ const states = [
     .causes .chip { flex: none; }
     .sorts { inline-size: 100%; }
     .segmented .chip { flex: 1; text-align: center; }
-    /* Two chips carrying counts, beside the 18+ chip rather than across the
-       row: full width would make each half wide enough to look like a button
-       and cost the row the 18+ chip is on. */
+    /* Three chips carrying counts, beside the 18+ chip rather than across
+       their own row: full width would make each third wide enough to look like
+       a button and cost the row the 18+ chip is on. The three no longer fit
+       390px alongside it, so the group scrolls sideways instead of wrapping —
+       same treatment as .causes above, bleed and hidden scrollbar included. */
+    .states {
+      flex: 0 1 auto;
+      min-inline-size: 0;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      margin-inline-start: calc(-1 * var(--space-4));
+      padding-inline-start: var(--space-4);
+    }
+    .states::-webkit-scrollbar { display: none; }
     .states .chip { flex: none; }
   }
 </style>
