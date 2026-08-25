@@ -111,6 +111,28 @@ describe('slug derivation', () => {
     expect(new Set(slugged.map((s) => s.slug)).size).toBe(slugged.length);
   });
 
+  test('two live rows with the same name and lang stay uniquely addressable', () => {
+    // The catalogue has never contained this tie — the invariant test above
+    // would catch it — but if upstream ever ships one, bySlug must not keep
+    // only the later row and orphan the other's page.
+    const base = {
+      name: 'Twin',
+      lang: 'en',
+      baseUrl: 'https://a.example',
+      extPkg: 'pkg.a',
+      extName: 'Twin',
+      nsfw: false,
+    };
+    const slugged = withSlugs([
+      { ...base, id: '1', extVersion: '1.0', extVersionCode: 1 },
+      { ...base, id: '2', extVersion: '2.0', extVersionCode: 2 },
+    ]);
+    const byId = new Map(slugged.map((s) => [s.id, s.slug]));
+    expect(byId.get('1')).toBe('twin-en');
+    expect(byId.get('2')).toBe('twin-en-2');
+    expect(new Set(slugged.map((s) => s.slug)).size).toBe(slugged.length);
+  });
+
   test('the 32 "MyReadingManga" entries each get their own slug', () => {
     // One entry per language, all with the identical name. The language
     // qualifier is the only thing separating them.

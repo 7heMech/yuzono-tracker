@@ -67,28 +67,50 @@ export function withSlugs(rows: SourceRow[]): Source[] {
     return { ...s, slug: (seen.get(b) ?? 0) > 1 ? `${b}-${qualifier}` : b };
   });
 
-  /* A source delisted and later re-added under a fresh id leaves a tombstone
-     that computed the same slug as the new row — same name, same lang. The
-     live entry keeps the slug it published; each tombstone moves aside with a
-     numbered suffix, so two tombstones in one clash group cannot collide with
-     each other either. Live wins because a `/source/<slug>/` URL already in
-     the wild must never move because a different source died.
-     Every slug pass one produced is reserved before any suffix is chosen: a
-     live entry may legitimately be called "Foo En Removed", and a blind
-     `-removed` must not walk onto its URL. */
-  const clash = new Map<string, number>();
-  for (const s of out) clash.set(s.slug, (clash.get(s.slug) ?? 0) + 1);
+  /* Any group that computed one slug resolves here, not only tombstone
+     clashes: two live rows with the same name and language would both
+     publish it and bySlug would silently keep just one. Whichever entry
+     still ships keeps what it published — a `/source/<slug>/` URL in the
+     wild must never move because another entry died — and the rest advance
+     to the first free suffix, tombstones saying so in theirs. Every slug
+     pass one produced is reserved before any candidate is chosen, so a
+     live entry legitimately called "Foo En Removed" cannot be walked onto. */
+  const groups = new Map<string, Source[]>();
+  for (const s of out) {
+    const g = groups.get(s.slug);
+    if (g) g.push(s);
+    else groups.set(s.slug, [s]);
+  }
   const taken = new Set(out.map((s) => s.slug));
+  const moved = new Map<Source, string>();
+  for (const members of groups.values()) {
+    if (members.length < 2) continue;
+    // Live entries first, stable within each half, so the canonical slot is
+    // decided by liveness rather than by catalogue position.
+    const ordered = [
+      ...members.filter((s) => !s.removed),
+      ...members.filter((s) => s.removed),
+    ];
+    for (const s of ordered.slice(1)) {
+      let n = 1;
+      for (;;) {
+        const candidate = s.removed
+          ? n === 1
+            ? `${s.slug}-removed`
+            : `${s.slug}-removed-${n}`
+          : `${s.slug}-${n + 1}`;
+        n++;
+        if (!taken.has(candidate)) {
+          taken.add(candidate);
+          moved.set(s, candidate);
+          break;
+        }
+      }
+    }
+  }
   return out.map((s) => {
-    if (!s.removed || (clash.get(s.slug) ?? 0) <= 1) return s;
-    let n = 0;
-    let candidate = s.slug;
-    do {
-      n++;
-      candidate = n === 1 ? `${s.slug}-removed` : `${s.slug}-removed-${n}`;
-    } while (taken.has(candidate));
-    taken.add(candidate);
-    return { ...s, slug: candidate };
+    const slug = moved.get(s);
+    return slug ? { ...s, slug } : s;
   });
 }
 
