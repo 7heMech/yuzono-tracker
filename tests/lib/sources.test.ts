@@ -133,6 +133,34 @@ describe('slug derivation', () => {
     expect(new Set(slugged.map((s) => s.slug)).size).toBe(slugged.length);
   });
 
+  test('a twin dying does not reshuffle the surviving URL', () => {
+    // The transition that decides the tie-break: whichever row was canonical
+    // when two live twins existed keeps its slug after it is delisted, and
+    // so does the survivor. Liveness cannot own this decision — it changes
+    // across syncs; the id never does.
+    const base = {
+      name: 'Twin',
+      lang: 'en',
+      baseUrl: 'https://a.example',
+      extPkg: 'pkg.a',
+      extName: 'Twin',
+      nsfw: false,
+    };
+    const canonical = { ...base, id: '111', extVersion: '1.0', extVersionCode: 1 };
+    const survivor = { ...base, id: '222', extVersion: '2.0', extVersionCode: 2 };
+
+    const before = withSlugs([canonical, survivor]);
+    expect(before.find((s) => s.id === '111')?.slug).toBe('twin-en');
+    expect(before.find((s) => s.id === '222')?.slug).toBe('twin-en-2');
+
+    const after = withSlugs([
+      { ...canonical, removed: '2026-09-01' },
+      survivor,
+    ]);
+    expect(after.find((s) => s.id === '111')?.slug).toBe('twin-en');
+    expect(after.find((s) => s.id === '222')?.slug).toBe('twin-en-2');
+  });
+
   test('the 32 "MyReadingManga" entries each get their own slug', () => {
     // One entry per language, all with the identical name. The language
     // qualifier is the only thing separating them.

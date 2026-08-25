@@ -69,12 +69,16 @@ export function withSlugs(rows: SourceRow[]): Source[] {
 
   /* Any group that computed one slug resolves here, not only tombstone
      clashes: two live rows with the same name and language would both
-     publish it and bySlug would silently keep just one. Whichever entry
-     still ships keeps what it published — a `/source/<slug>/` URL in the
-     wild must never move because another entry died — and the rest advance
-     to the first free suffix, tombstones saying so in theirs. Every slug
-     pass one produced is reserved before any candidate is chosen, so a
-     live entry legitimately called "Foo En Removed" cannot be walked onto. */
+     publish it and bySlug would silently keep just one. The canonical slot
+     goes to the lowest id and every other member advances to the first free
+     suffix, tombstones saying so in theirs.
+     The tie-break is the id on purpose, not liveness: a twin dying must not
+     reshuffle the survivors' URLs, and an id never changes. The cost is that
+     in a resurrection the bare slug can stay with the dead predecessor while
+     its fresh incarnation sits at a suffixed one — stable, and no URL that
+     ever resolved stops resolving. Every slug pass one produced is reserved
+     before any candidate is chosen, so a live entry legitimately called
+     "Foo En Removed" cannot be walked onto either. */
   const groups = new Map<string, Source[]>();
   for (const s of out) {
     const g = groups.get(s.slug);
@@ -83,14 +87,10 @@ export function withSlugs(rows: SourceRow[]): Source[] {
   }
   const taken = new Set(out.map((s) => s.slug));
   const moved = new Map<Source, string>();
+  const byId = (a: SourceRow, b: SourceRow) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   for (const members of groups.values()) {
     if (members.length < 2) continue;
-    // Live entries first, stable within each half, so the canonical slot is
-    // decided by liveness rather than by catalogue position.
-    const ordered = [
-      ...members.filter((s) => !s.removed),
-      ...members.filter((s) => s.removed),
-    ];
+    const ordered = [...members].sort(byId);
     for (const s of ordered.slice(1)) {
       let n = 1;
       for (;;) {
