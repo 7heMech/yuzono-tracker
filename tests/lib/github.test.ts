@@ -17,6 +17,7 @@ import {
   type IssueSnapshot,
   type PromotableReport,
 } from '../../src/lib/github';
+import { getSource, REMOVED_SOURCES } from '../../src/lib/sources';
 
 /**
  * No `mock.module('cloudflare:workers')` here, unlike tests/lib/writes.test.ts.
@@ -676,4 +677,66 @@ describe('requestedName', () => {
     };
     expect(classifyIssue(issue).proposedName).toBe('Addic7ed');
   });
+});
+
+describe('tombstoned sources', () => {
+  /**
+   * NoobSubs is the source behind report 18. It left the upstream index on
+   * 2026-08-24; without a tombstone its name vanished from every surface at
+   * once and a new upstream issue about it would have spawned an orphan
+   * instead of joining the existing report.
+   */
+  const NOOBSUBS = '5343978110335507456';
+  // Gate on this exact tombstone. A live NoobSubs means the source came back
+  // and these assertions describe a dead row that no longer is one — skip.
+  // Absent entirely means the backfill was deleted, which must fail, not skip.
+  const noobsubsGone = (() => {
+    const s = getSource(NOOBSUBS);
+    return s === undefined || s.removed !== undefined;
+  })();
+
+  test.skipIf(!noobsubsGone)('an upstream issue still lands on it', () => {
+    expect(matchSourceHow('NoobSubs: source is down')).toEqual({
+      sourceId: NOOBSUBS,
+      how: 'exact',
+    });
+  });
+
+  test.skipIf(!noobsubsGone)(
+    'classifyIssue explains the removal to /review',
+    () => {
+      const c = classifyIssue(issue({ title: 'NoobSubs: source is down' }));
+      expect(c.how).toBe('exact');
+      expect(c.sourceId).toBe(NOOBSUBS);
+      expect(c.why).toBe(
+        'Matched NoobSubs exactly. That source was removed from the catalogue on 24 August 2026.',
+      );
+    },
+  );
+
+  test.skipIf(!noobsubsGone)(
+    'promoteTitle renders the tombstoned name rather than Unknown',
+    () => {
+      expect(
+        promoteTitle({
+          id: 18,
+          kind: 'dead',
+          title: 'Error 404 (Search)',
+          lang: 'en',
+          sourceId: NOOBSUBS,
+          proposedName: null,
+          stage: 'browse',
+          cause: 'down',
+        }),
+      ).toBe("NoobSubs [EN]: Can't browse, the site is down");
+    },
+  );
+
+  test.skipIf(!noobsubsGone)(
+    'the nsfw flag comes from the last known catalogue value',
+    () => {
+      const dead = REMOVED_SOURCES.find((s) => s.id === NOOBSUBS)!;
+      expect(nsfwFor(dead, [])).toBe(dead.nsfw);
+    },
+  );
 });

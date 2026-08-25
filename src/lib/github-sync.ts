@@ -6,7 +6,7 @@ import { announceFixed } from './webhook';
 import { notifyWatchers } from './notify';
 import { logAction } from './staff';
 import { readConfig, type Config } from './settings';
-import { SOURCES } from './sources';
+import { ALL_SOURCES } from './sources';
 import {
   classifyIssue,
   promoteTitle,
@@ -378,8 +378,12 @@ export async function reconcileRequestNames(actor: Actor): Promise<number> {
  *     survives every later pass.
  */
 export async function reconcileNsfw(actor: Actor): Promise<number> {
-  const adult = SOURCES.filter((s) => s.nsfw).map((s) => s.id);
-  const tame = SOURCES.filter((s) => !s.nsfw).map((s) => s.id);
+  // ALL_SOURCES, not SOURCES: a delisted id sits in neither list otherwise,
+  // and its reports' nsfw flag freezes permanently — with no moderator control
+  // on /report for catalogue-backed rows to fix it by hand. A tombstone keeps
+  // the last known flag governing.
+  const adult = ALL_SOURCES.filter((s) => s.nsfw).map((s) => s.id);
+  const tame = ALL_SOURCES.filter((s) => !s.nsfw).map((s) => s.id);
   const d = db();
 
   /* The id lists travel as one json_each parameter each, via inIds. D1 caps

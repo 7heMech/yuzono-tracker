@@ -7,8 +7,14 @@ import { OPEN_STATUSES } from '../lib/db/schema';
 interface Props {
   sourceId: string;
   sort?: 'demand' | 'recent';
+  /**
+   * The day the source left the catalogue, when it did. Suppresses both
+   * report CTAs: /new rejects a removed source, so the page must not invite
+   * a submission that can only end in an error.
+   */
+  removed?: string;
 }
-const { sourceId } = Astro.props;
+const { sourceId, removed } = Astro.props as Props;
 const qs = Astro.url.searchParams.get('sort');
 const sort = (Astro.props as Props).sort ?? (qs === 'recent' ? 'recent' : 'demand');
 const basePath = Astro.url.pathname;
@@ -31,16 +37,26 @@ const closed = all.filter((r) => !(OPEN_STATUSES as readonly string[]).includes(
 
 {
   open.length === 0 ? (
-    <div class="ok">
-      <p class="ok-title">No open reports</p>
-      <p class="ok-sub">
-        Nobody has reported this source as broken. If it's failing for you, say so. You'll
-        be the first.
-      </p>
-      <a class="btn btn-primary" href={`/new?source=${sourceId}`}>
-        Report a problem
-      </a>
-    </div>
+    removed ? (
+      <div class="ok">
+        <p class="ok-sub">
+          {closed.length === 0
+            ? 'No problems were reported before it was removed.'
+            : 'No open problems remain.'}
+        </p>
+      </div>
+    ) : (
+      <div class="ok">
+        <p class="ok-title">No open reports</p>
+        <p class="ok-sub">
+          Nobody has reported this source as broken. If it's failing for you, say so. You'll
+          be the first.
+        </p>
+        <a class="btn btn-primary" href={`/new?source=${sourceId}`}>
+          Report a problem
+        </a>
+      </div>
+    )
   ) : (
     <section>
       <div class="sort-row">
@@ -55,9 +71,11 @@ const closed = all.filter((r) => !(OPEN_STATUSES as readonly string[]).includes(
           <ReportRow report={r} mine={backed.has(r.id)} />
         ))}
       </ol>
-      <a class="btn add" href={`/new?source=${sourceId}`}>
-        Something else is broken
-      </a>
+      {!removed && (
+        <a class="btn add" href={`/new?source=${sourceId}`}>
+          Something else is broken
+        </a>
+      )}
     </section>
   )
 }

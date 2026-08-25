@@ -1,18 +1,20 @@
 ---
 import Base from '../../layouts/Base.astro';
 import SourceStatus from '../../components/SourceStatus.astro';
-import { SOURCES, langDir, langLabel } from '../../lib/sources';
+import { ALL_SOURCES, langDir, langLabel } from '../../lib/sources';
+import { absoluteDate } from '../../lib/format';
 
-// 310 static pages. These are the search-landing surface — someone googling
-// "animepahe not working" should hit real HTML from the nearest edge, with the
-// live report data arriving in the server island below.
+// One page per catalogue entry, live and removed. These are the search-landing
+// surface — someone googling "animepahe not working" should hit real HTML from
+// the nearest edge, with the live report data arriving in the server island
+// below. A removed source keeps its page: reports about it are published URLs.
 export const prerender = true;
 
 /**
  * The param is the slug, so the file is `[slug].astro`.
  *
- * It used to be `[id]` carrying `s.id`, which made every one of these 310 URLs
- * a snowflake — `/source/9168084761765988435/`. That defeated the reason the
+ * It used to be `[id]` carrying `s.id`, which made every one of these URLs a
+ * snowflake — `/source/9168084761765988435/`. That defeated the reason the
  * pages exist: the person who lands here arrived from a search for "animepahe
  * not working", and `/source/animepahe/` answered 404. Slugs are derived in
  * src/lib/sources.ts and are unique across the catalogue; `sourcePath()` is
@@ -23,7 +25,7 @@ export const prerender = true;
  * redirected here by `[...ref].ts`.
  */
 export function getStaticPaths() {
-  return SOURCES.map((s) => ({ params: { slug: s.slug }, props: { source: s } }));
+  return ALL_SOURCES.map((s) => ({ params: { slug: s.slug }, props: { source: s } }));
 }
 
 const { source } = Astro.props;
@@ -40,7 +42,7 @@ const host = (() => {
   <nav class="crumb" aria-label="Breadcrumb">
     {/* Trailing slash: /sources/ is prerendered and so builds to a directory.
         Without it every visitor pays a 307 before the page arrives. An HTML
-        comment here would have shipped on all 310 pages; this one is stripped. */}
+        comment here would have shipped on every page; this one is stripped. */}
     <a href="/sources/">Sources</a>
     <span aria-hidden="true">/</span>
     <span>{source.name}</span>
@@ -49,9 +51,16 @@ const host = (() => {
   <header class="head">
     <div>
       <h1 dir={langDir(source.lang)}>{source.name}</h1>
-      <p class="host">
-        <a href={source.baseUrl} rel="nofollow noopener noreferrer external">{host}</a>
-      </p>
+      {source.removed ? (
+        <p class="host">
+          Removed from the extension catalogue on {absoluteDate(source.removed)}. The
+          extension no longer ships it, so new reports are closed. Past reports are below.
+        </p>
+      ) : (
+        <p class="host">
+          <a href={source.baseUrl} rel="nofollow noopener noreferrer external">{host}</a>
+        </p>
+      )}
     </div>
     <dl class="facts">
       <div>
@@ -73,9 +82,15 @@ const host = (() => {
     </dl>
   </header>
 
-  {source.nsfw && <p class="nsfw">This source is marked 18+.</p>}
+  {source.nsfw && (
+    <p class="nsfw">
+      {source.removed
+        ? 'This source was marked 18+ while it was in the catalogue.'
+        : 'This source is marked 18+.'}
+    </p>
+  )}
 
-  <SourceStatus sourceId={source.id} server:defer>
+  <SourceStatus sourceId={source.id} removed={source.removed} server:defer>
     <div slot="fallback" class="loading">
       <span class="skeleton line" style="--w: 34%"></span>
       <span class="skeleton line" style="--w: 88%"></span>

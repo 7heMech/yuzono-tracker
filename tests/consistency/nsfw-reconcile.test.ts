@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { inIds } from '../../src/lib/db/sql';
 import { reports, users } from '../../src/lib/db/schema';
-import { SOURCES } from '../../src/lib/sources';
+import { ALL_SOURCES, REMOVED_SOURCES, SOURCES } from '../../src/lib/sources';
 import { schemaDb } from '../helpers/schema-db';
 
 /**
@@ -15,7 +15,9 @@ import { schemaDb } from '../helpers/schema-db';
  * `inIds`, the real catalogue — and run them against migrations replayed into
  * in-memory SQLite. What is pinned here is the SQL behaviour the D1 500s came
  * from: one parameter per statement at catalogue scale, snowflake ids matching
- * as TEXT, and rows with no source_id left alone.
+ * as TEXT, and rows with no source_id left alone. The tombstone block pins why
+ * those lists must be built over ALL_SOURCES: over SOURCES alone, a delisted
+ * id sits in neither list and its flag freezes permanently.
  */
 
 const sqlite = await schemaDb();
@@ -23,6 +25,8 @@ const d = drizzle(sqlite);
 
 const adult = SOURCES.filter((s) => s.nsfw).map((s) => s.id);
 const tame = SOURCES.filter((s) => !s.nsfw).map((s) => s.id);
+const allAdult = ALL_SOURCES.filter((s) => s.nsfw).map((s) => s.id);
+const allTame = ALL_SOURCES.filter((s) => !s.nsfw).map((s) => s.id);
 
 const flip = async (ids: string[], to: boolean) =>
   d
@@ -102,6 +106,84 @@ describe('the reconcile statements over the real schema', () => {
     const flagged = await seedReport({ sourceId: null, nsfw: true });
 
     await Promise.all([flip(adult, true), flip(tame, false)]);
+
+    const after = await d
+      .select({ id: reports.id, nsfw: reports.nsfw })
+      .from(reports)
+      .where(inIds(reports.id, [unflagged.id, flagged.id]));
+    expect(after.find((r) => r.id === unflagged.id)?.nsfw).toBe(false);
+    expect(after.find((r) => r.id === flagged.id)?.nsfw).toBe(true);
+  });
+});
+
+describe('tombstones', () => {
+  /**
+   * A delisted source's id is in neither SOURCES-derived list, so under the
+   * old lists its rows never moved again — and the 18+ toggle on /report is
+   * gated to catalogue-less rows, so nothing could fix it by hand. Building
+   * the lists over ALL_SOURCES restores governance from the last known flag.
+   */
+  test.skipIf(!REMOVED_SOURCES.some((s) => s.nsfw))(
+    'a tombstoned adult id reconciles only when the lists see tombstones',
+    async () => {
+      const dead = REMOVED_SOURCES.find((s) => s.nsfw)!;
+      expect(allAdult).toContain(dead.id);
+      expect(adult).not.toContain(dead.id);
+
+      // Under the live-only lists: frozen at whatever the row says.
+      const frozen = await seedReport({ sourceId: dead.id });
+      await Promise.all([flip(adult, true), flip(tame, false)]);
+      const mid = await d
+        .select({ id: reports.id, nsfw: reports.nsfw })
+        .from(reports)
+        .where(eq(reports.id, frozen.id));
+      expect(mid[0]?.nsfw).toBe(false);
+
+      // Under the full catalogue: corrected, both ways like any live row.
+      await Promise.all([flip(allAdult, true), flip(allTame, false)]);
+      const after = await d
+        .select({ id: reports.id, nsfw: reports.nsfw })
+        .from(reports)
+        .where(eq(reports.id, frozen.id));
+      expect(after[0]?.nsfw).toBe(true);
+    },
+  );
+
+  test.skipIf(REMOVED_SOURCES.every((s) => s.nsfw))(
+    'a tombstoned tame id clears a wrongly-set flag through the full catalogue',
+    async () => {
+      const dead = REMOVED_SOURCES.find((s) => !s.nsfw)!;
+      expect(allTame).toContain(dead.id);
+      expect(tame).not.toContain(dead.id);
+
+      // The live-only lists cannot reach it: wrongly marked 18+, it stays
+      // marked no matter how many passes run.
+      const wrong = await seedReport({ sourceId: dead.id, nsfw: true });
+      await Promise.all([flip(adult, true), flip(tame, false)]);
+      const mid = await d
+        .select({ id: reports.id, nsfw: reports.nsfw })
+        .from(reports)
+        .where(eq(reports.id, wrong.id));
+      expect(mid[0]?.nsfw).toBe(true);
+
+      // The full catalogue clears it from the last known flag.
+      await Promise.all([flip(allAdult, true), flip(allTame, false)]);
+      const after = await d
+        .select({ id: reports.id, nsfw: reports.nsfw })
+        .from(reports)
+        .where(eq(reports.id, wrong.id));
+      expect(after[0]?.nsfw).toBe(false);
+    },
+  );
+
+  test('an id in neither partition is untouched even by the full catalogue', async () => {
+    // Not in the catalogue at all — an adopted row whose source was never
+    // matched. Neither list may claim it; that is reconcileNsfw's asymmetry,
+    // unchanged by tombstones.
+    const unflagged = await seedReport({ sourceId: '9200000000000000042' });
+    const flagged = await seedReport({ sourceId: '9200000000000000042', nsfw: true });
+
+    await Promise.all([flip(allAdult, true), flip(allTame, false)]);
 
     const after = await d
       .select({ id: reports.id, nsfw: reports.nsfw })

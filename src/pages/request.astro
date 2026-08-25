@@ -7,7 +7,7 @@ import { db } from '../lib/db/client';
 import { OPEN_STATUSES, reports } from '../lib/db/schema';
 import { canWriteNow, currentUser } from '../lib/auth';
 import { ensureVote } from '../lib/vote';
-import { getSource, languageFacets, PICKER_LANGS, PICKER_ROWS } from '../lib/sources';
+import { getLiveSource, getSource, languageFacets, PICKER_LANGS, PICKER_ROWS } from '../lib/sources';
 import { normaliseUrl } from '../lib/problems';
 import { duplicateOf } from '../lib/requests';
 import { FILING_COOLDOWN_MESSAGE, isReportId, overFilingLimit } from '../lib/writes';
@@ -119,11 +119,16 @@ if (Astro.request.method === 'POST') {
     if (!(await canWriteNow(user))) return Astro.redirect('/cant-post', 302);
 
     // The catalogue is the authority for the source, exactly as on /new: an id
-    // that is not in it is not a source, whatever the form said.
-    const source = getSource(sourceId);
+    // that is not in it is not a source, whatever the form said. Live-only,
+    // because this is a raw POSTed form value — a removed source must not be
+    // filed against, even though getSource still resolves it.
+    const source = getLiveSource(sourceId);
+    const tombstone = source ? undefined : getSource(sourceId);
 
     if (!source) {
-      error = 'Pick which source this is about first.';
+      error = tombstone
+        ? "That source was removed from the catalogue, so it can't be reported on any more."
+        : 'Pick which source this is about first.';
     } else if (askTitle.length < 6) {
       error = "Say what you want in a sentence. \"Add login\" is enough; a word is not.";
     } else if (rawTitle.length > 120) {
@@ -330,7 +335,7 @@ const change = wantsChange();
 
 const pickerRows = PICKER_ROWS;
 const pickerLangs = PICKER_LANGS;
-const picked = sourceId ? getSource(sourceId) : undefined;
+const picked = sourceId ? getLiveSource(sourceId) : undefined;
 ---
 
 <Base title="Make a request" narrow>

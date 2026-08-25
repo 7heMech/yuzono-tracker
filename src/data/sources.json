@@ -2431,6 +2431,18 @@
     "nsfw": false
   },
   {
+    "id": "5343978110335507456",
+    "name": "NoobSubs",
+    "lang": "en",
+    "baseUrl": "https://noobftp1.noobsubs.com",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.en.noobsubs",
+    "extName": "NoobSubs",
+    "extVersion": "14.1",
+    "extVersionCode": 1,
+    "nsfw": false,
+    "removed": "2026-08-24"
+  },
+  {
     "id": "5310001068353260432",
     "name": "Nyaa (Torrent)",
     "lang": "all",
