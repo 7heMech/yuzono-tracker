@@ -10,7 +10,7 @@ import {
   reportHeadline,
   STAGE_FAILURE,
   stalledLabel,
-  STATUS_LABELS,
+  statusLabel,
 } from '../lib/format';
 import { OPEN_STATUSES, type Report } from '../lib/db/schema';
 
@@ -95,7 +95,7 @@ const asked = r.kind === 'feature' ? KIND_LABELS.feature : null;
       ) : (
         r.status !== 'open' && (
           <span class="status" data-status={r.status}>
-            {STATUS_LABELS[r.status]}
+            {statusLabel(r.status, r.kind)}
           </span>
         )
       )}

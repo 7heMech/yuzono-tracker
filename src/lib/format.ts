@@ -133,3 +133,8 @@ export const STATUS_LABELS = {
   wont_fix: "Won't fix",
   duplicate: 'Duplicate',
 } as const;
+
+export function statusLabel(status: string, kind?: string | null): string {
+  if (status === 'wont_fix' && kind === 'request') return "Won't add";
+  return (STATUS_LABELS as Record<string, string>)[status] ?? status;
+}

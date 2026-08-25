@@ -27,7 +27,6 @@ if (Astro.url.searchParams.get('kind') === 'request') {
 const user = await currentUser(Astro);
 
 let error: string | null = null;
-let openCard: string | null = null;
 let resumed = false;
 
 type Draft = {
@@ -112,23 +111,20 @@ if (Astro.request.method === 'POST') {
       `You're on ${source.name} v${extVersion} and v${source.extVersion} is out. ` +
       `Update the extension first (Browse → Extensions → Update). Most breakage is ` +
       `already fixed in the current version. If it still fails after updating, report it then.`;
-  } else if (problem && problemNeedsUrl(problem)) {
+  } else if (!problem) {
+    error = 'Pick what went wrong.';
+  } else if (problemNeedsUrl(problem)) {
     newUrl = normaliseUrl(rawNewUrl);
     if (!newUrl) {
       error = rawNewUrl.trim()
         ? "That doesn't look like a web address. Paste the full link, e.g. https://example.com"
         : 'Add the new address so a maintainer knows where the site moved to.';
     }
-  } else if (problem && problemNeedsDetail(problem) && detail.length < 10) {
+  } else if (problemNeedsDetail(problem) && detail.length < 10) {
     error = "Describe what happens. 'Something else' needs a sentence to be actionable.";
   }
 
-  // Whatever went wrong, reopen the card the person was typing into — the two
-  // cards that carry a field are closed by default, so a collapsed one hides
-  // the address or the description they just wrote.
-  if (error && problem && (problemNeedsUrl(problem) || problemNeedsDetail(problem))) {
-    openCard = problem.key;
-  }
+
 
   if (source && problem && !error) {
     // Remember the setup so the next report is two taps again.
@@ -230,7 +226,6 @@ const draft = (await Astro.session?.get('pending_report')) as Draft | undefined;
 if (draft) {
   Astro.session?.delete('pending_report');
   resumed = true;
-  if (draft.problem) openCard = draft.problem;
 }
 const setup = (await Astro.session?.get('setup')) as
   | { appName: string; appVersion: string }
@@ -251,6 +246,7 @@ const shown = {
   appName: posted?.appName || draft?.appName || setup?.appName || '',
   appVersion: posted?.appVersion || draft?.appVersion || setup?.appVersion || '',
   extVersion: posted?.extVersion || draft?.extVersion || '',
+  problem: posted?.problem || (draft as any)?.problem || '',
 };
 
 const preselected = getSource(shown.sourceId);
@@ -275,7 +271,7 @@ const langLabels = PICKER_LANGS;
     {
       resumed && !error && (
         <p class="note" role="status">
-          Welcome back. Your draft is still here. Tap the problem again to send it.
+          Welcome back. Your draft is still here. Pick what's wrong and tap Submit report to send it.
         </p>
       )
     }
@@ -295,10 +291,6 @@ const langLabels = PICKER_LANGS;
 
     <section class="step">
       <h2 class="step-h"><span class="step-n">3</span> What's wrong?</h2>
-      {/* Revealed by ReportForm once it knows no source is picked, so it stays
-           hidden with JavaScript off — where the buttons still work and the
-           server does the refusing. Said in words rather than by dimming
-           something and leaving the reason to be guessed. */}
       <p class="needs-source" role="status">Pick your source first.</p>
       <div class="field detail-field">
         <label class="label" for="problemDetail"
@@ -316,30 +308,32 @@ const langLabels = PICKER_LANGS;
         >
         <p class="field-hint">One or two sentences is plenty.</p>
       </div>
-      <ul class="problems">
-        {
-          PROBLEMS.map((p) => {
-            const needsUrl = problemNeedsUrl(p);
-            if (!needsUrl) {
+      <fieldset class="problems-field">
+        <legend class="sr-only">Pick what's wrong</legend>
+        <ul class="problems">
+          {
+            PROBLEMS.map((p) => {
+              const needsUrl = problemNeedsUrl(p);
+              const checked = shown.problem === p.key;
+              if (!needsUrl) {
+                return (
+                  <li>
+                    <label class="problem">
+                      <input class="sr-only" type="radio" name="problem" value={p.key} checked={checked} required />
+                      <span class="problem-label">{p.label}</span>
+                      <span class="problem-hint">{p.hint}</span>
+                    </label>
+                  </li>
+                );
+              }
               return (
-                <li>
-                  <button class="problem" type="submit" name="problem" value={p.key}>
+                <li class="wide moved-item">
+                  <label class="problem">
+                    <input class="sr-only" type="radio" name="problem" value={p.key} checked={checked} required />
                     <span class="problem-label">{p.label}</span>
                     <span class="problem-hint">{p.hint}</span>
-                  </button>
-                </li>
-              );
-            }
-            return (
-              <li class="wide">
-                {/* Native disclosure: the extra field costs no JavaScript and
-                     no second page. */}
-                <details class="problem problem-open" open={openCard === p.key}>
-                  <summary>
-                    <span class="problem-label">{p.label}</span>
-                    <span class="problem-hint">{p.hint}</span>
-                  </summary>
-                  <div class="card-body">
+                  </label>
+                  <div class="moved-url">
                     <div class="row-2">
                       <label class="sr-only" for="newUrl">New address</label>
                       <input
@@ -353,42 +347,75 @@ const langLabels = PICKER_LANGS;
                         value={shown.newUrl}
                         placeholder="new-address.com"
                       />
-                      <button class="btn btn-primary" type="submit" name="problem" value={p.key}>
-                        Send
-                      </button>
                     </div>
                     <p class="field-hint">
                       Paste the address you were redirected to. Just the domain is fine.
                     </p>
                   </div>
-                </details>
-              </li>
-            );
-          })
-        }
-      </ul>
+                </li>
+              );
+            })
+          }
+        </ul>
+      </fieldset>
+      <div class="submit-row">
+        <button class="btn btn-primary btn-lg" type="submit" id="submitReport">Submit report</button>
+        <p class="needs-problem" role="status">Pick what's wrong first.</p>
+      </div>
     </section>
 
   </form>
 
   <p class="foot-note">
-    Already reported by someone else? Tapping a problem adds you to their report
-    instead of making a duplicate.
+    Already reported by someone else? Submitting adds you to their report instead
+    of making a duplicate.
   </p>
+
+  <script is:inline>
+    (() => {
+      const form = document.querySelector('form.flow');
+      if (!form) return;
+      const submit = document.getElementById('submitReport');
+      const readyInput = form.querySelector('input[name="ready"]');
+      const radios = form.querySelectorAll('input[name="problem"]');
+      const newUrl = document.getElementById('newUrl');
+      const update = () => {
+        const hasProblem = !!form.querySelector('input[name="problem"]:checked');
+        const ready = readyInput && readyInput.value === '1';
+        const movedChecked = form.querySelector('input[value="moved"]:checked');
+        const needsUrl = !!movedChecked;
+        const urlOk = !needsUrl || (newUrl && newUrl.value.trim().includes('.'));
+        const blocked = !ready || !hasProblem || !urlOk;
+        if (submit) submit.disabled = blocked;
+        form.toggleAttribute('data-needs-problem', !hasProblem);
+        form.toggleAttribute('data-needs-url', needsUrl && !urlOk);
+      };
+      for (const r of radios) r.addEventListener('change', update);
+      if (newUrl) newUrl.addEventListener('input', update);
+      const obs = new MutationObserver(update);
+      if (readyInput) obs.observe(readyInput, { attributes: true, attributeFilter: ['value'] });
+      form.addEventListener('change', update);
+      update();
+      const checkReady = setInterval(update, 300);
+      setTimeout(() => clearInterval(checkReady), 5000);
+    })();
+  </script>
 </Base>
 
 <style>
-  /* Only shown when ReportForm has actually determined that no source is
-     picked — never on a JavaScript-free render, where the buttons are live. */
-  .needs-source {
+  .needs-source,
+  .needs-problem {
     display: none;
     margin-block-end: var(--space-2);
     font-size: var(--text-sm);
     color: var(--text-secondary);
   }
   form[data-needs-source] .needs-source { display: block; }
+  form[data-needs-problem] .needs-problem { display: block; }
   form[data-needs-source] .problem { opacity: 0.55; }
-  form[data-needs-source] button.problem { cursor: not-allowed; }
+  form[data-needs-source] label.problem { cursor: not-allowed; }
+
+  .problems-field { border: none; padding: 0; margin: 0; }
 
   .detail-field { margin-block-end: var(--space-3); }
   .detail-field .textarea { min-block-size: 0; }
@@ -443,9 +470,6 @@ const langLabels = PICKER_LANGS;
 
   .problems { display: grid; gap: var(--space-2); align-items: stretch; }
   @media (min-width: 640px) { .problems { grid-template-columns: 1fr 1fr; } }
-  /* The card that carries a field is full width in every state, so opening
-      it reflows nothing: no sideways jump, no re-pairing of its neighbours.
-      It sits last in the list, so the single-tap cards still pair up cleanly. */
   .problems li { display: flex; flex-direction: column; }
   .problems li.wide { grid-column: 1 / -1; }
 
@@ -463,10 +487,35 @@ const langLabels = PICKER_LANGS;
     background: var(--surface-raised);
     transition: border-color var(--dur-fast) var(--ease-standard),
       background var(--dur-fast) var(--ease-standard);
+    cursor: pointer;
   }
   .problem:hover { border-color: var(--signal-dim); background: var(--signal-fill); }
+  .problem:has(input:checked) { border-color: var(--signal-dim); background: var(--signal-fill); }
+  .problem:has(input:focus-visible) { outline: 2px solid var(--signal); outline-offset: 2px; }
   .problem-label { font-weight: var(--weight-medium); color: var(--text-primary); }
   .problem-hint { font-size: var(--text-sm); color: var(--text-tertiary); }
+
+  .moved-url {
+    display: none;
+    gap: var(--space-2);
+    padding: 0 var(--space-3) var(--space-3);
+    border: 1px solid var(--border-default);
+    border-block-start: none;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    background: var(--signal-fill);
+    margin-block-start: -1px;
+  }
+  .moved-item:has(input[value="moved"]:checked) .moved-url { display: grid; }
+  .moved-item:has(input[value="moved"]:checked) .problem { border-radius: var(--radius-md) var(--radius-md) 0 0; border-color: var(--signal-dim); background: var(--signal-fill); }
+
+  .submit-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-block-start: var(--space-4);
+    align-items: start;
+  }
+  .submit-row .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 
   .problem-open { display: block; padding: 0; }
   .problem-open summary {

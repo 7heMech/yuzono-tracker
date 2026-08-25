@@ -77,6 +77,9 @@
     if (!form) return;
     const blocked = !chosen;
     form.toggleAttribute('data-needs-source', blocked);
+    for (const r of form.querySelectorAll<HTMLInputElement>('input[name="problem"]')) {
+      r.disabled = blocked;
+    }
     for (const b of form.querySelectorAll<HTMLButtonElement>('button[name="problem"]')) {
       b.disabled = blocked;
     }

@@ -19,7 +19,7 @@ import {
   relativeAge,
   reportHeadline,
   STAGE_FAILURE,
-  STATUS_LABELS,
+  statusLabel,
 } from '../../lib/format';
 import { STATUSES } from '../../lib/db/schema';
 
@@ -304,7 +304,7 @@ Astro.response.headers.set(
     <dl class="facts">
       <div>
         <dt class="label">Status</dt>
-        <dd class="status" data-status={report.status}>{STATUS_LABELS[report.status]}</dd>
+        <dd class="status" data-status={report.status}>{statusLabel(report.status, report.kind)}</dd>
       </div>
       {report.statusNote && (
         <div class="wide"><dt class="label">Note</dt><dd>{report.statusNote}</dd></div>
@@ -394,7 +394,7 @@ Astro.response.headers.set(
           <div class="mod-row">
             {STATUSES.filter((st) => st !== report.status).map((st) => (
               <button class="btn" type="submit" name="status" value={st}>
-                {STATUS_LABELS[st]}
+                {statusLabel(st, report.kind)}
               </button>
             ))}
           </div>

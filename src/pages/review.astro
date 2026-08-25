@@ -13,8 +13,7 @@ import {
 import { isResponse, logAction, requireStaff } from '../lib/staff';
 import { getSource } from '../lib/sources';
 import { LEVEL_LABELS } from '../lib/levels';
-import { relativeAge } from '../lib/format';
-import { STATUS_LABELS } from '../lib/format';
+import { relativeAge, statusLabel } from '../lib/format';
 
 export const prerender = false;
 
@@ -188,7 +187,7 @@ const rows = queue.map((row) => {
               </div>
               <p class="issue-why">
                 Report <a href={`/report/${m.reportId}`}>#{m.reportId}</a> here says{' '}
-                {STATUS_LABELS[m.status].toLowerCase()}.
+                {statusLabel(m.status, (m as any).kind).toLowerCase()}.
               </p>
             </li>
           ))}

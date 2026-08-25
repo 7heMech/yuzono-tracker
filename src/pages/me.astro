@@ -5,7 +5,7 @@ import { currentUser } from '../lib/auth';
 import { safeReturnTo } from '../lib/redirect';
 import { myBacked, myReports, myUpdates, markRead } from '../lib/notify';
 import { getSource } from '../lib/sources';
-import { relativeAge, reportHeadline, STATUS_LABELS } from '../lib/format';
+import { relativeAge, reportHeadline, statusLabel } from '../lib/format';
 import { STATUSES } from '../lib/db/schema';
 
 export const prerender = false;
@@ -116,7 +116,7 @@ Astro.response.headers.set('Cache-Control', 'private, no-store');
                   {u.readAt === null && <b class="u-new">New</b>}
                   <b class="u-src">{subjectOf(u)}</b>
                   <span class="u-mid">
-                    {WHAT_HAPPENED[u.kind]} {STATUS_LABELS[u.reportStatus]}
+                    {WHAT_HAPPENED[u.kind]} {statusLabel(u.reportStatus, (u as any).reportKind)}
                   </span>
                   {note && <span class="u-note"> — {note}</span>}
                 </span>
