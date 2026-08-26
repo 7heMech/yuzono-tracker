@@ -226,7 +226,9 @@ Astro.response.headers.set(
           : saved === 'nsfw-off'
             ? 'No longer marked 18+.'
             : saved === 'promote-already'
-              ? 'This one was sent to GitHub just now. If no issue came of that, you can try again in half an hour.'
+              ? report.githubIssue
+                ? 'This one has already been sent to GitHub.'
+                : 'This one was sent to GitHub just now. If no issue came of that, you can try again in half an hour.'
               : 'Status updated.'}
       </p>
     )
