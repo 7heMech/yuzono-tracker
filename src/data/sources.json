@@ -858,6 +858,17 @@
     "nsfw": false
   },
   {
+    "id": "5863960468592971590",
+    "name": "AniWaves.ru",
+    "lang": "en",
+    "baseUrl": "https://aniwaves.ru",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.en.aniwaves",
+    "extName": "AniWaves.ru",
+    "extVersion": "14.1",
+    "extVersionCode": 1,
+    "nsfw": false
+  },
+  {
     "id": "4565983297271071094",
     "name": "Aniweek",
     "lang": "ko",
