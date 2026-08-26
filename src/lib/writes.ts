@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from './db/client';
 import { OPEN_STATUSES, reports } from './db/schema';
 
@@ -81,3 +81,40 @@ export async function isVotableReport(reportId: number): Promise<boolean> {
  * definitions and the reasoning behind them are in lib/host.ts.
  */
 export { hostOf, sameHost } from './host';
+
+/* --- promotion claim ----------------------------------------------------- */
+
+/**
+ * How long a promotion claim holds.
+ *
+ * Clicking "Open a GitHub issue" claims the report immediately and only then
+ * sends the moderator to GitHub's form — so a form that never gets submitted
+ * (a closed tab, an expired GitHub session, a changed mind) would otherwise
+ * lock the report out of promotion forever. The claim exists to stop a
+ * double-tap opening two issue forms, and a double-tap happens within seconds,
+ * so half an hour refuses the accident while letting an abandoned attempt be
+ * retried the same day. A linked `github_issue` still blocks re-promotion
+ * permanently; only the never-completed case expires.
+ */
+export const PROMOTE_CLAIM_SECONDS = 30 * 60;
+
+/**
+ * Claim the right to open the upstream issue for this report, and return the
+ * claimed row, or null when a live claim or a linked issue already holds it.
+ * The guard is one UPDATE so two near-simultaneous clicks cannot both win —
+ * same shape as the announcement claims in lib/webhook.ts.
+ */
+export async function claimPromotion(reportId: number) {
+  const [claimed] = await db()
+    .update(reports)
+    .set({ promotedAt: sql`(unixepoch())`, updatedAt: sql`(unixepoch())` })
+    .where(
+      and(
+        eq(reports.id, reportId),
+        isNull(reports.githubIssue),
+        sql`(${reports.promotedAt} IS NULL OR ${reports.promotedAt} <= unixepoch() - ${PROMOTE_CLAIM_SECONDS})`,
+      ),
+    )
+    .returning();
+  return claimed ?? null;
+}

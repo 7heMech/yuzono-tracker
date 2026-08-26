@@ -2,9 +2,10 @@
 import { env } from 'cloudflare:workers';
 import Base from '../../layouts/Base.astro';
 import VoteButton from '../../components/VoteButton.astro';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '../../lib/db/client';
 import { OPEN_STATUSES, reports, votes } from '../../lib/db/schema';
+import { claimPromotion } from '../../lib/writes';
 import { avatarUrl, currentUser, dbUser } from '../../lib/auth';
 import { reporterMeta } from '../../lib/reporter';
 import { atLeast } from '../../lib/levels';
@@ -93,16 +94,13 @@ if (Astro.request.method === 'POST') {
   }
 
   /* Promotion. A prefilled issue form rather than the API, because this install
-     holds no GitHub token — see lib/github.ts. The claim below is the point of
+     holds no GitHub token — see lib/github.ts. claimPromotion is the point of
      `promoted_at`: opening an issue upstream cannot be undone, so a double-tap
      has to be refused by the database rather than by hoping it does not happen.
-     Same shape as the announcement claims in lib/webhook.ts. */
+     The claim expires (lib/writes.ts) because the form it leads to can go
+     unfilled, which is how a report ends up unsendable with no issue anywhere. */
   if (form.get('promote') === '1') {
-    const [claimed] = await db()
-      .update(reports)
-      .set({ promotedAt: sql`(unixepoch())`, updatedAt: sql`(unixepoch())` })
-      .where(and(eq(reports.id, id), isNull(reports.promotedAt), isNull(reports.githubIssue)))
-      .returning();
+    const claimed = await claimPromotion(id);
     if (!claimed) return Astro.redirect(`/report/${id}?saved=promote-already`, 303);
 
     /* Confirmed, not in_progress: sending it upstream says a moderator believes
@@ -228,7 +226,7 @@ Astro.response.headers.set(
           : saved === 'nsfw-off'
             ? 'No longer marked 18+.'
             : saved === 'promote-already'
-              ? 'This one has already been sent to GitHub.'
+              ? 'This one was sent to GitHub just now. If no issue came of that, you can try again in half an hour.'
               : 'Status updated.'}
       </p>
     )
