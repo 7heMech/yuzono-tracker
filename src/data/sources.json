@@ -3,11 +3,11 @@
     "id": "9168084761765988435",
     "name": "123Anime",
     "lang": "en",
-    "baseUrl": "https://123anime.ru",
+    "baseUrl": "https://123animehub.cc",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.onetwothreeanime",
     "extName": "123Anime",
-    "extVersion": "14.1",
-    "extVersionCode": 1,
+    "extVersion": "14.2",
+    "extVersionCode": 2,
     "nsfw": false
   },
   {
@@ -399,11 +399,11 @@
     "id": "2765997893095141044",
     "name": "AnimeOnline.Ninja",
     "lang": "es",
-    "baseUrl": "https://ver.animeonline.ninja",
+    "baseUrl": "https://ww3.animeonline.ninja",
     "extPkg": "eu.kanade.tachiyomi.animeextension.es.animeonlineninja",
     "extName": "AnimeOnline.Ninja",
-    "extVersion": "14.65",
-    "extVersionCode": 65,
+    "extVersion": "14.66",
+    "extVersionCode": 66,
     "nsfw": false
   },
   {
@@ -938,11 +938,11 @@
     "id": "5831315710159126556",
     "name": "AsiaFlix",
     "lang": "en",
-    "baseUrl": "https://asiaflix.app",
+    "baseUrl": "https://asiaflix.net",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.asiaflix",
     "extName": "AsiaFlix",
-    "extVersion": "14.31",
-    "extVersionCode": 31,
+    "extVersion": "14.32",
+    "extVersionCode": 32,
     "nsfw": false
   },
   {
@@ -996,8 +996,8 @@
     "baseUrl": "https://www.beatz-anime.net",
     "extPkg": "eu.kanade.tachiyomi.animeextension.es.beatzanime",
     "extName": "BeatZ Anime",
-    "extVersion": "14.2",
-    "extVersionCode": 2,
+    "extVersion": "14.3",
+    "extVersionCode": 3,
     "nsfw": false
   },
   {
@@ -1403,8 +1403,8 @@
     "baseUrl": "https://hanime.tv",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.hanime",
     "extName": "hanime.tv",
-    "extVersion": "14.22",
-    "extVersionCode": 22,
+    "extVersion": "14.23",
+    "extVersionCode": 23,
     "nsfw": true
   },
   {
@@ -1995,11 +1995,11 @@
     "id": "2828515480418041073",
     "name": "Movies Mod",
     "lang": "en",
-    "baseUrl": "https://moviesmod.red",
+    "baseUrl": "https://moviesmod.zone",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.moviesmod",
     "extName": "MoviesMod",
-    "extVersion": "14.1",
-    "extVersionCode": 1,
+    "extVersion": "14.2",
+    "extVersionCode": 2,
     "nsfw": false
   },
   {
@@ -2745,44 +2745,44 @@
     "id": "665657603807796138",
     "name": "StreamingUnity (Movie)",
     "lang": "en",
-    "baseUrl": "https://streamingunity.biz/en",
+    "baseUrl": "https://streamingunity.vip/en",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.streamingcommunity",
     "extName": "StreamingCommunity",
-    "extVersion": "14.19",
-    "extVersionCode": 19,
+    "extVersion": "14.20",
+    "extVersionCode": 20,
     "nsfw": false
   },
   {
     "id": "502708102217708509",
     "name": "StreamingUnity (Movie)",
     "lang": "it",
-    "baseUrl": "https://streamingunity.biz/it",
+    "baseUrl": "https://streamingunity.vip/it",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.streamingcommunity",
     "extName": "StreamingCommunity",
-    "extVersion": "14.19",
-    "extVersionCode": 19,
+    "extVersion": "14.20",
+    "extVersionCode": 20,
     "nsfw": false
   },
   {
     "id": "349088835984594821",
     "name": "StreamingUnity (Tv)",
     "lang": "en",
-    "baseUrl": "https://streamingunity.biz/en",
+    "baseUrl": "https://streamingunity.vip/en",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.streamingcommunity",
     "extName": "StreamingCommunity",
-    "extVersion": "14.19",
-    "extVersionCode": 19,
+    "extVersion": "14.20",
+    "extVersionCode": 20,
     "nsfw": false
   },
   {
     "id": "7246470104959245892",
     "name": "StreamingUnity (Tv)",
     "lang": "it",
-    "baseUrl": "https://streamingunity.biz/it",
+    "baseUrl": "https://streamingunity.vip/it",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.streamingcommunity",
     "extName": "StreamingCommunity",
-    "extVersion": "14.19",
-    "extVersionCode": 19,
+    "extVersion": "14.20",
+    "extVersionCode": 20,
     "nsfw": false
   },
   {
@@ -2999,11 +2999,11 @@
     "id": "1915898919039572670",
     "name": "UniqueStream",
     "lang": "en",
-    "baseUrl": "https://uniquestream.net",
+    "baseUrl": "https://anime.uniquestream.net",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.uniquestream",
     "extName": "UniqueStream",
-    "extVersion": "14.7",
-    "extVersionCode": 7,
+    "extVersion": "14.8",
+    "extVersionCode": 8,
     "nsfw": false
   },
   {
@@ -3123,8 +3123,8 @@
     "baseUrl": "https://www.wcoanimedub.tv",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.wcoanimedub",
     "extName": "WcoAnimeDub",
-    "extVersion": "14.8",
-    "extVersionCode": 8,
+    "extVersion": "14.9",
+    "extVersionCode": 9,
     "nsfw": false
   },
   {
@@ -3134,8 +3134,8 @@
     "baseUrl": "https://www.wcoanimesub.tv",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.wcoanimesub",
     "extName": "WcoAnimeSub",
-    "extVersion": "14.8",
-    "extVersionCode": 8,
+    "extVersion": "14.9",
+    "extVersionCode": 9,
     "nsfw": false
   },
   {
@@ -3145,8 +3145,8 @@
     "baseUrl": "https://www.wcoforever.net",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.wcoforever",
     "extName": "WcoForever",
-    "extVersion": "14.8",
-    "extVersionCode": 8,
+    "extVersion": "14.9",
+    "extVersionCode": 9,
     "nsfw": false
   },
   {
@@ -3156,8 +3156,8 @@
     "baseUrl": "https://www.wcoflix.tv",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.wcofun",
     "extName": "Wcofun",
-    "extVersion": "14.22",
-    "extVersionCode": 22,
+    "extVersion": "14.23",
+    "extVersionCode": 23,
     "nsfw": false
   },
   {
@@ -3167,8 +3167,8 @@
     "baseUrl": "https://www.wcostream.tv",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.wcostream",
     "extName": "WCOStream",
-    "extVersion": "14.13",
-    "extVersionCode": 13,
+    "extVersion": "14.14",
+    "extVersionCode": 14,
     "nsfw": false
   },
   {
@@ -3178,8 +3178,8 @@
     "baseUrl": "https://www.wco.tv",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.wcotv",
     "extName": "WcoTv",
-    "extVersion": "14.8",
-    "extVersionCode": 8,
+    "extVersion": "14.9",
+    "extVersionCode": 9,
     "nsfw": false
   },
   {
