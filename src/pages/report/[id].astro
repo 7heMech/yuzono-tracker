@@ -10,7 +10,7 @@ import { avatarUrl, currentUser, dbUser } from '../../lib/auth';
 import { reporterMeta } from '../../lib/reporter';
 import { atLeast } from '../../lib/levels';
 import { isResponse, levelOf, logAction, requireStaff } from '../../lib/staff';
-import { announceFixed } from '../../lib/webhook';
+import { announceStatusChanged } from '../../lib/webhook';
 import { notifyWatchers } from '../../lib/notify';
 import { promoteUrl } from '../../lib/github';
 import { getSource, langLabel, sourcePath } from '../../lib/sources';
@@ -81,8 +81,8 @@ if (Astro.request.method === 'POST') {
          read on /me. */
       const after: Promise<unknown>[] = [
         notifyWatchers(id, 'status_changed', detail, gate.user.id),
+        announceStatusChanged(updated, Astro.url.origin, undefined, gate.user.username),
       ];
-      if (status === 'fixed') after.push(announceFixed(updated, Astro.url.origin));
 
       // waitUntil on Workers, await when there is no Cloudflare context —
       // which is what keeps `astro dev` working. Same shape as /vote.

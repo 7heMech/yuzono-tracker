@@ -19,8 +19,10 @@ export const SETTING_KEYS = [
   'min_account_age_days',
   'webhook_url',
   'webhook_on_fixed',
+  'webhook_on_status_changed',
   'webhook_on_new_report',
   'webhook_on_new_request',
+  'webhook_include_actor',
   'webhook_vote_threshold',
   'github_sync_secret',
   'github_webhook_secret',
@@ -38,8 +40,10 @@ const DEFAULTS: Record<SettingKey, () => string> = {
   min_account_age_days: () => String(env.MIN_ACCOUNT_AGE_DAYS ?? 30),
   webhook_url: () => String(env.DISCORD_WEBHOOK_URL ?? ''),
   webhook_on_fixed: () => '1',
+  webhook_on_status_changed: () => '0',
   webhook_on_new_report: () => '1',
   webhook_on_new_request: () => '1',
+  webhook_include_actor: () => '0',
   webhook_vote_threshold: () => '0',
   // No environment seed for either. Unlike the Discord webhook URL there is
   // nowhere to copy these from — they are shared secrets this app invents, so

@@ -2,7 +2,7 @@ import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from './db/client';
 import { inIds } from './db/sql';
 import { githubIssues, reports, users } from './db/schema';
-import { announceFixed } from './webhook';
+import { announceFixed, announceStatusChanged } from './webhook';
 import { notifyWatchers } from './notify';
 import { logAction } from './staff';
 import { readConfig, type Config } from './settings';
@@ -176,7 +176,14 @@ export async function syncIssues(
     const wanted = transitionFor(prior?.state ?? null, issue.state, issue.stateReason);
     if (reportId !== null && wanted) {
       const applied = await applyStatus(reportId, wanted, opts);
-      if (applied) result.changed++;
+    if (applied) {
+      result.changed++;
+      // If status changed to non-fixed and webhook_on_status_changed is active, announce it.
+      if (wanted !== 'fixed') {
+        const [rep] = await db().select().from(reports).where(eq(reports.id, reportId));
+        if (rep) await announceStatusChanged(rep, opts.origin, cfg, SYNC_ACTOR.username);
+      }
+    }
     }
 
     /* Fill the address in, if this issue is one of the requests missing it.
@@ -638,7 +645,7 @@ async function drainAnnouncements(origin: string, cfg: Config): Promise<number> 
       ),
     );
 
-  if (!cfg.webhook_url || cfg.webhook_on_fixed !== '1') return 0;
+  if (!cfg.webhook_url || (cfg.webhook_on_fixed !== '1' && cfg.webhook_on_status_changed !== '1')) return 0;
   const owed = await db()
     .select()
     .from(reports)
@@ -648,7 +655,7 @@ async function drainAnnouncements(origin: string, cfg: Config): Promise<number> 
   for (const report of owed) {
     // Sequential on purpose: one webhook, and a burst of parallel posts is how
     // you get rate-limited. Passing cfg avoids a config read per announcement.
-    const res = await announceFixed(report, origin, cfg);
+    const res = await announceFixed(report, origin, cfg, SYNC_ACTOR.username);
     if (res) sent++;
   }
   return sent;

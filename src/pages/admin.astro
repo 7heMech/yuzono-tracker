@@ -50,13 +50,17 @@ if (Astro.request.method === 'POST') {
   } else if (intent === 'webhook') {
     const raw = String(form.get('webhook_url') ?? '').trim();
     const onFixed = form.get('webhook_on_fixed') === '1' ? '1' : '0';
+    const onStatusChanged = form.get('webhook_on_status_changed') === '1' ? '1' : '0';
     const onNewReport = form.get('webhook_on_new_report') === '1' ? '1' : '0';
     const onNewRequest = form.get('webhook_on_new_request') === '1' ? '1' : '0';
+    const includeActor = form.get('webhook_include_actor') === '1' ? '1' : '0';
     const threshold = Math.max(0, Math.min(9999, Number(form.get('webhook_vote_threshold') ?? 0)));
     const patch: Record<string, string> = {
       webhook_on_fixed: onFixed,
+      webhook_on_status_changed: onStatusChanged,
       webhook_on_new_report: onNewReport,
       webhook_on_new_request: onNewRequest,
+      webhook_include_actor: includeActor,
       webhook_vote_threshold: String(threshold),
     };
     if (raw === '__clear__') {
@@ -72,7 +76,7 @@ if (Astro.request.method === 'POST') {
       await writeSettings(patch, user.id);
       // The URL itself is never written to the audit log.
       await logAction(user, 'settings.webhook', null,
-        `${patch.webhook_url === '' ? 'cleared' : raw ? 'replaced' : 'unchanged'}, on_fixed=${onFixed}, on_new_report=${onNewReport}, on_new_request=${onNewRequest}, threshold=${threshold}`);
+        `${patch.webhook_url === '' ? 'cleared' : raw ? 'replaced' : 'unchanged'}, on_fixed=${onFixed}, on_status_changed=${onStatusChanged}, on_new_report=${onNewReport}, on_new_request=${onNewRequest}, include_actor=${includeActor}, threshold=${threshold}`);
       done = 'Announcement settings saved.';
     }
   } else if (intent === 'webhook-test') {
@@ -372,6 +376,12 @@ const tail = (v: string) => v.slice(-6);
       </div>
       <div class="field wide">
         <label class="check">
+          <input type="checkbox" name="webhook_on_status_changed" value="1" checked={cfg.webhook_on_status_changed === '1'} />
+          <span>Announce all status changes</span>
+        </label>
+      </div>
+      <div class="field wide">
+        <label class="check">
           <input type="checkbox" name="webhook_on_new_report" value="1" checked={cfg.webhook_on_new_report === '1'} />
           <span>Announce new reports</span>
         </label>
@@ -380,6 +390,12 @@ const tail = (v: string) => v.slice(-6);
         <label class="check">
           <input type="checkbox" name="webhook_on_new_request" value="1" checked={cfg.webhook_on_new_request === '1'} />
           <span>Announce new requests</span>
+        </label>
+      </div>
+      <div class="field wide">
+        <label class="check">
+          <input type="checkbox" name="webhook_include_actor" value="1" checked={cfg.webhook_include_actor === '1'} />
+          <span>Include GitHub name / username of the person who set event off</span>
         </label>
       </div>
       <div class="field">

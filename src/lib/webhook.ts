@@ -3,7 +3,7 @@ import { db } from './db/client';
 import { reports, type Report } from './db/schema';
 import { readConfig, type Config } from './settings';
 import { getSource } from './sources';
-import { reportHeadline } from './format';
+import { reportHeadline, statusLabel } from './format';
 import { reporterName } from './reporter';
 import { dbUser } from './auth';
 import { hostOf } from './host';
@@ -49,25 +49,47 @@ const subject = (r: Pick<Report, 'sourceId' | 'proposedName'>) =>
  * most worth announcing, since crossing the demand threshold is what fired the
  * alert in the first place.
  */
-export async function announceFixed(report: Report, origin: string, cfg?: Config) {
-  const c = cfg ?? (await readConfig());
-  if (!c.webhook_url || c.webhook_on_fixed !== '1') return null;
+export async function announceFixed(report: Report, origin: string, cfg?: Config, actor?: string) {
+  return announceStatusChanged(report, origin, cfg, actor);
+}
 
-  // Claim the announcement before sending, so two near-simultaneous status
-  // changes cannot both post.
-  const claimed = await db()
-    .update(reports)
-    .set({ fixAnnouncedAt: sql`(unixepoch())` })
-    .where(and(eq(reports.id, report.id), isNull(reports.fixAnnouncedAt)))
-    .returning({ id: reports.id });
-  if (!claimed.length) return null;
+/**
+ * Announce a status change.
+ * Fires for status changes matching enabled toggles (`webhook_on_fixed` for 'fixed', or `webhook_on_status_changed` for all status changes).
+ */
+export async function announceStatusChanged(report: Report, origin: string, cfg?: Config, actor?: string) {
+  const c = cfg ?? (await readConfig());
+  if (!c.webhook_url) return null;
+
+  const isFixed = report.status === 'fixed';
+  const shouldAnnounce = (isFixed && c.webhook_on_fixed === '1') || c.webhook_on_status_changed === '1';
+  if (!shouldAnnounce) return null;
+
+  if (isFixed) {
+    const claimed = await db()
+      .update(reports)
+      .set({ fixAnnouncedAt: sql`(unixepoch())` })
+      .where(and(eq(reports.id, report.id), isNull(reports.fixAnnouncedAt)))
+      .returning({ id: reports.id });
+    if (!claimed.length) return null;
+  }
+
+  const label = statusLabel(report.status, report.kind);
+  const title = isFixed ? `Fixed: ${subject(report)}` : `Status updated (${label}): ${subject(report)}`;
+  const fields: { name: string; value: string; inline?: boolean }[] = [
+    { name: 'Reported by', value: `${report.votes} people`, inline: true },
+  ];
+
+  if (c.webhook_include_actor === '1' && actor) {
+    fields.push({ name: 'Action by', value: actor, inline: true });
+  }
 
   return send(c.webhook_url, {
-    title: `Fixed: ${subject(report)}`,
+    title,
     description: report.title,
     url: `${origin}/report/${report.id}`,
-    color: GREEN,
-    fields: [{ name: 'Reported by', value: `${report.votes} people`, inline: true }],
+    color: isFixed ? GREEN : YELLOW,
+    fields,
   });
 }
 
@@ -148,6 +170,9 @@ export async function announceFiled(
   const who = await reporterName(report.reporterId, dbUser);
 
   const fields = [{ name: 'Filed by', value: who, inline: true }];
+  if (c.webhook_include_actor === '1') {
+    fields.push({ name: 'Action by', value: who, inline: true });
+  }
   /* The address is the whole content of a source request — the name alone does
      not say which site, and two sites share a name often enough that a
      maintainer reading the channel could not tell. Only requests carry it;
