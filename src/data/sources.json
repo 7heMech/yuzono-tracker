@@ -424,8 +424,8 @@
     "baseUrl": "https://animepahe.pw",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animepahe",
     "extName": "AnimePahe",
-    "extVersion": "14.49",
-    "extVersionCode": 49,
+    "extVersion": "14.50",
+    "extVersionCode": 50,
     "nsfw": false
   },
   {
@@ -2914,8 +2914,8 @@
     "baseUrl": "https://torrentio.strem.fun",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.torrentio",
     "extName": "Torrentio (Torrent / Debrid)",
-    "extVersion": "14.9",
-    "extVersionCode": 9,
+    "extVersion": "14.10",
+    "extVersionCode": 10,
     "nsfw": false
   },
   {
@@ -2925,8 +2925,8 @@
     "baseUrl": "https://torrentio.strem.fun",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.torrentioanime",
     "extName": "Torrentio Anime (Torrent / Debrid)",
-    "extVersion": "14.20",
-    "extVersionCode": 20,
+    "extVersion": "14.21",
+    "extVersionCode": 21,
     "nsfw": false
   },
   {
