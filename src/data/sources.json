@@ -11,14 +11,25 @@
     "nsfw": false
   },
   {
+    "id": "1023516189537091690",
+    "name": "Anichi",
+    "lang": "en",
+    "baseUrl": "https://anichi.to",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.en.anichi",
+    "extName": "Anichi",
+    "extVersion": "14.6",
+    "extVersionCode": 6,
+    "nsfw": false
+  },
+  {
     "id": "3556703948634317295",
     "name": "AniDB",
     "lang": "en",
     "baseUrl": "https://anidb.app",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anidb",
     "extName": "AniDB",
-    "extVersion": "14.4",
-    "extVersionCode": 4,
+    "extVersion": "14.5",
+    "extVersionCode": 5,
     "nsfw": true
   },
   {
@@ -39,8 +50,8 @@
     "baseUrl": "https://anikototv.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anikoto",
     "extName": "Anikoto",
-    "extVersion": "14.5",
-    "extVersionCode": 5,
+    "extVersion": "14.6",
+    "extVersionCode": 6,
     "nsfw": false
   },
   {
@@ -303,8 +314,8 @@
     "baseUrl": "https://animekaitv.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.kotokai",
     "extName": "AnimeKai (Unoriginal)",
-    "extVersion": "14.5",
-    "extVersionCode": 5,
+    "extVersion": "14.6",
+    "extVersionCode": 6,
     "nsfw": false
   },
   {
@@ -424,8 +435,8 @@
     "baseUrl": "https://animepahe.pw",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animepahe",
     "extName": "AnimePahe",
-    "extVersion": "14.50",
-    "extVersionCode": 50,
+    "extVersion": "14.51",
+    "extVersionCode": 51,
     "nsfw": false
   },
   {
@@ -589,8 +600,8 @@
     "baseUrl": "https://animesogo.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animesogo",
     "extName": "AnimeSogo",
-    "extVersion": "14.5",
-    "extVersionCode": 5,
+    "extVersion": "14.6",
+    "extVersionCode": 6,
     "nsfw": false
   },
   {
@@ -853,8 +864,8 @@
     "baseUrl": "https://animewave.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.aniwave",
     "extName": "AniWave (Unoriginal)",
-    "extVersion": "14.7",
-    "extVersionCode": 7,
+    "extVersion": "14.8",
+    "extVersionCode": 8,
     "nsfw": false
   },
   {
@@ -1557,8 +1568,8 @@
     "baseUrl": "https://hstream.moe",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.hstream",
     "extName": "Hstream",
-    "extVersion": "14.11",
-    "extVersionCode": 11,
+    "extVersion": "14.12",
+    "extVersionCode": 12,
     "nsfw": true
   },
   {
