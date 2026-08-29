@@ -3125,7 +3125,8 @@
     "extName": "Wbijam",
     "extVersion": "14.14",
     "extVersionCode": 14,
-    "nsfw": false
+    "nsfw": false,
+    "removed": "2026-08-29"
   },
   {
     "id": "8622868574170180857",
