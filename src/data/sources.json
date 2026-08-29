@@ -3216,6 +3216,17 @@
     "nsfw": false
   },
   {
+    "id": "3262358113047577744",
+    "name": "XAnime",
+    "lang": "en",
+    "baseUrl": "https://xanime.me",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.en.xanime",
+    "extName": "XAnime",
+    "extVersion": "14.1",
+    "extVersionCode": 1,
+    "nsfw": true
+  },
+  {
     "id": "1853973586604481267",
     "name": "Xnxx",
     "lang": "all",
