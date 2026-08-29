@@ -820,8 +820,8 @@
     "baseUrl": "https://anineko.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anineko",
     "extName": "AniNeko",
-    "extVersion": "14.2",
-    "extVersionCode": 2,
+    "extVersion": "14.3",
+    "extVersionCode": 3,
     "nsfw": false
   },
   {
@@ -875,8 +875,8 @@
     "baseUrl": "https://aniwaves.ru",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.aniwaves",
     "extName": "AniWaves.ru",
-    "extVersion": "14.1",
-    "extVersionCode": 1,
+    "extVersion": "14.2",
+    "extVersionCode": 2,
     "nsfw": false
   },
   {
@@ -1612,8 +1612,8 @@
     "baseUrl": "https://jav.guru",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.javguru",
     "extName": "Jav Guru",
-    "extVersion": "14.44",
-    "extVersionCode": 44,
+    "extVersion": "14.45",
+    "extVersionCode": 45,
     "nsfw": true
   },
   {
@@ -1822,8 +1822,8 @@
     "baseUrl": "https://la.movie",
     "extPkg": "eu.kanade.tachiyomi.animeextension.es.lamovie",
     "extName": "LaMovie",
-    "extVersion": "14.26",
-    "extVersionCode": 26,
+    "extVersion": "14.27",
+    "extVersionCode": 27,
     "nsfw": false
   },
   {
@@ -2759,8 +2759,8 @@
     "baseUrl": "https://streamingunity.vip/en",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.streamingcommunity",
     "extName": "StreamingCommunity",
-    "extVersion": "14.20",
-    "extVersionCode": 20,
+    "extVersion": "14.21",
+    "extVersionCode": 21,
     "nsfw": false
   },
   {
@@ -2770,8 +2770,8 @@
     "baseUrl": "https://streamingunity.vip/it",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.streamingcommunity",
     "extName": "StreamingCommunity",
-    "extVersion": "14.20",
-    "extVersionCode": 20,
+    "extVersion": "14.21",
+    "extVersionCode": 21,
     "nsfw": false
   },
   {
@@ -2781,8 +2781,8 @@
     "baseUrl": "https://streamingunity.vip/en",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.streamingcommunity",
     "extName": "StreamingCommunity",
-    "extVersion": "14.20",
-    "extVersionCode": 20,
+    "extVersion": "14.21",
+    "extVersionCode": 21,
     "nsfw": false
   },
   {
@@ -2792,8 +2792,8 @@
     "baseUrl": "https://streamingunity.vip/it",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.streamingcommunity",
     "extName": "StreamingCommunity",
-    "extVersion": "14.20",
-    "extVersionCode": 20,
+    "extVersion": "14.21",
+    "extVersionCode": 21,
     "nsfw": false
   },
   {
