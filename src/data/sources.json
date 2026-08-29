@@ -435,8 +435,8 @@
     "baseUrl": "https://animepahe.pw",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animepahe",
     "extName": "AnimePahe",
-    "extVersion": "14.51",
-    "extVersionCode": 51,
+    "extVersion": "14.52",
+    "extVersionCode": 52,
     "nsfw": false
   },
   {
