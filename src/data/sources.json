@@ -39,8 +39,8 @@
     "baseUrl": "https://anikage.cc",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anikage",
     "extName": "Anikage",
-    "extVersion": "14.5",
-    "extVersionCode": 5,
+    "extVersion": "14.6",
+    "extVersionCode": 6,
     "nsfw": true
   },
   {
@@ -1965,8 +1965,8 @@
     "baseUrl": "https://mkissa.to/anime",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.mkissa",
     "extName": "MKissa",
-    "extVersion": "14.65",
-    "extVersionCode": 65,
+    "extVersion": "14.66",
+    "extVersionCode": 66,
     "nsfw": false
   },
   {
