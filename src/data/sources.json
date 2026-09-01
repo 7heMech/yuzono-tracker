@@ -292,8 +292,8 @@
     "baseUrl": "https://animesonline.io",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.animeito",
     "extName": "AnimeIto",
-    "extVersion": "14.15",
-    "extVersionCode": 15,
+    "extVersion": "14.16",
+    "extVersionCode": 16,
     "nsfw": false
   },
   {
