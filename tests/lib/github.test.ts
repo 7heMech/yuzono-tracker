@@ -182,6 +182,21 @@ describe('classifyIssue', () => {
     expect(c.lang).toBe('en');
   });
 
+  test('classifies "No Results Found" as confident no-browse bug report', () => {
+    const c = classifyIssue(
+      issue({
+        number: 808,
+        title: 'AniZone [Multi]: No Results Found',
+        labels: ['Bug', 'Valid'],
+      }),
+    );
+    expect(c.how).toBe('exact');
+    expect(c.sourceId).not.toBeNull();
+    expect(c.stage).toBe('browse');
+    expect(c.problem).toBe('no-browse');
+    expect(c.confident).toBe(true);
+  });
+
   test('a prefix match is never confident, however clear the problem', () => {
     const c = classifyIssue(issue({ title: 'Anime1.me Extra: video will not play' }));
     expect(c.how).toBe('prefix');

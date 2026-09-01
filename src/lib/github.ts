@@ -312,7 +312,7 @@ export function causeOf(l: string[], problemText: string): Cause {
 /** Reads the problem text only, for the same reason as causeOf. */
 export function stageOf(problemText: string, cause: Cause): Stage | null {
   const t = problemText.toLowerCase();
-  if (/search|latest|popular|\btab\b|browse|filter|library/.test(t)) return 'browse';
+  if (/search|latest|popular|\btab\b|browse|filter|library|results?/.test(t)) return 'browse';
   if (/episode|chapter|eplist|season/.test(t)) return 'episodes';
   if (/video|black screen|ffmpeg|server|download|stream|player|playback|subtitle/.test(t)) return 'video';
   // A redesign or a moved domain breaks at the first hop.
