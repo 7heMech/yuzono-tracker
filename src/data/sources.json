@@ -1612,8 +1612,8 @@
     "baseUrl": "https://jav.guru",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.javguru",
     "extName": "Jav Guru",
-    "extVersion": "14.45",
-    "extVersionCode": 45,
+    "extVersion": "14.46",
+    "extVersionCode": 46,
     "nsfw": true
   },
   {
@@ -1965,8 +1965,8 @@
     "baseUrl": "https://mkissa.to/anime",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.mkissa",
     "extName": "MKissa",
-    "extVersion": "14.66",
-    "extVersionCode": 66,
+    "extVersion": "14.67",
+    "extVersionCode": 67,
     "nsfw": false
   },
   {
