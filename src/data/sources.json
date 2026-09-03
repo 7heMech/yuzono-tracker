@@ -435,8 +435,8 @@
     "baseUrl": "https://animepahe.pw",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animepahe",
     "extName": "AnimePahe",
-    "extVersion": "14.52",
-    "extVersionCode": 52,
+    "extVersion": "14.53",
+    "extVersionCode": 53,
     "nsfw": false
   },
   {
@@ -2803,8 +2803,8 @@
     "baseUrl": "https://app.strem.io/shell-v4.4",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.stremio",
     "extName": "Stremio",
-    "extVersion": "14.9",
-    "extVersionCode": 9,
+    "extVersion": "14.10",
+    "extVersionCode": 10,
     "nsfw": false
   },
   {
@@ -2916,6 +2916,17 @@
     "extName": "Toonitalia",
     "extVersion": "14.37",
     "extVersionCode": 37,
+    "nsfw": false
+  },
+  {
+    "id": "8698648801670924388",
+    "name": "Torbox",
+    "lang": "all",
+    "baseUrl": "https://api.torbox.app",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.all.torbox",
+    "extName": "Torbox",
+    "extVersion": "14.1",
+    "extVersionCode": 1,
     "nsfw": false
   },
   {
