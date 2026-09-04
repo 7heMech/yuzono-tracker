@@ -1029,8 +1029,8 @@
     "baseUrl": "https://blzone.net",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.blzone",
     "extName": "BLZone",
-    "extVersion": "14.8",
-    "extVersionCode": 8,
+    "extVersion": "14.9",
+    "extVersionCode": 9,
     "nsfw": true
   },
   {
