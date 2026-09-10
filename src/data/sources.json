@@ -2947,8 +2947,8 @@
     "baseUrl": "https://torrentio.strem.fun",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.torrentioanime",
     "extName": "Torrentio Anime (Torrent / Debrid)",
-    "extVersion": "14.21",
-    "extVersionCode": 21,
+    "extVersion": "14.22",
+    "extVersionCode": 22,
     "nsfw": false
   },
   {
