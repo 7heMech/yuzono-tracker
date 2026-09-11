@@ -2839,7 +2839,7 @@
     "baseUrl": "https://app.strem.io/shell-v4.4",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.stremio",
     "extName": "Stremio",
-    "extVersion": "14.10",
+    "extVersion": "16.10",
     "extVersionCode": 10,
     "nsfw": false
   },
