@@ -1628,6 +1628,17 @@
     "nsfw": true
   },
   {
+    "id": "9033626646636195598",
+    "name": "Jellyfin (1)",
+    "lang": "all",
+    "baseUrl": "",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.all.jellyfin",
+    "extName": "Jellyfin",
+    "extVersion": "16.30",
+    "extVersionCode": 30,
+    "nsfw": false
+  },
+  {
     "id": "1100359934660540567",
     "name": "Jellyfin (1)",
     "lang": "all",
@@ -1635,6 +1646,18 @@
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.jellyfin",
     "extName": "Jellyfin",
     "extVersion": "14.30",
+    "extVersionCode": 30,
+    "nsfw": false,
+    "removed": "2026-09-11"
+  },
+  {
+    "id": "4904658814710554862",
+    "name": "Jellyfin (2)",
+    "lang": "all",
+    "baseUrl": "",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.all.jellyfin",
+    "extName": "Jellyfin",
+    "extVersion": "16.30",
     "extVersionCode": 30,
     "nsfw": false
   },
@@ -1647,6 +1670,18 @@
     "extName": "Jellyfin",
     "extVersion": "14.30",
     "extVersionCode": 30,
+    "nsfw": false,
+    "removed": "2026-09-11"
+  },
+  {
+    "id": "7533223929553449342",
+    "name": "Jellyfin (3)",
+    "lang": "all",
+    "baseUrl": "",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.all.jellyfin",
+    "extName": "Jellyfin",
+    "extVersion": "16.30",
+    "extVersionCode": 30,
     "nsfw": false
   },
   {
@@ -1658,7 +1693,8 @@
     "extName": "Jellyfin",
     "extVersion": "14.30",
     "extVersionCode": 30,
-    "nsfw": false
+    "nsfw": false,
+    "removed": "2026-09-11"
   },
   {
     "id": "8914615515692839881",
