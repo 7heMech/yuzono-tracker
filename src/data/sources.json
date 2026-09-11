@@ -3261,6 +3261,17 @@
     "nsfw": true
   },
   {
+    "id": "2211136411127706662",
+    "name": "YFantasy",
+    "lang": "all",
+    "baseUrl": "https://yfantasy.me",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.all.yfantasy",
+    "extName": "YFantasy",
+    "extVersion": "14.1",
+    "extVersionCode": 1,
+    "nsfw": true
+  },
+  {
     "id": "2486904751081872151",
     "name": "YoMovies",
     "lang": "hi",
