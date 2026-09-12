@@ -435,8 +435,8 @@
     "baseUrl": "https://animepahe.pw",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animepahe",
     "extName": "AnimePahe",
-    "extVersion": "14.53",
-    "extVersionCode": 53,
+    "extVersion": "16.54",
+    "extVersionCode": 54,
     "nsfw": false
   },
   {
@@ -1634,8 +1634,8 @@
     "baseUrl": "",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.jellyfin",
     "extName": "Jellyfin",
-    "extVersion": "16.30",
-    "extVersionCode": 30,
+    "extVersion": "16.31",
+    "extVersionCode": 31,
     "nsfw": false
   },
   {
@@ -1657,8 +1657,8 @@
     "baseUrl": "",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.jellyfin",
     "extName": "Jellyfin",
-    "extVersion": "16.30",
-    "extVersionCode": 30,
+    "extVersion": "16.31",
+    "extVersionCode": 31,
     "nsfw": false
   },
   {
@@ -1680,8 +1680,8 @@
     "baseUrl": "",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.jellyfin",
     "extName": "Jellyfin",
-    "extVersion": "16.30",
-    "extVersionCode": 30,
+    "extVersion": "16.31",
+    "extVersionCode": 31,
     "nsfw": false
   },
   {
