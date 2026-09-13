@@ -919,8 +919,8 @@
     "baseUrl": "https://anizone.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.anizone",
     "extName": "AniZone",
-    "extVersion": "14.12",
-    "extVersionCode": 12,
+    "extVersion": "16.13",
+    "extVersionCode": 13,
     "nsfw": false
   },
   {
