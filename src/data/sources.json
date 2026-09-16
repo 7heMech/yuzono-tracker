@@ -820,8 +820,8 @@
     "baseUrl": "https://anineko.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anineko",
     "extName": "AniNeko",
-    "extVersion": "16.4",
-    "extVersionCode": 4,
+    "extVersion": "16.5",
+    "extVersionCode": 5,
     "nsfw": false
   },
   {
@@ -2839,8 +2839,8 @@
     "baseUrl": "https://app.strem.io/shell-v4.4",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.stremio",
     "extName": "Stremio",
-    "extVersion": "16.10",
-    "extVersionCode": 10,
+    "extVersion": "16.11",
+    "extVersionCode": 11,
     "nsfw": false
   },
   {
