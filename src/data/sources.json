@@ -1064,7 +1064,8 @@
     "extName": "Cineby",
     "extVersion": "14.10",
     "extVersionCode": 10,
-    "nsfw": true
+    "nsfw": true,
+    "removed": "2026-09-16"
   },
   {
     "id": "661928073480792687",
