@@ -17,8 +17,8 @@
     "baseUrl": "https://anichi.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anichi",
     "extName": "Anichi",
-    "extVersion": "16.7",
-    "extVersionCode": 7,
+    "extVersion": "16.8",
+    "extVersionCode": 8,
     "nsfw": false
   },
   {
@@ -39,8 +39,8 @@
     "baseUrl": "https://anikage.cc",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anikage",
     "extName": "Anikage",
-    "extVersion": "14.6",
-    "extVersionCode": 6,
+    "extVersion": "14.7",
+    "extVersionCode": 7,
     "nsfw": true
   },
   {
@@ -50,8 +50,8 @@
     "baseUrl": "https://anikototv.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anikoto",
     "extName": "Anikoto",
-    "extVersion": "16.7",
-    "extVersionCode": 7,
+    "extVersion": "16.8",
+    "extVersionCode": 8,
     "nsfw": false
   },
   {
@@ -72,8 +72,8 @@
     "baseUrl": "https://anilist.co",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anilist",
     "extName": "AniList",
-    "extVersion": "14.12",
-    "extVersionCode": 12,
+    "extVersion": "14.13",
+    "extVersionCode": 13,
     "nsfw": false
   },
   {
@@ -314,8 +314,8 @@
     "baseUrl": "https://animekaitv.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.kotokai",
     "extName": "AnimeKai (Unoriginal)",
-    "extVersion": "16.7",
-    "extVersionCode": 7,
+    "extVersion": "16.8",
+    "extVersionCode": 8,
     "nsfw": false
   },
   {
@@ -600,8 +600,8 @@
     "baseUrl": "https://animesogo.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animesogo",
     "extName": "AnimeSogo",
-    "extVersion": "16.7",
-    "extVersionCode": 7,
+    "extVersion": "16.8",
+    "extVersionCode": 8,
     "nsfw": false
   },
   {
@@ -864,8 +864,8 @@
     "baseUrl": "https://animewave.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.aniwave",
     "extName": "AniWave (Unoriginal)",
-    "extVersion": "16.9",
-    "extVersionCode": 9,
+    "extVersion": "16.10",
+    "extVersionCode": 10,
     "nsfw": false
   },
   {
@@ -919,8 +919,8 @@
     "baseUrl": "https://anizone.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.anizone",
     "extName": "AniZone",
-    "extVersion": "16.13",
-    "extVersionCode": 13,
+    "extVersion": "16.14",
+    "extVersionCode": 14,
     "nsfw": false
   },
   {
@@ -1338,8 +1338,8 @@
     "baseUrl": "https://betterclass.click",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.funanimetv",
     "extName": "Fun Anime TV",
-    "extVersion": "14.1",
-    "extVersionCode": 1,
+    "extVersion": "14.2",
+    "extVersionCode": 2,
     "nsfw": false
   },
   {
@@ -1980,8 +1980,8 @@
     "baseUrl": "https://www.miruro.tv",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.miruro",
     "extName": "Miruro.tv",
-    "extVersion": "14.10",
-    "extVersionCode": 10,
+    "extVersion": "14.11",
+    "extVersionCode": 11,
     "nsfw": true
   },
   {
@@ -2696,8 +2696,8 @@
     "baseUrl": "https://reanime.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.reanime",
     "extName": "Re:ANIME",
-    "extVersion": "16.6",
-    "extVersionCode": 6,
+    "extVersion": "16.7",
+    "extVersionCode": 7,
     "nsfw": true
   },
   {
@@ -3271,8 +3271,8 @@
     "baseUrl": "https://xanime.me",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.xanime",
     "extName": "XAnime",
-    "extVersion": "14.1",
-    "extVersionCode": 1,
+    "extVersion": "14.2",
+    "extVersionCode": 2,
     "nsfw": true
   },
   {
