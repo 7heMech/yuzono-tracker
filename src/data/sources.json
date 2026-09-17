@@ -611,8 +611,8 @@
     "baseUrl": "https://animetake.tv",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animetake",
     "extName": "AnimeTake",
-    "extVersion": "14.19",
-    "extVersionCode": 19,
+    "extVersion": "16.20",
+    "extVersionCode": 20,
     "nsfw": false
   },
   {
@@ -1503,8 +1503,8 @@
     "baseUrl": "https://hentaimama.io",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.hentaimama",
     "extName": "HentaiMama",
-    "extVersion": "14.7",
-    "extVersionCode": 7,
+    "extVersion": "16.8",
+    "extVersionCode": 8,
     "nsfw": true
   },
   {
