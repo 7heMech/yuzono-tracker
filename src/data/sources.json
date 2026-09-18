@@ -1922,11 +1922,11 @@
     "id": "4419717598017841435",
     "name": "Mapple",
     "lang": "en",
-    "baseUrl": "https://mapple.uk",
+    "baseUrl": "https://mapple.fun",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.mapple",
     "extName": "Mapple",
-    "extVersion": "14.4",
-    "extVersionCode": 4,
+    "extVersion": "16.5",
+    "extVersionCode": 5,
     "nsfw": true
   },
   {
