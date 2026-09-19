@@ -1925,8 +1925,8 @@
     "baseUrl": "https://mapple.fun",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.mapple",
     "extName": "Mapple",
-    "extVersion": "16.5",
-    "extVersionCode": 5,
+    "extVersion": "16.6",
+    "extVersionCode": 6,
     "nsfw": true
   },
   {
