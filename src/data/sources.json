@@ -2734,6 +2734,17 @@
     "nsfw": false
   },
   {
+    "id": "347387517233905584",
+    "name": "Senshi",
+    "lang": "en",
+    "baseUrl": "https://senshi.to",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.en.senshi",
+    "extName": "Senshi",
+    "extVersion": "16.1",
+    "extVersionCode": 1,
+    "nsfw": true
+  },
+  {
     "id": "5798377917298605009",
     "name": "Serienstream",
     "lang": "de",
