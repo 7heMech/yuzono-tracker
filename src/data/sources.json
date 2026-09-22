@@ -836,6 +836,17 @@
     "nsfw": false
   },
   {
+    "id": "3404118931365067168",
+    "name": "AniPM",
+    "lang": "en",
+    "baseUrl": "https://ani.pm",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.en.anipm",
+    "extName": "AniPM",
+    "extVersion": "16.1",
+    "extVersionCode": 1,
+    "nsfw": true
+  },
+  {
     "id": "1898818943039425198",
     "name": "AniSama",
     "lang": "fr",
