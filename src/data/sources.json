@@ -1393,8 +1393,8 @@
     "baseUrl": "https://goyabu.io",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.goyabu",
     "extName": "Goyabu",
-    "extVersion": "14.4",
-    "extVersionCode": 4,
+    "extVersion": "14.5",
+    "extVersionCode": 5,
     "nsfw": true
   },
   {
