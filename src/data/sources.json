@@ -3041,7 +3041,8 @@
     "extName": "Türk Anime TV",
     "extVersion": "14.52",
     "extVersionCode": 52,
-    "nsfw": false
+    "nsfw": false,
+    "removed": "2026-09-24"
   },
   {
     "id": "2256494309842770890",
