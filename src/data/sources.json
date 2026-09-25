@@ -627,6 +627,17 @@
     "nsfw": false
   },
   {
+    "id": "3337936007905599978",
+    "name": "AnimeToki",
+    "lang": "en",
+    "baseUrl": "https://animetoki.com",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.en.animetoki",
+    "extName": "AnimeToki",
+    "extVersion": "16.1",
+    "extVersionCode": 1,
+    "nsfw": true
+  },
+  {
     "id": "7762808921754601430",
     "name": "AnimeUnity",
     "lang": "it",
