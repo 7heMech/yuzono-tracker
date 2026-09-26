@@ -55,6 +55,17 @@
     "nsfw": false
   },
   {
+    "id": "5301034000422404358",
+    "name": "AniKuro",
+    "lang": "en",
+    "baseUrl": "https://anikuro.to",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.en.anikuro",
+    "extName": "AniKuro",
+    "extVersion": "16.1",
+    "extVersionCode": 1,
+    "nsfw": true
+  },
+  {
     "id": "4361637123039891722",
     "name": "Anikyuu",
     "lang": "pt-BR",
