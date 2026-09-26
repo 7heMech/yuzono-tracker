@@ -2572,11 +2572,11 @@
     "id": "2573103800968432770",
     "name": "Oploverz",
     "lang": "id",
-    "baseUrl": "https://oploverz.media",
+    "baseUrl": "https://oploverz.site",
     "extPkg": "eu.kanade.tachiyomi.animeextension.id.oploverz",
     "extName": "Oploverz",
-    "extVersion": "14.26",
-    "extVersionCode": 26,
+    "extVersion": "16.27",
+    "extVersionCode": 27,
     "nsfw": false
   },
   {
