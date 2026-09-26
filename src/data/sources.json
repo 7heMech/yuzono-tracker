@@ -33,6 +33,17 @@
     "nsfw": true
   },
   {
+    "id": "3771329310132042509",
+    "name": "AniHQ",
+    "lang": "en",
+    "baseUrl": "https://anihq.cc",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.en.anihq",
+    "extName": "AniHQ",
+    "extVersion": "16.1",
+    "extVersionCode": 1,
+    "nsfw": true
+  },
+  {
     "id": "975930199828232260",
     "name": "Anikage",
     "lang": "en",
