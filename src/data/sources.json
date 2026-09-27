@@ -39,8 +39,8 @@
     "baseUrl": "https://anihq.cc",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anihq",
     "extName": "AniHQ",
-    "extVersion": "16.1",
-    "extVersionCode": 1,
+    "extVersion": "16.2",
+    "extVersionCode": 2,
     "nsfw": true
   },
   {
@@ -2740,8 +2740,8 @@
     "baseUrl": "https://reanime.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.reanime",
     "extName": "Re:ANIME",
-    "extVersion": "16.7",
-    "extVersionCode": 7,
+    "extVersion": "16.8",
+    "extVersionCode": 8,
     "nsfw": true
   },
   {
