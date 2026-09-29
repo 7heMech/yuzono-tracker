@@ -85,7 +85,8 @@
     "extName": "Anikyuu",
     "extVersion": "14.10",
     "extVersionCode": 10,
-    "nsfw": false
+    "nsfw": false,
+    "removed": "2026-09-29"
   },
   {
     "id": "297628545340942341",
@@ -250,7 +251,8 @@
     "extName": "AnimeFenix",
     "extVersion": "14.77",
     "extVersionCode": 77,
-    "nsfw": false
+    "nsfw": false,
+    "removed": "2026-09-29"
   },
   {
     "id": "93702975723668971",
@@ -272,6 +274,17 @@
     "extName": "AnimeGG",
     "extVersion": "14.2",
     "extVersionCode": 2,
+    "nsfw": false
+  },
+  {
+    "id": "383355856183152252",
+    "name": "AnimeGO.studio",
+    "lang": "ru",
+    "baseUrl": "https://animego.studio",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.ru.animego",
+    "extName": "AnimeGO.studio",
+    "extVersion": "16.1",
+    "extVersionCode": 1,
     "nsfw": false
   },
   {
@@ -525,7 +538,8 @@
     "extName": "Animes CX",
     "extVersion": "14.4",
     "extVersionCode": 4,
-    "nsfw": true
+    "nsfw": true,
+    "removed": "2026-09-29"
   },
   {
     "id": "4877286181768246205",
@@ -558,7 +572,8 @@
     "extName": "Animes Games",
     "extVersion": "14.8",
     "extVersionCode": 8,
-    "nsfw": false
+    "nsfw": false,
+    "removed": "2026-09-29"
   },
   {
     "id": "7386550303236826765",
@@ -591,7 +606,8 @@
     "extName": "AnimesOnlineVip",
     "extVersion": "14.4",
     "extVersionCode": 4,
-    "nsfw": true
+    "nsfw": true,
+    "removed": "2026-09-29"
   },
   {
     "id": "734961575978606843",
@@ -602,7 +618,8 @@
     "extName": "AnimesROLL",
     "extVersion": "14.9",
     "extVersionCode": 9,
-    "nsfw": false
+    "nsfw": false,
+    "removed": "2026-09-29"
   },
   {
     "id": "1863212142777957799",
@@ -1785,6 +1802,17 @@
     "extVersionCode": 6,
     "nsfw": true,
     "removed": "2026-08-25"
+  },
+  {
+    "id": "4521804903917365109",
+    "name": "Jutsu TV",
+    "lang": "ru",
+    "baseUrl": "https://jutsu.tv",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.ru.jutsu",
+    "extName": "Jutsu TV",
+    "extVersion": "16.1",
+    "extVersionCode": 1,
+    "nsfw": false
   },
   {
     "id": "2564532783405004779",
