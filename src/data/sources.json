@@ -1599,7 +1599,8 @@
     "extName": "HentaiZM",
     "extVersion": "14.9",
     "extVersionCode": 9,
-    "nsfw": true
+    "nsfw": true,
+    "removed": "2026-10-01"
   },
   {
     "id": "8787688252737895237",
@@ -2813,8 +2814,8 @@
     "baseUrl": "https://senshi.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.senshi",
     "extName": "Senshi",
-    "extVersion": "16.1",
-    "extVersionCode": 1,
+    "extVersion": "16.2",
+    "extVersionCode": 2,
     "nsfw": true
   },
   {
