@@ -3390,8 +3390,8 @@
     "baseUrl": "https://yfantasy.me",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.yfantasy",
     "extName": "YFantasy",
-    "extVersion": "16.2",
-    "extVersionCode": 2,
+    "extVersion": "16.3",
+    "extVersionCode": 3,
     "nsfw": true
   },
   {
