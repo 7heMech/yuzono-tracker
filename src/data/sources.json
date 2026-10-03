@@ -1811,8 +1811,8 @@
     "baseUrl": "https://jutsu.tv",
     "extPkg": "eu.kanade.tachiyomi.animeextension.ru.jutsu",
     "extName": "Jutsu TV",
-    "extVersion": "16.1",
-    "extVersionCode": 1,
+    "extVersion": "16.2",
+    "extVersionCode": 2,
     "nsfw": false
   },
   {
@@ -1877,8 +1877,8 @@
     "baseUrl": "https://kisskh.ovh",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.kisskh",
     "extName": "KissKH",
-    "extVersion": "14.5",
-    "extVersionCode": 5,
+    "extVersion": "16.6",
+    "extVersionCode": 6,
     "nsfw": true
   },
   {
