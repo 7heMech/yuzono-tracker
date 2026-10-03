@@ -500,11 +500,11 @@
     "id": "3666901064696818585",
     "name": "AnimeQ",
     "lang": "pt-BR",
-    "baseUrl": "https://animeq.net",
+    "baseUrl": "https://animeq.cloud",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.animeq",
     "extName": "AnimeQ",
-    "extVersion": "14.7",
-    "extVersionCode": 7,
+    "extVersion": "14.8",
+    "extVersionCode": 8,
     "nsfw": true
   },
   {
