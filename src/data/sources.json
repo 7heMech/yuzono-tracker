@@ -826,8 +826,8 @@
     "baseUrl": "https://www.animeworld.ac",
     "extPkg": "eu.kanade.tachiyomi.animeextension.it.animeworld",
     "extName": "ANIMEWORLD.tv",
-    "extVersion": "14.59",
-    "extVersionCode": 59,
+    "extVersion": "16.60",
+    "extVersionCode": 60,
     "nsfw": false
   },
   {
@@ -1234,8 +1234,8 @@
     "baseUrl": "https://docchi.pl",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pl.docchi",
     "extName": "Docchi",
-    "extVersion": "14.13",
-    "extVersionCode": 13,
+    "extVersion": "16.15",
+    "extVersionCode": 15,
     "nsfw": true
   },
   {
