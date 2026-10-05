@@ -240,7 +240,8 @@
     "extName": "AnimeCore",
     "extVersion": "14.6",
     "extVersionCode": 6,
-    "nsfw": false
+    "nsfw": false,
+    "removed": "2026-10-05"
   },
   {
     "id": "1901838936011764172",
@@ -1877,8 +1878,8 @@
     "baseUrl": "https://kisskh.ovh",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.kisskh",
     "extName": "KissKH",
-    "extVersion": "16.6",
-    "extVersionCode": 6,
+    "extVersion": "16.7",
+    "extVersionCode": 7,
     "nsfw": true
   },
   {
@@ -2166,7 +2167,8 @@
     "extName": "Myanime",
     "extVersion": "14.17",
     "extVersionCode": 17,
-    "nsfw": false
+    "nsfw": false,
+    "removed": "2026-10-05"
   },
   {
     "id": "7657190496536415953",
