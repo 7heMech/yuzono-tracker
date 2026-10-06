@@ -1504,6 +1504,17 @@
     "nsfw": true
   },
   {
+    "id": "2810967597003075487",
+    "name": "HDRezka",
+    "lang": "ru",
+    "baseUrl": "https://hdrezka.me",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.ru.rezka",
+    "extName": "HDRezka",
+    "extVersion": "16.1",
+    "extVersionCode": 1,
+    "nsfw": false
+  },
+  {
     "id": "3206613581297348563",
     "name": "HDS",
     "lang": "fr",
@@ -1610,8 +1621,8 @@
     "baseUrl": "https://hexa.su",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.hexawatch",
     "extName": "HexaWatch",
-    "extVersion": "14.6",
-    "extVersionCode": 6,
+    "extVersion": "16.7",
+    "extVersionCode": 7,
     "nsfw": true
   },
   {
@@ -3414,8 +3425,8 @@
     "baseUrl": "https://ru.yummyani.me",
     "extPkg": "eu.kanade.tachiyomi.animeextension.ru.yummyanime",
     "extName": "YummyAnime",
-    "extVersion": "14.2",
-    "extVersionCode": 2,
+    "extVersion": "16.3",
+    "extVersionCode": 3,
     "nsfw": false
   },
   {
