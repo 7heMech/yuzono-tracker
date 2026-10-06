@@ -549,8 +549,8 @@
     "baseUrl": "https://animesdigital.org",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.animesdigital",
     "extName": "Animes Digital",
-    "extVersion": "14.9",
-    "extVersionCode": 9,
+    "extVersion": "16.10",
+    "extVersionCode": 10,
     "nsfw": false
   },
   {
@@ -2816,8 +2816,8 @@
     "baseUrl": "https://senshi.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.senshi",
     "extName": "Senshi",
-    "extVersion": "16.2",
-    "extVersionCode": 2,
+    "extVersion": "16.3",
+    "extVersionCode": 3,
     "nsfw": true
   },
   {
