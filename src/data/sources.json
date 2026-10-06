@@ -482,8 +482,8 @@
     "baseUrl": "https://www.animeparadise.moe",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animeparadise",
     "extName": "AnimeParadise",
-    "extVersion": "14.1",
-    "extVersionCode": 1,
+    "extVersion": "16.2",
+    "extVersionCode": 2,
     "nsfw": false
   },
   {
