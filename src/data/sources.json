@@ -25,11 +25,11 @@
     "id": "3556703948634317295",
     "name": "AniDB",
     "lang": "en",
-    "baseUrl": "https://anidb.app",
+    "baseUrl": "https://anilab2.amdapi.click",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anidb",
     "extName": "AniDB",
-    "extVersion": "14.5",
-    "extVersionCode": 5,
+    "extVersion": "16.6",
+    "extVersionCode": 6,
     "nsfw": true
   },
   {
@@ -1889,8 +1889,8 @@
     "baseUrl": "https://kisskh.ovh",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.kisskh",
     "extName": "KissKH",
-    "extVersion": "16.7",
-    "extVersionCode": 7,
+    "extVersion": "16.8",
+    "extVersionCode": 8,
     "nsfw": true
   },
   {
