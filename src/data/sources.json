@@ -873,7 +873,8 @@
     "extName": "AniNeko",
     "extVersion": "16.6",
     "extVersionCode": 6,
-    "nsfw": false
+    "nsfw": false,
+    "removed": "2026-10-09"
   },
   {
     "id": "9100732207446736332",
