@@ -95,8 +95,8 @@
     "baseUrl": "https://anilist.co",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anilist",
     "extName": "AniList",
-    "extVersion": "14.13",
-    "extVersionCode": 13,
+    "extVersion": "16.14",
+    "extVersionCode": 14,
     "nsfw": false
   },
   {
