@@ -2102,8 +2102,8 @@
     "baseUrl": "https://mkissa.to/anime",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.mkissa",
     "extName": "MKissa",
-    "extVersion": "16.71",
-    "extVersionCode": 71,
+    "extVersion": "16.72",
+    "extVersionCode": 72,
     "nsfw": false
   },
   {
@@ -2149,6 +2149,17 @@
     "extVersion": "14.3",
     "extVersionCode": 3,
     "nsfw": false
+  },
+  {
+    "id": "8881276529694565186",
+    "name": "Movy",
+    "lang": "all",
+    "baseUrl": "https://www.movy.sx",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.all.movy",
+    "extName": "Movy",
+    "extVersion": "16.1",
+    "extVersionCode": 1,
+    "nsfw": true
   },
   {
     "id": "1062606379654091909",
