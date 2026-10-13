@@ -1452,6 +1452,17 @@
     "nsfw": false
   },
   {
+    "id": "5194074774836006982",
+    "name": "Gotaku",
+    "lang": "en",
+    "baseUrl": "https://gotaku.to",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.en.gotaku",
+    "extName": "Gotaku",
+    "extVersion": "16.1",
+    "extVersionCode": 1,
+    "nsfw": true
+  },
+  {
     "id": "191823841242368911",
     "name": "Goyabu",
     "lang": "pt-BR",
