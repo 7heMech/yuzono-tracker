@@ -2146,8 +2146,8 @@
     "baseUrl": "https://moviesmod.zone",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.moviesmod",
     "extName": "MoviesMod",
-    "extVersion": "14.3",
-    "extVersionCode": 3,
+    "extVersion": "16.4",
+    "extVersionCode": 4,
     "nsfw": false
   },
   {
