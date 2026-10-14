@@ -1734,8 +1734,8 @@
     "baseUrl": "",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.jellyfin",
     "extName": "Jellyfin",
-    "extVersion": "16.31",
-    "extVersionCode": 31,
+    "extVersion": "16.32",
+    "extVersionCode": 32,
     "nsfw": false
   },
   {
@@ -1757,8 +1757,8 @@
     "baseUrl": "",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.jellyfin",
     "extName": "Jellyfin",
-    "extVersion": "16.31",
-    "extVersionCode": 31,
+    "extVersion": "16.32",
+    "extVersionCode": 32,
     "nsfw": false
   },
   {
@@ -1780,8 +1780,8 @@
     "baseUrl": "",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.jellyfin",
     "extName": "Jellyfin",
-    "extVersion": "16.31",
-    "extVersionCode": 31,
+    "extVersion": "16.32",
+    "extVersionCode": 32,
     "nsfw": false
   },
   {
