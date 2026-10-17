@@ -3196,8 +3196,8 @@
     "baseUrl": "https://anime.uniquestream.net",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.uniquestream",
     "extName": "UniqueStream",
-    "extVersion": "14.9",
-    "extVersionCode": 9,
+    "extVersion": "16.10",
+    "extVersionCode": 10,
     "nsfw": false
   },
   {
