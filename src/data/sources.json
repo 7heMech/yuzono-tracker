@@ -1859,8 +1859,8 @@
     "baseUrl": "https://katanime.net",
     "extPkg": "eu.kanade.tachiyomi.animeextension.es.katanime",
     "extName": "Katanime",
-    "extVersion": "14.24",
-    "extVersionCode": 24,
+    "extVersion": "14.25",
+    "extVersionCode": 25,
     "nsfw": false
   },
   {
