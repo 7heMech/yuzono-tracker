@@ -1050,8 +1050,8 @@
     "baseUrl": "https://av1encodes.com",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.av1encodes",
     "extName": "AV1Encodes",
-    "extVersion": "14.1",
-    "extVersionCode": 1,
+    "extVersion": "16.2",
+    "extVersionCode": 2,
     "nsfw": false
   },
   {
@@ -3406,8 +3406,8 @@
     "baseUrl": "https://xanime.me",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.xanime",
     "extName": "XAnime",
-    "extVersion": "14.3",
-    "extVersionCode": 3,
+    "extVersion": "16.4",
+    "extVersionCode": 4,
     "nsfw": true
   },
   {
