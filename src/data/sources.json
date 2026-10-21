@@ -940,8 +940,8 @@
     "baseUrl": "https://aniwaves.ru",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.aniwaves",
     "extName": "AniWaves.ru",
-    "extVersion": "14.2",
-    "extVersionCode": 2,
+    "extVersion": "16.3",
+    "extVersionCode": 3,
     "nsfw": false
   },
   {
