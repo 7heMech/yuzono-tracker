@@ -1470,8 +1470,8 @@
     "baseUrl": "https://goyabu.io",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.goyabu",
     "extName": "Goyabu",
-    "extVersion": "14.5",
-    "extVersionCode": 5,
+    "extVersion": "14.6",
+    "extVersionCode": 6,
     "nsfw": true
   },
   {
@@ -1558,8 +1558,8 @@
     "baseUrl": "https://www.hentaitorrents.com",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.hentaitorrent",
     "extName": "Hentai Torrent (Torrent)",
-    "extVersion": "14.4",
-    "extVersionCode": 4,
+    "extVersion": "14.5",
+    "extVersionCode": 5,
     "nsfw": true
   },
   {
@@ -2798,8 +2798,8 @@
     "baseUrl": "https://www.ptorrents.com",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.ptorrent",
     "extName": "PTorrent (Torrent)",
-    "extVersion": "14.4",
-    "extVersionCode": 4,
+    "extVersion": "14.5",
+    "extVersionCode": 5,
     "nsfw": true
   },
   {
@@ -2975,8 +2975,8 @@
     "baseUrl": "https://app.strem.io/shell-v4.4",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.stremio",
     "extName": "Stremio",
-    "extVersion": "16.11",
-    "extVersionCode": 11,
+    "extVersion": "16.12",
+    "extVersionCode": 12,
     "nsfw": false
   },
   {
@@ -2986,8 +2986,8 @@
     "baseUrl": "https://subsplease.org",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.subsplease",
     "extName": "Subsplease",
-    "extVersion": "14.7",
-    "extVersionCode": 7,
+    "extVersion": "14.8",
+    "extVersionCode": 8,
     "nsfw": false
   },
   {
@@ -3108,8 +3108,8 @@
     "baseUrl": "https://torrentio.strem.fun",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.torrentio",
     "extName": "Torrentio (Torrent / Debrid)",
-    "extVersion": "16.11",
-    "extVersionCode": 11,
+    "extVersion": "16.12",
+    "extVersionCode": 12,
     "nsfw": false
   },
   {
@@ -3119,8 +3119,8 @@
     "baseUrl": "https://torrentio.strem.fun",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.torrentioanime",
     "extName": "Torrentio Anime (Torrent / Debrid)",
-    "extVersion": "16.23",
-    "extVersionCode": 23,
+    "extVersion": "16.24",
+    "extVersionCode": 24,
     "nsfw": false
   },
   {
