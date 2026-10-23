@@ -2113,9 +2113,9 @@
     "baseUrl": "https://mkissa.to/anime",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.mkissa",
     "extName": "MKissa",
-    "extVersion": "16.72",
-    "extVersionCode": 72,
-    "nsfw": false
+    "extVersion": "16.73",
+    "extVersionCode": 73,
+    "nsfw": true
   },
   {
     "id": "6760309784631443658",
@@ -3052,9 +3052,9 @@
     "baseUrl": "https://tioanime.com",
     "extPkg": "eu.kanade.tachiyomi.animeextension.es.tioanimeh",
     "extName": "TioanimeH",
-    "extVersion": "14.38",
-    "extVersionCode": 38,
-    "nsfw": false
+    "extVersion": "14.39",
+    "extVersionCode": 39,
+    "nsfw": true
   },
   {
     "id": "6830054141432094072",
@@ -3074,9 +3074,9 @@
     "baseUrl": "https://tiohentai.com",
     "extPkg": "eu.kanade.tachiyomi.animeextension.es.tioanimeh",
     "extName": "TioanimeH",
-    "extVersion": "14.38",
-    "extVersionCode": 38,
-    "nsfw": false
+    "extVersion": "14.39",
+    "extVersionCode": 39,
+    "nsfw": true
   },
   {
     "id": "8903679906651673401",
