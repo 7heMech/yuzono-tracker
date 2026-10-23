@@ -1185,7 +1185,8 @@
     "extName": "DarkMahou",
     "extVersion": "14.22",
     "extVersionCode": 22,
-    "nsfw": false
+    "nsfw": false,
+    "removed": "2026-10-23"
   },
   {
     "id": "429519413057267556",
@@ -2840,7 +2841,7 @@
     "lang": "es",
     "baseUrl": "https://samatoden.blogspot.com",
     "extPkg": "eu.kanade.tachiyomi.animeextension.es.samatodenvideos",
-    "extName": "Samato",
+    "extName": "Samato's Den: Videos",
     "extVersion": "14.1",
     "extVersionCode": 1,
     "nsfw": true
