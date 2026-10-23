@@ -2975,8 +2975,8 @@
     "baseUrl": "https://app.strem.io/shell-v4.4",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.stremio",
     "extName": "Stremio",
-    "extVersion": "16.12",
-    "extVersionCode": 12,
+    "extVersion": "16.13",
+    "extVersionCode": 13,
     "nsfw": false
   },
   {
