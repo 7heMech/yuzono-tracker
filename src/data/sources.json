@@ -896,8 +896,8 @@
     "baseUrl": "https://ani.pm",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anipm",
     "extName": "AniPM",
-    "extVersion": "16.6",
-    "extVersionCode": 6,
+    "extVersion": "16.7",
+    "extVersionCode": 7,
     "nsfw": true
   },
   {
