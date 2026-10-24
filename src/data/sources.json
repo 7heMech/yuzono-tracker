@@ -2114,8 +2114,8 @@
     "baseUrl": "https://mkissa.to/anime",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.mkissa",
     "extName": "MKissa",
-    "extVersion": "16.73",
-    "extVersionCode": 73,
+    "extVersion": "16.74",
+    "extVersionCode": 74,
     "nsfw": true
   },
   {
