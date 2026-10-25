@@ -2820,8 +2820,8 @@
     "baseUrl": "https://reanime.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.reanime",
     "extName": "Re:ANIME",
-    "extVersion": "16.12",
-    "extVersionCode": 12,
+    "extVersion": "16.13",
+    "extVersionCode": 13,
     "nsfw": true
   },
   {
