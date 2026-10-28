@@ -161,8 +161,8 @@
     "baseUrl": "https://anime-sama.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.fr.animesama",
     "extName": "Anime-Sama",
-    "extVersion": "14.32",
-    "extVersionCode": 32,
+    "extVersion": "14.33",
+    "extVersionCode": 33,
     "nsfw": false
   },
   {
@@ -395,8 +395,8 @@
     "baseUrl": "https://animeler.pw",
     "extPkg": "eu.kanade.tachiyomi.animeextension.tr.animeler",
     "extName": "Animeler",
-    "extVersion": "14.36",
-    "extVersionCode": 36,
+    "extVersion": "14.37",
+    "extVersionCode": 37,
     "nsfw": false
   },
   {
@@ -559,11 +559,11 @@
     "id": "6170414613821552199",
     "name": "Animes Drive",
     "lang": "pt-BR",
-    "baseUrl": "https://animesdrive.online",
+    "baseUrl": "https://animesdrive.cloud",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.animesdrive",
     "extName": "AnimesDrive",
-    "extVersion": "14.10",
-    "extVersionCode": 10,
+    "extVersion": "14.11",
+    "extVersionCode": 11,
     "nsfw": true
   },
   {
@@ -1461,8 +1461,8 @@
     "baseUrl": "https://gotaku.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.gotaku",
     "extName": "Gotaku",
-    "extVersion": "16.4",
-    "extVersionCode": 4,
+    "extVersion": "16.5",
+    "extVersionCode": 5,
     "nsfw": true
   },
   {
@@ -1472,8 +1472,8 @@
     "baseUrl": "https://goyabu.io",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.goyabu",
     "extName": "Goyabu",
-    "extVersion": "14.6",
-    "extVersionCode": 6,
+    "extVersion": "14.7",
+    "extVersionCode": 7,
     "nsfw": true
   },
   {
@@ -1527,8 +1527,8 @@
     "baseUrl": "https://www.hdfilmcehennemi.nl",
     "extPkg": "eu.kanade.tachiyomi.animeextension.tr.hdfilmcehennemi",
     "extName": "HDFilmCehennemi",
-    "extVersion": "14.34",
-    "extVersionCode": 34,
+    "extVersion": "14.35",
+    "extVersionCode": 35,
     "nsfw": true
   },
   {
@@ -3132,8 +3132,8 @@
     "baseUrl": "https://www.tranimeizle.io",
     "extPkg": "eu.kanade.tachiyomi.animeextension.tr.tranimeizle",
     "extName": "TR Anime Izle",
-    "extVersion": "14.38",
-    "extVersionCode": 38,
+    "extVersion": "14.39",
+    "extVersionCode": 39,
     "nsfw": false
   },
   {
