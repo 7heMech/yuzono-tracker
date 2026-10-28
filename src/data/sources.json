@@ -39,8 +39,8 @@
     "baseUrl": "https://anihq.cc",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anihq",
     "extName": "AniHQ",
-    "extVersion": "16.3",
-    "extVersionCode": 3,
+    "extVersion": "16.4",
+    "extVersionCode": 4,
     "nsfw": true
   },
   {
@@ -920,8 +920,8 @@
     "baseUrl": "https://www.anitube.vip",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.anitube",
     "extName": "Anitube",
-    "extVersion": "14.30",
-    "extVersionCode": 30,
+    "extVersion": "14.31",
+    "extVersionCode": 31,
     "nsfw": false
   },
   {
@@ -2632,22 +2632,22 @@
     "id": "5310001068353260432",
     "name": "Nyaa (Torrent)",
     "lang": "all",
-    "baseUrl": "https://nyaa.si/",
+    "baseUrl": "https://nyaa.si",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.nyaatorrent",
     "extName": "Nyaa (Torrent)",
-    "extVersion": "14.4",
-    "extVersionCode": 4,
+    "extVersion": "14.5",
+    "extVersionCode": 5,
     "nsfw": true
   },
   {
     "id": "9136480360798112194",
     "name": "Nyaa Sukebein (Torrent)",
     "lang": "all",
-    "baseUrl": "https://sukebei.nyaa.si/",
+    "baseUrl": "https://sukebei.nyaa.si",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.nyaatorrent",
     "extName": "Nyaa (Torrent)",
-    "extVersion": "14.4",
-    "extVersionCode": 4,
+    "extVersion": "14.5",
+    "extVersionCode": 5,
     "nsfw": true
   },
   {
@@ -2833,8 +2833,8 @@
     "baseUrl": "https://rule34video.com",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.rule34video",
     "extName": "Rule34Video",
-    "extVersion": "14.10",
-    "extVersionCode": 10,
+    "extVersion": "16.11",
+    "extVersionCode": 11,
     "nsfw": true
   },
   {
@@ -3508,8 +3508,8 @@
     "baseUrl": "https://tuktukhd.com",
     "extPkg": "eu.kanade.tachiyomi.animeextension.ar.tuktukcinema",
     "extName": "Tuktuk Cinema",
-    "extVersion": "14.10",
-    "extVersionCode": 10,
+    "extVersion": "14.11",
+    "extVersionCode": 11,
     "nsfw": false
   },
   {
@@ -3541,8 +3541,8 @@
     "baseUrl": "https://www.faselhds.biz",
     "extPkg": "eu.kanade.tachiyomi.animeextension.ar.faselhd",
     "extName": "FASELHD",
-    "extVersion": "14.30",
-    "extVersionCode": 30,
+    "extVersion": "14.31",
+    "extVersionCode": 31,
     "nsfw": false
   },
   {
