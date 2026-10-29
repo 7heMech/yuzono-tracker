@@ -1461,8 +1461,8 @@
     "baseUrl": "https://gotaku.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.gotaku",
     "extName": "Gotaku",
-    "extVersion": "16.5",
-    "extVersionCode": 5,
+    "extVersion": "16.7",
+    "extVersionCode": 7,
     "nsfw": true
   },
   {
