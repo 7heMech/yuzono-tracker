@@ -264,7 +264,8 @@
     "extName": "AnimeFLV",
     "extVersion": "14.78",
     "extVersionCode": 78,
-    "nsfw": false
+    "nsfw": false,
+    "removed": "2026-10-29"
   },
   {
     "id": "2247987965040486818",
