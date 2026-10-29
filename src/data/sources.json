@@ -1161,8 +1161,8 @@
     "name": "Cuevana3Ch",
     "lang": "es",
     "baseUrl": "https://ww1.cuevana3.ch",
-    "extPkg": "eu.kanade.tachiyomi.animeextension.es.cuevana",
-    "extName": "Cuevana",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.es.cuevanach",
+    "extName": "Cuevana3Ch",
     "extVersion": "14.67",
     "extVersionCode": 67,
     "nsfw": false
@@ -1171,11 +1171,11 @@
     "id": "1487248605713977697",
     "name": "Cuevana3Eu",
     "lang": "es",
-    "baseUrl": "https://www.cuevana3.eu",
+    "baseUrl": "https://wv3.cuevana3.eu",
     "extPkg": "eu.kanade.tachiyomi.animeextension.es.cuevana",
     "extName": "Cuevana",
-    "extVersion": "14.67",
-    "extVersionCode": 67,
+    "extVersion": "14.68",
+    "extVersionCode": 68,
     "nsfw": false
   },
   {
