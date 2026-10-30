@@ -6,8 +6,8 @@
     "baseUrl": "https://123animehub.cc",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.onetwothreeanime",
     "extName": "123Anime",
-    "extVersion": "14.3",
-    "extVersionCode": 3,
+    "extVersion": "14.4",
+    "extVersionCode": 4,
     "nsfw": false
   },
   {
@@ -1053,8 +1053,8 @@
     "baseUrl": "https://av1encodes.com",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.av1encodes",
     "extName": "AV1Encodes",
-    "extVersion": "16.3",
-    "extVersionCode": 3,
+    "extVersion": "16.4",
+    "extVersionCode": 4,
     "nsfw": false
   },
   {
@@ -2931,44 +2931,44 @@
     "id": "665657603807796138",
     "name": "StreamingUnity (Movie)",
     "lang": "en",
-    "baseUrl": "https://streamingunity.vip/en",
+    "baseUrl": "https://streamingunity.fun",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.streamingcommunity",
     "extName": "StreamingCommunity",
-    "extVersion": "14.23",
-    "extVersionCode": 23,
+    "extVersion": "14.24",
+    "extVersionCode": 24,
     "nsfw": false
   },
   {
     "id": "502708102217708509",
     "name": "StreamingUnity (Movie)",
     "lang": "it",
-    "baseUrl": "https://streamingunity.vip/it",
+    "baseUrl": "https://streamingunity.fun",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.streamingcommunity",
     "extName": "StreamingCommunity",
-    "extVersion": "14.23",
-    "extVersionCode": 23,
+    "extVersion": "14.24",
+    "extVersionCode": 24,
     "nsfw": false
   },
   {
     "id": "349088835984594821",
     "name": "StreamingUnity (Tv)",
     "lang": "en",
-    "baseUrl": "https://streamingunity.vip/en",
+    "baseUrl": "https://streamingunity.fun",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.streamingcommunity",
     "extName": "StreamingCommunity",
-    "extVersion": "14.23",
-    "extVersionCode": 23,
+    "extVersion": "14.24",
+    "extVersionCode": 24,
     "nsfw": false
   },
   {
     "id": "7246470104959245892",
     "name": "StreamingUnity (Tv)",
     "lang": "it",
-    "baseUrl": "https://streamingunity.vip/it",
+    "baseUrl": "https://streamingunity.fun",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.streamingcommunity",
     "extName": "StreamingCommunity",
-    "extVersion": "14.23",
-    "extVersionCode": 23,
+    "extVersion": "14.24",
+    "extVersionCode": 24,
     "nsfw": false
   },
   {
