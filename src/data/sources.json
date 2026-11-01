@@ -1506,8 +1506,8 @@
     "baseUrl": "https://hanime.tv",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.hanime",
     "extName": "hanime.tv",
-    "extVersion": "14.24",
-    "extVersionCode": 24,
+    "extVersion": "16.25",
+    "extVersionCode": 25,
     "nsfw": true
   },
   {
@@ -2691,8 +2691,8 @@
     "baseUrl": "https://oppai.stream",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.oppaistream",
     "extName": "Oppai Stream",
-    "extVersion": "14.6",
-    "extVersionCode": 6,
+    "extVersion": "16.7",
+    "extVersionCode": 7,
     "nsfw": true
   },
   {
@@ -2814,7 +2814,8 @@
     "extName": "Q1N",
     "extVersion": "14.39",
     "extVersionCode": 39,
-    "nsfw": false
+    "nsfw": false,
+    "removed": "2026-11-01"
   },
   {
     "id": "7105156973687362431",
