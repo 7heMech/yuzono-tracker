@@ -2172,8 +2172,8 @@
     "baseUrl": "https://www.movy.sx",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.movy",
     "extName": "Movy",
-    "extVersion": "16.2",
-    "extVersionCode": 2,
+    "extVersion": "16.3",
+    "extVersionCode": 3,
     "nsfw": true
   },
   {
