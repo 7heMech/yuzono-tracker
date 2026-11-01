@@ -28,8 +28,8 @@
     "baseUrl": "https://anilab2.amdapi.click",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anidb",
     "extName": "AniDB",
-    "extVersion": "16.7",
-    "extVersionCode": 7,
+    "extVersion": "16.8",
+    "extVersionCode": 8,
     "nsfw": true
   },
   {
