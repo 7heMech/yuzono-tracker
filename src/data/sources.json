@@ -2868,8 +2868,8 @@
     "baseUrl": "https://senshi.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.senshi",
     "extName": "Senshi",
-    "extVersion": "16.5",
-    "extVersionCode": 5,
+    "extVersion": "16.6",
+    "extVersionCode": 6,
     "nsfw": true
   },
   {
