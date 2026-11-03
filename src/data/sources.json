@@ -1495,8 +1495,8 @@
     "baseUrl": "https://haho.moe",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.hahomoe",
     "extName": "haho.moe",
-    "extVersion": "14.10",
-    "extVersionCode": 10,
+    "extVersion": "16.11",
+    "extVersionCode": 11,
     "nsfw": true
   },
   {
