@@ -2907,6 +2907,17 @@
     "removed": "2026-08-25"
   },
   {
+    "id": "778627055185364080",
+    "name": "ShuttleTV",
+    "lang": "en",
+    "baseUrl": "https://shuttletv.su",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.en.shuttletv",
+    "extName": "ShuttleTV",
+    "extVersion": "16.1",
+    "extVersionCode": 1,
+    "nsfw": true
+  },
+  {
     "id": "7160915998368939090",
     "name": "SmartAnimes",
     "lang": "pt-BR",
