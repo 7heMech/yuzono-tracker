@@ -1672,8 +1672,8 @@
     "baseUrl": "https://hstream.moe",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.hstream",
     "extName": "Hstream",
-    "extVersion": "14.12",
-    "extVersionCode": 12,
+    "extVersion": "16.13",
+    "extVersionCode": 13,
     "nsfw": true
   },
   {
