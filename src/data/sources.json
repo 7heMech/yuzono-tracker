@@ -898,8 +898,8 @@
     "baseUrl": "https://ani.pm",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anipm",
     "extName": "AniPM",
-    "extVersion": "16.7",
-    "extVersionCode": 7,
+    "extVersion": "16.8",
+    "extVersionCode": 8,
     "nsfw": true
   },
   {
@@ -1145,6 +1145,17 @@
     "extVersion": "14.38",
     "extVersionCode": 38,
     "nsfw": false
+  },
+  {
+    "id": "3466517675390920839",
+    "name": "Cinejoy",
+    "lang": "en",
+    "baseUrl": "https://cinejoy.pk",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.en.cinejoy",
+    "extName": "Cinejoy",
+    "extVersion": "16.1",
+    "extVersionCode": 1,
+    "nsfw": true
   },
   {
     "id": "2117238897122405265",
@@ -1462,8 +1473,8 @@
     "baseUrl": "https://gotaku.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.gotaku",
     "extName": "Gotaku",
-    "extVersion": "16.7",
-    "extVersionCode": 7,
+    "extVersion": "16.8",
+    "extVersionCode": 8,
     "nsfw": true
   },
   {
