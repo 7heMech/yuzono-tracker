@@ -1868,6 +1868,17 @@
     "nsfw": false
   },
   {
+    "id": "8038306726265589667",
+    "name": "Kartoons",
+    "lang": "all",
+    "baseUrl": "https://kartoons.to",
+    "extPkg": "eu.kanade.tachiyomi.animeextension.all.kartoons",
+    "extName": "Kartoons",
+    "extVersion": "16.1",
+    "extVersionCode": 1,
+    "nsfw": false
+  },
+  {
     "id": "2564532783405004779",
     "name": "Katanime",
     "lang": "es",
