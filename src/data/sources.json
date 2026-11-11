@@ -28,8 +28,8 @@
     "baseUrl": "https://anilab2.amdapi.click",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anidb",
     "extName": "AniDB",
-    "extVersion": "16.12",
-    "extVersionCode": 12,
+    "extVersion": "16.13",
+    "extVersionCode": 13,
     "nsfw": true
   },
   {
@@ -1473,8 +1473,8 @@
     "baseUrl": "https://gotaku.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.gotaku",
     "extName": "Gotaku",
-    "extVersion": "16.9",
-    "extVersionCode": 9,
+    "extVersion": "16.10",
+    "extVersionCode": 10,
     "nsfw": true
   },
   {
