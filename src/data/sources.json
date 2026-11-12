@@ -17,9 +17,9 @@
     "baseUrl": "https://anichi.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anichi",
     "extName": "Anichi",
-    "extVersion": "16.11",
-    "extVersionCode": 11,
-    "nsfw": false
+    "extVersion": "16.12",
+    "extVersionCode": 12,
+    "nsfw": true
   },
   {
     "id": "3556703948634317295",
@@ -50,8 +50,8 @@
     "baseUrl": "https://anikage.cc",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anikage",
     "extName": "Anikage",
-    "extVersion": "14.9",
-    "extVersionCode": 9,
+    "extVersion": "14.10",
+    "extVersionCode": 10,
     "nsfw": true
   },
   {
@@ -61,9 +61,9 @@
     "baseUrl": "https://anikototv.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anikoto",
     "extName": "Anikoto",
-    "extVersion": "16.11",
-    "extVersionCode": 11,
-    "nsfw": false
+    "extVersion": "16.12",
+    "extVersionCode": 12,
+    "nsfw": true
   },
   {
     "id": "5301034000422404358",
@@ -72,8 +72,8 @@
     "baseUrl": "https://anikuro.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anikuro",
     "extName": "AniKuro",
-    "extVersion": "16.4",
-    "extVersionCode": 4,
+    "extVersion": "16.5",
+    "extVersionCode": 5,
     "nsfw": true
   },
   {
@@ -119,7 +119,8 @@
     "extName": "AnimePlay",
     "extVersion": "14.9",
     "extVersionCode": 9,
-    "nsfw": true
+    "nsfw": true,
+    "removed": "2026-11-12"
   },
   {
     "id": "789279548118486310",
@@ -139,8 +140,8 @@
     "baseUrl": "https://anime-base.net",
     "extPkg": "eu.kanade.tachiyomi.animeextension.de.animebase",
     "extName": "Anime-Base",
-    "extVersion": "14.48",
-    "extVersionCode": 48,
+    "extVersion": "14.49",
+    "extVersionCode": 49,
     "nsfw": true
   },
   {
@@ -150,8 +151,8 @@
     "baseUrl": "https://www.anime-loads.org",
     "extPkg": "eu.kanade.tachiyomi.animeextension.de.animeloads",
     "extName": "Anime-Loads",
-    "extVersion": "14.28",
-    "extVersionCode": 28,
+    "extVersion": "14.29",
+    "extVersionCode": 29,
     "nsfw": true
   },
   {
@@ -352,9 +353,9 @@
     "baseUrl": "https://animekaitv.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.kotokai",
     "extName": "AnimeKai (Unoriginal)",
-    "extVersion": "16.11",
-    "extVersionCode": 11,
-    "nsfw": false
+    "extVersion": "16.12",
+    "extVersionCode": 12,
+    "nsfw": true
   },
   {
     "id": "2156984402743841841",
@@ -407,8 +408,8 @@
     "baseUrl": "https://animelib.org/ru",
     "extPkg": "eu.kanade.tachiyomi.animeextension.ru.animelib",
     "extName": "Animelib",
-    "extVersion": "14.19",
-    "extVersionCode": 19,
+    "extVersion": "14.20",
+    "extVersionCode": 20,
     "nsfw": true
   },
   {
@@ -440,8 +441,8 @@
     "baseUrl": "https://animenosub.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animenosub",
     "extName": "Animenosub",
-    "extVersion": "14.32",
-    "extVersionCode": 32,
+    "extVersion": "14.33",
+    "extVersionCode": 33,
     "nsfw": true
   },
   {
@@ -473,9 +474,9 @@
     "baseUrl": "https://animepahe.pw",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animepahe",
     "extName": "AnimePahe",
-    "extVersion": "16.57",
-    "extVersionCode": 57,
-    "nsfw": false
+    "extVersion": "16.58",
+    "extVersionCode": 58,
+    "nsfw": true
   },
   {
     "id": "3319373396687010408",
@@ -492,11 +493,11 @@
     "id": "6456382572881676651",
     "name": "AnimePlayer",
     "lang": "pt-BR",
-    "baseUrl": "https://animeplayer.com.br",
+    "baseUrl": "https://anreyalp.vip",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.animeplayer",
     "extName": "AnimePlayer",
-    "extVersion": "14.11",
-    "extVersionCode": 11,
+    "extVersion": "14.12",
+    "extVersionCode": 12,
     "nsfw": true
   },
   {
@@ -506,8 +507,8 @@
     "baseUrl": "https://animeq.cloud",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.animeq",
     "extName": "AnimeQ",
-    "extVersion": "14.10",
-    "extVersionCode": 10,
+    "extVersion": "14.11",
+    "extVersionCode": 11,
     "nsfw": true
   },
   {
@@ -563,8 +564,8 @@
     "baseUrl": "https://animesdrive.cloud",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.animesdrive",
     "extName": "AnimesDrive",
-    "extVersion": "14.12",
-    "extVersionCode": 12,
+    "extVersion": "14.13",
+    "extVersionCode": 13,
     "nsfw": true
   },
   {
@@ -586,8 +587,8 @@
     "baseUrl": "https://animesonlinecc.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.animesonlinecc",
     "extName": "Animes Online CC",
-    "extVersion": "14.8",
-    "extVersionCode": 8,
+    "extVersion": "14.9",
+    "extVersionCode": 9,
     "nsfw": true
   },
   {
@@ -597,8 +598,8 @@
     "baseUrl": "https://animesonline.cloud",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.animesonlinecloud",
     "extName": "AnimesOnlineCloud",
-    "extVersion": "14.11",
-    "extVersionCode": 11,
+    "extVersion": "14.12",
+    "extVersionCode": 12,
     "nsfw": true
   },
   {
@@ -643,9 +644,9 @@
     "baseUrl": "https://animesogo.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animesogo",
     "extName": "AnimeSogo",
-    "extVersion": "16.11",
-    "extVersionCode": 11,
-    "nsfw": false
+    "extVersion": "16.12",
+    "extVersionCode": 12,
+    "nsfw": true
   },
   {
     "id": "7460925030423755739",
@@ -676,8 +677,8 @@
     "baseUrl": "https://animetoki.com",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animetoki",
     "extName": "AnimeToki",
-    "extVersion": "16.2",
-    "extVersionCode": 2,
+    "extVersion": "16.3",
+    "extVersionCode": 3,
     "nsfw": true
   },
   {
@@ -921,9 +922,9 @@
     "baseUrl": "https://www.anitube.vip",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.anitube",
     "extName": "Anitube",
-    "extVersion": "14.32",
-    "extVersionCode": 32,
-    "nsfw": false
+    "extVersion": "14.33",
+    "extVersionCode": 33,
+    "nsfw": true
   },
   {
     "id": "4383278740715532790",
@@ -932,9 +933,9 @@
     "baseUrl": "https://animewave.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.aniwave",
     "extName": "AniWave (Unoriginal)",
-    "extVersion": "16.13",
-    "extVersionCode": 13,
-    "nsfw": false
+    "extVersion": "16.14",
+    "extVersionCode": 14,
+    "nsfw": true
   },
   {
     "id": "5863960468592971590",
@@ -943,9 +944,9 @@
     "baseUrl": "https://aniwaves.ru",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.aniwaves",
     "extName": "AniWaves.ru",
-    "extVersion": "16.5",
-    "extVersionCode": 5,
-    "nsfw": false
+    "extVersion": "16.6",
+    "extVersionCode": 6,
+    "nsfw": true
   },
   {
     "id": "4565983297271071094",
@@ -1253,8 +1254,8 @@
     "baseUrl": "https://docchi.pl",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pl.docchi",
     "extName": "Docchi",
-    "extVersion": "16.18",
-    "extVersionCode": 18,
+    "extVersion": "16.19",
+    "extVersionCode": 19,
     "nsfw": true
   },
   {
@@ -1407,8 +1408,8 @@
     "baseUrl": "https://franime.fr",
     "extPkg": "eu.kanade.tachiyomi.animeextension.fr.franime",
     "extName": "FRAnime",
-    "extVersion": "14.30",
-    "extVersionCode": 30,
+    "extVersion": "14.31",
+    "extVersionCode": 31,
     "nsfw": true
   },
   {
@@ -1484,8 +1485,8 @@
     "baseUrl": "https://goyabu.io",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.goyabu",
     "extName": "Goyabu",
-    "extVersion": "14.8",
-    "extVersionCode": 8,
+    "extVersion": "14.9",
+    "extVersionCode": 9,
     "nsfw": true
   },
   {
@@ -1541,7 +1542,8 @@
     "extName": "HDFilmCehennemi",
     "extVersion": "14.36",
     "extVersionCode": 36,
-    "nsfw": true
+    "nsfw": true,
+    "removed": "2026-11-12"
   },
   {
     "id": "2810967597003075487",
@@ -1661,8 +1663,8 @@
     "baseUrl": "https://hexa.su",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.hexawatch",
     "extName": "HexaWatch",
-    "extVersion": "16.9",
-    "extVersionCode": 9,
+    "extVersion": "16.10",
+    "extVersionCode": 10,
     "nsfw": true
   },
   {
@@ -1940,8 +1942,8 @@
     "baseUrl": "https://kisskh.ovh",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.kisskh",
     "extName": "KissKH",
-    "extVersion": "16.11",
-    "extVersionCode": 11,
+    "extVersion": "16.12",
+    "extVersionCode": 12,
     "nsfw": true
   },
   {
@@ -2061,8 +2063,8 @@
     "baseUrl": "https://mapple.fun",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.mapple",
     "extName": "Mapple",
-    "extVersion": "16.9",
-    "extVersionCode": 9,
+    "extVersion": "16.10",
+    "extVersionCode": 10,
     "nsfw": true
   },
   {
@@ -2080,11 +2082,11 @@
     "id": "8394381853778573358",
     "name": "Meus Animes",
     "lang": "pt-BR",
-    "baseUrl": "https://meusanimes.vip",
+    "baseUrl": "https://meusanimes.blog",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.meusanimes",
     "extName": "Meus Animes",
-    "extVersion": "14.2",
-    "extVersionCode": 2,
+    "extVersion": "14.3",
+    "extVersionCode": 3,
     "nsfw": true
   },
   {
@@ -2139,8 +2141,8 @@
     "baseUrl": "https://mkissa.to/anime",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.mkissa",
     "extName": "MKissa",
-    "extVersion": "16.75",
-    "extVersionCode": 75,
+    "extVersion": "16.76",
+    "extVersionCode": 76,
     "nsfw": true
   },
   {
@@ -2194,8 +2196,8 @@
     "baseUrl": "https://www.movy.sx",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.movy",
     "extName": "Movy",
-    "extVersion": "16.4",
-    "extVersionCode": 4,
+    "extVersion": "16.5",
+    "extVersionCode": 5,
     "nsfw": true
   },
   {
@@ -2624,8 +2626,8 @@
     "baseUrl": "https://www.newgrounds.com",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.newgrounds",
     "extName": "Newgrounds",
-    "extVersion": "14.2",
-    "extVersionCode": 2,
+    "extVersion": "14.3",
+    "extVersionCode": 3,
     "nsfw": true
   },
   {
@@ -2658,8 +2660,8 @@
     "baseUrl": "https://nyaa.si",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.nyaatorrent",
     "extName": "Nyaa (Torrent)",
-    "extVersion": "14.6",
-    "extVersionCode": 6,
+    "extVersion": "14.7",
+    "extVersionCode": 7,
     "nsfw": true
   },
   {
@@ -2669,8 +2671,8 @@
     "baseUrl": "https://sukebei.nyaa.si",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.nyaatorrent",
     "extName": "Nyaa (Torrent)",
-    "extVersion": "14.6",
-    "extVersionCode": 6,
+    "extVersion": "14.7",
+    "extVersionCode": 7,
     "nsfw": true
   },
   {
@@ -2680,8 +2682,8 @@
     "baseUrl": "https://ogladajanime.pl",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pl.ogladajanime",
     "extName": "OgladajAnime",
-    "extVersion": "14.6",
-    "extVersionCode": 6,
+    "extVersion": "14.7",
+    "extVersionCode": 7,
     "nsfw": true
   },
   {
@@ -2946,8 +2948,8 @@
     "baseUrl": "https://smartanimes.net",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.smartanimes",
     "extName": "SmartAnimes",
-    "extVersion": "14.10",
-    "extVersionCode": 10,
+    "extVersion": "14.11",
+    "extVersionCode": 11,
     "nsfw": true
   },
   {
@@ -3079,8 +3081,8 @@
     "baseUrl": "https://sushianimes.com.br",
     "extPkg": "eu.kanade.tachiyomi.animeextension.pt.sushianimes",
     "extName": "SushiAnimes",
-    "extVersion": "14.3",
-    "extVersionCode": 3,
+    "extVersion": "14.4",
+    "extVersionCode": 4,
     "nsfw": true
   },
   {
@@ -3300,8 +3302,8 @@
     "baseUrl": "https://voir-anime.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.fr.voiranime",
     "extName": "Voiranime",
-    "extVersion": "14.4",
-    "extVersionCode": 4,
+    "extVersion": "14.5",
+    "extVersionCode": 5,
     "nsfw": true
   },
   {
@@ -3311,8 +3313,8 @@
     "baseUrl": "https://voircartoon.com",
     "extPkg": "eu.kanade.tachiyomi.animeextension.fr.voircartoon",
     "extName": "VoirCartoon",
-    "extVersion": "14.21",
-    "extVersionCode": 21,
+    "extVersion": "14.22",
+    "extVersionCode": 22,
     "nsfw": true
   },
   {
@@ -3419,11 +3421,11 @@
     "id": "7149332646839704216",
     "name": "Wiflix",
     "lang": "fr",
-    "baseUrl": "https://flemmix.best",
+    "baseUrl": "https://flemmix.run",
     "extPkg": "eu.kanade.tachiyomi.animeextension.fr.wiflix",
     "extName": "Wiflix",
-    "extVersion": "14.32",
-    "extVersionCode": 32,
+    "extVersion": "14.33",
+    "extVersionCode": 33,
     "nsfw": false
   },
   {
@@ -3444,8 +3446,8 @@
     "baseUrl": "https://xanime.me",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.xanime",
     "extName": "XAnime",
-    "extVersion": "16.6",
-    "extVersionCode": 6,
+    "extVersion": "16.7",
+    "extVersionCode": 7,
     "nsfw": true
   },
   {
@@ -3485,11 +3487,11 @@
     "id": "2486904751081872151",
     "name": "YoMovies",
     "lang": "hi",
-    "baseUrl": "https://yomovies.town",
+    "baseUrl": "https://yomovies.academy",
     "extPkg": "eu.kanade.tachiyomi.animeextension.hi.yomovies",
     "extName": "YoMovies",
-    "extVersion": "14.36",
-    "extVersionCode": 36,
+    "extVersion": "14.37",
+    "extVersionCode": 37,
     "nsfw": true
   },
   {
@@ -3584,11 +3586,11 @@
     "id": "7859804793032054884",
     "name": "小宝影院",
     "lang": "zh",
-    "baseUrl": "https://xiaoxintv.cc",
+    "baseUrl": "https://ibaotv.com",
     "extPkg": "eu.kanade.tachiyomi.animeextension.zh.xiaoxintv",
     "extName": "Xiaoxintv",
-    "extVersion": "14.2",
-    "extVersionCode": 2,
+    "extVersion": "14.3",
+    "extVersionCode": 3,
     "nsfw": false
   },
   {
