@@ -162,8 +162,8 @@
     "baseUrl": "https://anime-sama.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.fr.animesama",
     "extName": "Anime-Sama",
-    "extVersion": "14.34",
-    "extVersionCode": 34,
+    "extVersion": "16.35",
+    "extVersionCode": 35,
     "nsfw": false
   },
   {
