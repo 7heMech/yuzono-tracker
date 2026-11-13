@@ -58,11 +58,11 @@
     "id": "4697393375201558791",
     "name": "Anikoto",
     "lang": "en",
-    "baseUrl": "https://anikototv.to",
+    "baseUrl": "https://anikototv.bz",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anikoto",
     "extName": "Anikoto",
-    "extVersion": "16.12",
-    "extVersionCode": 12,
+    "extVersion": "16.13",
+    "extVersionCode": 13,
     "nsfw": true
   },
   {
@@ -941,11 +941,11 @@
     "id": "5863960468592971590",
     "name": "AniWaves.ru",
     "lang": "en",
-    "baseUrl": "https://aniwaves.ru",
+    "baseUrl": "https://aniwaves.tv",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.aniwaves",
     "extName": "AniWaves.ru",
-    "extVersion": "16.6",
-    "extVersionCode": 6,
+    "extVersion": "16.7",
+    "extVersionCode": 7,
     "nsfw": true
   },
   {
@@ -2845,11 +2845,11 @@
     "id": "7105156973687362431",
     "name": "Re:ANIME",
     "lang": "en",
-    "baseUrl": "https://reanime.to",
+    "baseUrl": "https://reanime.cz",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.reanime",
     "extName": "Re:ANIME",
-    "extVersion": "16.17",
-    "extVersionCode": 17,
+    "extVersion": "16.18",
+    "extVersionCode": 18,
     "nsfw": true
   },
   {
