@@ -1408,8 +1408,8 @@
     "baseUrl": "https://franime.fr",
     "extPkg": "eu.kanade.tachiyomi.animeextension.fr.franime",
     "extName": "FRAnime",
-    "extVersion": "14.31",
-    "extVersionCode": 31,
+    "extVersion": "16.32",
+    "extVersionCode": 32,
     "nsfw": true
   },
   {
