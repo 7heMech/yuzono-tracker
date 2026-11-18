@@ -17,8 +17,8 @@
     "baseUrl": "https://anichi.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anichi",
     "extName": "Anichi",
-    "extVersion": "16.12",
-    "extVersionCode": 12,
+    "extVersion": "16.13",
+    "extVersionCode": 13,
     "nsfw": true
   },
   {
@@ -61,8 +61,8 @@
     "baseUrl": "https://anikototv.bz",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.anikoto",
     "extName": "Anikoto",
-    "extVersion": "16.13",
-    "extVersionCode": 13,
+    "extVersion": "16.14",
+    "extVersionCode": 14,
     "nsfw": true
   },
   {
@@ -353,8 +353,8 @@
     "baseUrl": "https://animekaitv.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.kotokai",
     "extName": "AnimeKai (Unoriginal)",
-    "extVersion": "16.12",
-    "extVersionCode": 12,
+    "extVersion": "16.13",
+    "extVersionCode": 13,
     "nsfw": true
   },
   {
@@ -463,8 +463,8 @@
     "baseUrl": "https://www.animeonsen.xyz",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.animeonsen",
     "extName": "AnimeOnsen",
-    "extVersion": "14.11",
-    "extVersionCode": 11,
+    "extVersion": "16.12",
+    "extVersionCode": 12,
     "nsfw": false
   },
   {
@@ -644,8 +644,8 @@
     "baseUrl": "https://animesogo.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.animesogo",
     "extName": "AnimeSogo",
-    "extVersion": "16.12",
-    "extVersionCode": 12,
+    "extVersion": "16.13",
+    "extVersionCode": 13,
     "nsfw": true
   },
   {
@@ -933,8 +933,8 @@
     "baseUrl": "https://animewave.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.aniwave",
     "extName": "AniWave (Unoriginal)",
-    "extVersion": "16.14",
-    "extVersionCode": 14,
+    "extVersion": "16.15",
+    "extVersionCode": 15,
     "nsfw": true
   },
   {
@@ -2848,8 +2848,8 @@
     "baseUrl": "https://reanime.cz",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.reanime",
     "extName": "Re:ANIME",
-    "extVersion": "16.19",
-    "extVersionCode": 19,
+    "extVersion": "16.20",
+    "extVersionCode": 20,
     "nsfw": true
   },
   {
