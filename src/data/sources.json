@@ -1876,8 +1876,8 @@
     "baseUrl": "https://kartoons.to",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.kartoons",
     "extName": "Kartoons",
-    "extVersion": "16.2",
-    "extVersionCode": 2,
+    "extVersion": "16.3",
+    "extVersionCode": 3,
     "nsfw": false
   },
   {
