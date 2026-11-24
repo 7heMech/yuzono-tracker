@@ -342,8 +342,8 @@
     "baseUrl": "https://www.anime-jl.net",
     "extPkg": "eu.kanade.tachiyomi.animeextension.es.animejl",
     "extName": "Animejl",
-    "extVersion": "14.24",
-    "extVersionCode": 24,
+    "extVersion": "16.25",
+    "extVersionCode": 25,
     "nsfw": true
   },
   {
