@@ -3147,8 +3147,8 @@
     "baseUrl": "https://torrentio.strem.fun",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.torrentio",
     "extName": "Torrentio (Torrent / Debrid)",
-    "extVersion": "16.13",
-    "extVersionCode": 13,
+    "extVersion": "16.14",
+    "extVersionCode": 14,
     "nsfw": false
   },
   {
@@ -3158,8 +3158,8 @@
     "baseUrl": "https://torrentio.strem.fun",
     "extPkg": "eu.kanade.tachiyomi.animeextension.all.torrentioanime",
     "extName": "Torrentio Anime (Torrent / Debrid)",
-    "extVersion": "16.25",
-    "extVersionCode": 25,
+    "extVersion": "16.26",
+    "extVersionCode": 26,
     "nsfw": false
   },
   {
