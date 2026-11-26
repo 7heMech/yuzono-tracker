@@ -3222,11 +3222,11 @@
     "id": "582068848290425167",
     "name": "UHD Movies",
     "lang": "en",
-    "baseUrl": "https://uhdmovies.vip",
+    "baseUrl": "https://uhdmovies.ceo",
     "extPkg": "eu.kanade.tachiyomi.animeextension.en.uhdmovies",
     "extName": "UHD Movies",
-    "extVersion": "14.20",
-    "extVersionCode": 20,
+    "extVersion": "16.22",
+    "extVersionCode": 22,
     "nsfw": false
   },
   {
