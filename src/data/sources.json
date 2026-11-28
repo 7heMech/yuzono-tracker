@@ -685,11 +685,11 @@
     "id": "7762808921754601430",
     "name": "AnimeUnity",
     "lang": "it",
-    "baseUrl": "https://www.animeunity.so",
+    "baseUrl": "https://animeunity.cx",
     "extPkg": "eu.kanade.tachiyomi.animeextension.it.animeunity",
     "extName": "AnimeUnity",
-    "extVersion": "14.10",
-    "extVersionCode": 10,
+    "extVersion": "16.11",
+    "extVersionCode": 11,
     "nsfw": false
   },
   {
